@@ -1,56 +1,84 @@
-# Welcome to your Expo app 👋
+# 🧥 OOTDify - AI Clothing Stylist
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+OOTDify is a next-generation AI styling application built for Gen Z and young adults. It acts as a personal pocket stylist by digitizing a user's wardrobe and using AI to curate daily looks, plan weekly itineraries, and recommend essential missing pieces.
 
-## Get started
+## ✨ Features
 
-1. Install dependencies
+* **The Closet (Vault):** A digital, visual inventory of all uploaded clothing items, automatically categorized and tagged by "vibe".
+* **AI Outfit Generation:** Instantly draft daily outfits with a visually stunning, overlapping moodboard canvas.
+* **Outfit Itinerary Planner:** Plan outfits for specific dates, locations (City/Country), and occasions (Casual, Work, Dinner, Evening).
+* **Interactive Styling:** Reject AI suggestions with "Not a Match" or manually edit combinations.
+* **Minimalist UI:** A clean, editorial, light-mode interface featuring a custom floating action button (FAB) cutout.
 
+## 🛠️ Tech Stack
+
+* **Framework:** [Expo](https://expo.dev/) & React Native
+* **Navigation:** Expo Router (File-based routing)
+* **State Management:** [Zustand](https://github.com/pmndrs/zustand) (Lightweight global state)
+* **Icons:** `@expo/vector-icons` (Ionicons & MaterialCommunityIcons)
+* **Styling:** Custom StyleSheet design system with centralized tokens.
+
+## 🚀 Getting Started
+
+1. **Install dependencies**
+   Make sure you are in the root directory of the project, then run:
    ```bash
    npm install
-   ```
+   npm install zustand @expo/vector-icons
 
-2. Start the app
-
+2. **Start the app**
    ```bash
-   npx expo start
-   ```
+    npx expo start
+   
+3. **In the terminal output, scan the QR code with the Expo Go app on your physical device (iOS/Android), or press i to open in an iOS Simulator / a for an Android Emulator.**
 
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## 📁 Folder Structure 
+This project uses a scalable src/ directory architecture alongside Expo Router:
 
 ```bash
-npm run reset-project
+/
+├── app/                      # Expo Router (File-based routing)
+│   ├── (tabs)/               # Bottom navigation screens
+│   │   ├── _layout.tsx       # Tab bar configuration
+│   │   ├── index.tsx         # Home (Today's AI outfit suggestion)
+│   │   ├── wardrobe.tsx      # The digital closet (Grid of items)
+│   │   └── planner.tsx       # Weekly lookbook & missing items
+│   ├── outfit/               # Nested route for outfit details
+│   │   └── [id].tsx          # Dynamic route for specific generated looks
+│   ├── _layout.tsx           # Root layout (Auth providers, Toast notifications)
+│   └── +not-found.tsx        
+├── src/                      # All underlying logic and UI
+│   ├── components/           # Reusable frontend pieces
+│   │   ├── ui/               # Generic elements
+│   │   │   ├── Button.tsx    
+│   │   │   └── GlassCard.tsx # Minimalistic frosted glass containers for outfits
+│   │   └── stylist/          # Domain-specific elements
+│   │       ├── ItemGrid.tsx  
+│   │       └── SwipeableLook.tsx
+│   ├── services/             # The "Brain" of the app
+│   │   ├── api/              # Database calls (e.g., Firebase or Supabase)
+│   │   ├── ai/               # LLM prompts for styling and outfit generation
+│   │   └── vision/           # Image uploading, background removal, and cropping
+│   ├── store/                # Global state (Zustand is highly recommended here)
+│   │   └── wardrobeStore.ts  # Caches uploaded clothes so the app feels instant
+│   ├── constants/            # Hardcoded configurations
+│   │   ├── theme.ts          # Color palettes (e.g., defining primary: '#8B5CF6')
+│   │   └── prompts.ts        # Base instructions fed to the AI
+│   ├── types/                # TypeScript interfaces
+│   │   └── index.ts          # e.g., define the `ClothingItem` and `Outfit` types
+│   └── utils/                # Helper functions
+│       ├── formatters.ts
+│       └── imageHelpers.ts   # Resizing images before sending to the AI
+├── assets/                   # Local fonts, splash screens, and icons
+│   ├── images/
+│   └── fonts/
+├── app.json                  # Expo configuration
+├── package.json
+└── tsconfig.json
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## 🧠 Future AI Integrations
 
-### Other setup steps
-
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+* **Vision/Segmentation:** YOLOv11 (or similar) to isolate clothing items from messy background mirror selfies.
+* **Embeddings:** FashionCLIP to convert clothing images into semantic style vectors.
+* ***Reasoning:** Multimodal LLM (Gemini 1.5 Pro / GPT-4o) to evaluate vectors, apply styling logic, and generate outfit combinations. Designed and built with Expo.
