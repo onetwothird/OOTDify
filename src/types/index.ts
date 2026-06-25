@@ -1,9 +1,9 @@
 // src/types/index.ts
 export interface ClothingItem {
   id: string;
-  imageUrl: string;
-  category: 'top' | 'bottom' | 'shoes' | 'outerwear';
+  category: 'top' | 'bottom' | 'shoes' | 'outerwear' | 'outfit'; 
   vibe: string;
+  imageUrl: string;
 }
 
 export interface Outfit {
