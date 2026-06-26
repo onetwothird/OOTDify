@@ -47,10 +47,10 @@ export default function OutfitDetailScreen() {
           {displayItems.map((item: ClothingItem) => (
             <GlassCard key={item.id} style={styles.itemRow}>
               <Image source={{ uri: item.imageUrl }} style={styles.itemImage} />
-              <div style={styles.itemDetails}>
-                <Text style={styles.categoryLabel}>{item.category.toUpperCase()}</Text>
-                <Text style={styles.vibeLabel}>{item.vibe}</Text>
-              </div>
+              <View style={styles.itemDetails}>
+              <Text style={styles.categoryLabel}>{item.category.toUpperCase()}</Text>
+              <Text style={styles.vibeLabel}>{item.vibe}</Text>
+            </View>
               <Ionicons name="checkmark-circle" size={24} color={theme.colors.primary} />
             </GlassCard>
           ))}
