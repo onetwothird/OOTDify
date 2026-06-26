@@ -35,13 +35,14 @@ export default function TabLayout() {
         },
       }}
     >
-      {/* 1. Closet Tab */}
+
+       {/* 1. Home Tab */}
       <Tabs.Screen 
-        name="wardrobe" 
+        name="home" 
         options={{ 
-          title: 'Closet', 
-          tabBarIcon: ({ color }) => (
-            <MaterialCommunityIcons name="hanger" size={26} color={color} />
+          title: 'Home', 
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "home" : "home-outline"} size={24} color={color} />
           ) 
         }} 
       />
@@ -90,16 +91,17 @@ export default function TabLayout() {
         }} 
       />
       
-      {/* 5. Home Tab */}
+      {/* 5. Closet Tab */}
       <Tabs.Screen 
-        name="home" 
+        name="wardrobe" 
         options={{ 
-          title: 'Home', 
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "home" : "home-outline"} size={24} color={color} />
+          title: 'Closet', 
+          tabBarIcon: ({ color }) => (
+            <MaterialCommunityIcons name="hanger" size={26} color={color} />
           ) 
         }} 
       />
+
     </Tabs>
   );
 }
