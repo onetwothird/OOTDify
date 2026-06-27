@@ -1,104 +1,79 @@
-// src/app/(tabs)/wardrobe.tsx
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, Alert } from 'react-native';
-import { useWardrobeStore } from '../../store/wardrobeStore';
+import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, TextInput, ScrollView } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../constants/theme';
-import { Ionicons, Feather } from '@expo/vector-icons'; // <-- Added Feather here
 
-export default function ClosetScreen() {
-  const { items, outfits } = useWardrobeStore();
-  const [activeTab, setActiveTab] = useState('Outfits');
-  
-  // 1. New State for Grid Columns
-  const [numColumns, setNumColumns] = useState(2);
+const filters = ['All', 'Headwear', 'Tops', 'Outerwear', 'Bottoms'];
 
-  const displayData: any[] = activeTab === 'Items' ? items : outfits;
+const mockCategories = [
+  { id: '1', title: 'Tops', count: 123, imageUrl: 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?auto=format&fit=crop&w=400&q=80' },
+  { id: '2', title: 'Bottoms', count: 56, imageUrl: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=400&q=80' },
+  { id: '3', title: 'Outerwear', count: 23, imageUrl: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=400&q=80' },
+  { id: '4', title: 'Footwear', count: 37, imageUrl: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?auto=format&fit=crop&w=400&q=80' },
+  { id: '5', title: 'Headwear', count: 12, imageUrl: 'https://images.unsplash.com/photo-1521369909029-2afed882baee?auto=format&fit=crop&w=400&q=80' },
+  { id: '6', title: 'Dresses', count: 23, imageUrl: 'https://images.unsplash.com/photo-1515347619362-6729a99723bd?auto=format&fit=crop&w=400&q=80' },
+];
 
-  // 2. Action Handlers for the 3 buttons
-  const toggleGrid = () => {
-    // Switches between 1 and 2 columns
-    setNumColumns((prev) => (prev === 2 ? 1 : 2)); 
-  };
-
-  const openFilters = () => {
-    Alert.alert("Filters", "The filter drawer will open here.");
-  };
-
-  const openSort = () => {
-    Alert.alert("Sort", "The sorting options will open here.");
-  };
+export default function WardrobeScreen() {
+  const [activeFilter, setActiveFilter] = useState('All');
 
   return (
     <View style={styles.container}>
-      {/* --- TOP BRANDING ROW --- */}
-      <View style={styles.topNav}>
-        <Text style={styles.logoText}>OOTDify</Text>
-        <TouchableOpacity>
-          <Ionicons name="menu-outline" size={28} color={theme.colors.text} />
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>My Wardrobe</Text>
+        <TouchableOpacity style={styles.addButton}>
+          <Ionicons name="add" size={20} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 
-      {/* --- SUB TABS --- */}
-      <View style={styles.tabContainer}>
-        <TouchableOpacity 
-          style={[styles.tabButton, activeTab === 'Items' && styles.activeTabButton]} 
-          onPress={() => setActiveTab('Items')}
-        >
-          <Text style={[styles.tabText, activeTab === 'Items' && styles.activeTabText]}>Items</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.tabButton, activeTab === 'Outfits' && styles.activeTabButton]} 
-          onPress={() => setActiveTab('Outfits')}
-        >
-          <Text style={[styles.tabText, activeTab === 'Outfits' && styles.activeTabText]}>Outfits</Text>
-        </TouchableOpacity>
+      <View style={styles.searchContainer}>
+        <Ionicons name="search-outline" size={20} color="#A1A1AA" style={styles.searchIcon} />
+        <TextInput 
+          placeholder="What are you looking for..." 
+          placeholderTextColor="#A1A1AA"
+          style={styles.searchInput}
+        />
       </View>
 
-      {/* --- STATS & FILTER ROW --- */}
-      <View style={styles.statsRow}>
-        <Text style={styles.statsText}>
-          Closet includes {displayData.length} {activeTab.toLowerCase()}
-        </Text>
-        
-        {/* 3. The Working Buttons! */}
-        <View style={styles.filterIcons}>
-          <TouchableOpacity style={styles.iconBtn} onPress={toggleGrid}>
-            <Feather 
-              name={numColumns === 2 ? "grid" : "square"} // Changes icon based on state
-              size={20} 
-              color={theme.colors.text} 
-            />
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.iconBtn} onPress={openFilters}>
-            <Feather name="sliders" size={20} color={theme.colors.text} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.iconBtn} onPress={openSort}>
-            <Feather name="git-commit" size={20} color={theme.colors.text} style={{ transform: [{ rotate: '90deg' }] }} />
-          </TouchableOpacity>
-        </View>
+      <View style={styles.filterWrapper}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
+          {filters.map((filter) => (
+            <TouchableOpacity 
+              key={filter} 
+              style={[
+                styles.filterPill, 
+                activeFilter === filter ? styles.activeFilterPill : styles.inactiveFilterPill
+              ]}
+              onPress={() => setActiveFilter(filter)}
+            >
+              <Text style={[
+                styles.filterText, 
+                activeFilter === filter ? styles.activeFilterText : styles.inactiveFilterText
+              ]}>
+                {filter}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
-      
-      {/* --- GRID --- */}
+
       <FlatList
-        data={displayData}
-        // Critical: React Native requires the key to change when numColumns changes on the fly
-        key={numColumns} 
-        numColumns={numColumns}
+        data={mockCategories}
+        numColumns={2}
         keyExtractor={(item) => item.id}
-        columnWrapperStyle={numColumns === 2 ? styles.row : undefined}
         showsVerticalScrollIndicator={false}
+        columnWrapperStyle={styles.row}
         contentContainerStyle={{ paddingBottom: 120 }} 
-        renderItem={({ item }: { item: any }) => (
-          <TouchableOpacity 
-            // Dynamically change width based on column count
-            style={[styles.itemCard, { width: numColumns === 2 ? '48%' : '100%', marginBottom: numColumns === 1 ? 16 : 0 }]} 
-            activeOpacity={0.9}
-          >
-            <Image source={{ uri: item.imageUrl }} style={styles.image} />
-          </TouchableOpacity>
+        renderItem={({ item }) => (
+          <View style={styles.cardContainer}>
+            <Image source={{ uri: item.imageUrl }} style={styles.cardImage} />
+            <View style={styles.cardFooter}>
+              <Text style={styles.cardTitle}>{item.title}</Text>
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{item.count}</Text>
+              </View>
+            </View>
+          </View>
         )}
       />
     </View>
@@ -108,81 +83,109 @@ export default function ClosetScreen() {
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
-    backgroundColor: theme.colors.background, 
-    paddingHorizontal: theme.spacing.lg, 
+    backgroundColor: '#FFFFFF', 
+    paddingHorizontal: 20, 
     paddingTop: 60 
   },
-  topNav: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  logoText: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: theme.colors.text,
-    letterSpacing: -1,
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderColor: '#E4E4E7',
-    marginBottom: 24,
-  },
-  tabButton: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderBottomWidth: 2,
-    borderColor: 'transparent',
-  },
-  activeTabButton: {
-    borderColor: theme.colors.text,
-  },
-  tabText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: theme.colors.textMuted,
-  },
-  activeTabText: {
-    color: theme.colors.text,
-    fontWeight: '600',
-  },
-  statsRow: {
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
   },
-  statsText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: theme.colors.text,
+  headerTitle: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#18181B',
   },
-  filterIcons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  iconBtn: {
-    padding: 2,
-  },
-  row: { 
-    justifyContent: 'space-between', 
-    marginBottom: 16 
-  },
-  itemCard: { 
-    backgroundColor: '#F4F4F5', 
-    borderRadius: 16,
-    height: 220,
-    padding: 12,
+  addButton: {
+    backgroundColor: '#18181B',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  image: { 
-    width: '100%', 
-    height: '100%', 
-    resizeMode: 'contain' 
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F4F4F5',
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 20,
   },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#18181B',
+  },
+  filterWrapper: {
+    marginBottom: 24,
+  },
+  filterScroll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  filterPill: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 24,
+  },
+  activeFilterPill: {
+    backgroundColor: '#18181B',
+  },
+  inactiveFilterPill: {
+    backgroundColor: '#F4F4F5',
+  },
+  filterText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  activeFilterText: {
+    color: '#FFFFFF',
+  },
+  inactiveFilterText: {
+    color: '#71717A',
+  },
+  row: { 
+    justifyContent: 'space-between', 
+    marginBottom: 24 
+  },
+  cardContainer: {
+    width: '48%',
+  },
+  cardImage: {
+    width: '100%',
+    height: 140,
+    borderRadius: 16,
+    backgroundColor: '#F4F4F5',
+    resizeMode: 'cover',
+    marginBottom: 10,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#18181B',
+    marginRight: 6,
+  },
+  badge: {
+    backgroundColor: '#F4F4F5',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#71717A',
+  }
 });

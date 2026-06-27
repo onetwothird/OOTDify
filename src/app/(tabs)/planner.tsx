@@ -12,13 +12,11 @@ export default function PlannerScreen() {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* --- BRANDING --- */}
       <View style={styles.header}>
-        <Text style={styles.logo}>OOTDify</Text>
+        <Text style={styles.logo}>My Calendar</Text>
         <TouchableOpacity><Ionicons name="menu-outline" size={28} /></TouchableOpacity>
       </View>
 
-      {/* --- OCCASION TABS --- */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsRow}>
         {occasions.map((o) => (
           <TouchableOpacity key={o} onPress={() => setSelectedOccasion(o)} style={styles.tab}>
@@ -27,7 +25,6 @@ export default function PlannerScreen() {
         ))}
       </ScrollView>
 
-      {/* --- CALENDAR --- */}
       <Calendar
         current={'2026-02-01'}
         theme={{
@@ -44,7 +41,6 @@ export default function PlannerScreen() {
         }}
       />
 
-      {/* --- ITINERARY PREVIEW --- */}
       <View style={styles.itinerarySection}>
         <View style={styles.itineraryHeader}>
           <Text style={styles.dateTitle}>Mon, Jan 5th - New Work</Text>

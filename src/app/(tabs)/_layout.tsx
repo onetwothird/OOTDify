@@ -108,7 +108,6 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   centerButtonWrapper: {
-    // This dramatically negative value pushes the button halfway out of the tab bar
     top: -50, 
     justifyContent: 'center',
     alignItems: 'center',
@@ -122,10 +121,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#18181B', 
     justifyContent: 'center',
     alignItems: 'center',
-    
-    // THE CUTOUT ILLUSION:
-    // This border acts as an eraser, carving a curve into the white tab bar below it.
-    // It dynamically uses your theme background color to look completely invisible.
     borderWidth: 8,
     borderColor: theme.colors.background, 
   }

@@ -1,13 +1,24 @@
-// src/app/(tabs)/index.tsx
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, Image, TouchableOpacity, Modal, TextInput, Switch, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Modal, TextInput, Switch, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../constants/theme';
+import { SwipeableLook } from '../../components/stylist/SwipeableLook';
+import { ClothingItem } from '../../types';
+
+const mockOutfits: ClothingItem[][] = [
+  [
+    { id: '1', category: 'top', vibe: 'Casual', imageUrl: 'https://images.unsplash.com/photo-1520975954732-57dd22299614?q=80&w=400' },
+    { id: '2', category: 'bottom', vibe: 'Casual', imageUrl: 'https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?q=80&w=400' },
+    { id: '3', category: 'shoes', vibe: 'Street', imageUrl: 'https://images.unsplash.com/photo-1539185441755-769473a23570?q=80&w=400' },
+  ]
+];
 
 export default function AIOutfitsScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [optimizePlan, setOptimizePlan] = useState(false);
   const [selectedOccasion, setSelectedOccasion] = useState('Casual');
+  
+  const [currentIndex, setCurrentIndex] = useState(0);
 
   const occasions = [
     { name: 'Casual', icon: 'shirt-outline' },
@@ -16,9 +27,16 @@ export default function AIOutfitsScreen() {
     { name: 'Evening', icon: 'moon-outline' },
   ];
 
+  const handleSwipeLeft = () => {
+    console.log("Swiped Left: Not a match");
+  };
+
+  const handleSwipeRight = () => {
+    console.log("Swiped Right: Match!");
+  };
+
   return (
     <View style={styles.container}>
-      {/* --- TOP HEADER --- */}
       <View style={styles.header}>
         <TouchableOpacity>
           <Ionicons name="menu-outline" size={26} color={theme.colors.text} />
@@ -32,50 +50,31 @@ export default function AIOutfitsScreen() {
         </View>
       </View>
 
-      {/* --- SUB-HEADER ROUTE --- */}
       <TouchableOpacity style={styles.subHeaderLink} onPress={() => setModalVisible(true)}>
-        <Ionicons name="apps-outline" size={18} color={theme.colors.text} style={{ marginRight: 8 }} />
+        <Ionicons name="grid-outline" size={20} color={theme.colors.text} />
         <Text style={styles.subHeaderText}>Plan Set of Outfits</Text>
-        <Ionicons name="chevron-forward" size={16} color={theme.colors.text} />
+        <Ionicons name="chevron-forward" size={18} color={theme.colors.text} />
       </TouchableOpacity>
 
-      {/* --- OOTD COLLAGE CANVAS --- */}
       <View style={styles.canvasContainer}>
-        {/* Mocked absolute items layered over one another to match the visual collage layout */}
-        <Image 
-          source={{ uri: 'https://images.unsplash.com/photo-1520975954732-57dd22299614?q=80&w=400' }} 
-          style={[styles.canvasImage, { width: 120, height: 160, top: 20, left: 20, zIndex: 2 }]} 
-        />
-        <Image 
-          source={{ uri: 'https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?q=80&w=400' }} 
-          style={[styles.canvasImage, { width: 150, height: 220, top: 40, right: 30, zIndex: 1 }]} 
-        />
-        {/* Selected Highlight item (The bag feature in image_42dff6) */}
-        <View style={styles.highlightedItemWrapper}>
-          <Image 
-            source={{ uri: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?q=80&w=400' }} 
-            style={[styles.canvasImage, { width: 80, height: 80 }]} 
-          />
-        </View>
-        <Image 
-          source={{ uri: 'https://images.unsplash.com/photo-1539185441755-769473a23570?q=80&w=400' }} 
-          style={[styles.canvasImage, { width: 70, height: 70, bottom: 20, left: 40, zIndex: 2 }]} 
+        <SwipeableLook 
+          items={mockOutfits[currentIndex]} 
+          onSwipeLeft={handleSwipeLeft} 
+          onSwipeRight={handleSwipeRight} 
         />
       </View>
 
-      {/* --- CANVAS ACTION CONTROLS --- */}
       <View style={styles.actionButtonGroup}>
-        <TouchableOpacity style={styles.primaryButton}>
+        <TouchableOpacity style={styles.primaryButton} onPress={() => console.log('Save & Select')}>
           <Text style={styles.primaryButtonText}>Select Another</Text>
           <Ionicons name="add" size={18} color="#FFF" style={{ marginLeft: 4 }} />
         </TouchableOpacity>
         
-        <TouchableOpacity style={styles.secondaryButton}>
+        <TouchableOpacity style={styles.secondaryButton} onPress={handleSwipeLeft}>
           <Text style={styles.secondaryButtonText}>Not a Match</Text>
         </TouchableOpacity>
       </View>
 
-      {/* --- ITINERARY BOTTOM SHEET MODAL --- */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -83,8 +82,7 @@ export default function AIOutfitsScreen() {
         onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            {/* Grab Bar Header */}
+          <View style={styles.modalContent}> 
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Outfit Itinerary Plan</Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
@@ -93,7 +91,6 @@ export default function AIOutfitsScreen() {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Occasions Horizontal List */}
               <Text style={styles.inputHeading}>Occasions</Text>
               <View style={styles.occasionsRow}>
                 {occasions.map((o) => (
@@ -108,20 +105,18 @@ export default function AIOutfitsScreen() {
                 ))}
               </View>
 
-              {/* Destination Entry fields */}
               <Text style={styles.inputHeading}>Where to?</Text>
               <View style={styles.inputRow}>
                 <View style={{ flex: 1, marginRight: 12 }}>
                   <Text style={styles.subLabel}>City</Text>
-                  <TextInput style={styles.textInput} placeholder="New Work" placeholderTextColor="#A1A1AA" />
+                  <TextInput style={styles.textInput} placeholder="Manila" placeholderTextColor="#A1A1AA" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.subLabel}>Country</Text>
-                  <TextInput style={styles.textInput} placeholder="USA" placeholderTextColor="#A1A1AA" />
+                  <TextInput style={styles.textInput} placeholder="Philippines" placeholderTextColor="#A1A1AA" />
                 </View>
               </View>
 
-              {/* Date Selector Input */}
               <Text style={styles.inputHeading}>Select your dates</Text>
               <TouchableOpacity style={styles.pickerRow}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -134,7 +129,6 @@ export default function AIOutfitsScreen() {
                 <Ionicons name="chevron-forward" size={18} color={theme.colors.textMuted} />
               </TouchableOpacity>
 
-              {/* Optimization Switch */}
               <View style={[styles.pickerRow, { marginTop: 16, marginBottom: 24 }]}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <Ionicons name="git-branch-outline" size={20} color={theme.colors.text} style={{ marginRight: 12 }} />
@@ -151,7 +145,6 @@ export default function AIOutfitsScreen() {
                 />
               </View>
 
-              {/* Submit Form Intent */}
               <TouchableOpacity style={styles.modalSubmitButton} onPress={() => setModalVisible(false)}>
                 <Text style={styles.modalSubmitText}>Create Outfit Plan</Text>
                 <Ionicons name="add" size={18} color="#FFF" style={{ marginLeft: 4 }} />
@@ -165,28 +158,25 @@ export default function AIOutfitsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.colors.background, paddingTop: 50 },
+  container: { flex: 1, backgroundColor: theme.colors.background, paddingTop: 55, paddingBottom: 120 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: theme.spacing.lg, marginBottom: 20 },
   headerRight: { alignItems: 'flex-end' },
-  dateText: { fontSize: 11, color: theme.colors.textMuted, textTransform: 'uppercase', fontWeight: '600' },
+  dateText: { fontSize: 12, color: theme.colors.textMuted, textTransform: 'uppercase', fontWeight: '600' },
   dropdownTrigger: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
-  dropdownText: { fontSize: 16, fontWeight: '700', color: theme.colors.text, marginRight: 4 },
-  subHeaderLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: theme.colors.surface, marginHorizontal: theme.spacing.lg, padding: 14, borderRadius: theme.borderRadius.md, borderWidth: 1, borderColor: theme.colors.border },
-  subHeaderText: { flex: 1, fontSize: 13, fontWeight: '600', color: theme.colors.text },
+  dropdownText: { fontSize: 18, fontWeight: '900', color: theme.colors.text, marginRight: 4 },
   
-  // Canvas Moodboard Layout
-  canvasContainer: { flex: 1, marginVertical: 20, marginHorizontal: theme.spacing.lg, backgroundColor: theme.colors.surface, borderRadius: theme.borderRadius.xl, position: 'relative', overflow: 'hidden', borderWidth: 1, borderColor: theme.colors.border },
-  canvasImage: { position: 'absolute', borderRadius: theme.borderRadius.sm, resizeMode: 'cover' },
-  highlightedItemWrapper: { position: 'absolute', top: 130, right: 40, zIndex: 3, padding: 4, borderWidth: 2, borderColor: theme.colors.accentGreen, borderRadius: theme.borderRadius.sm, backgroundColor: '#FFF' },
+  subHeaderLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: theme.spacing.lg, marginTop: 10 },
+  subHeaderText: { flex: 1, fontSize: 14, fontWeight: '500', color: theme.colors.text, marginLeft: 12 },
   
-  // Outer Button Pairs
-  actionButtonGroup: { paddingHorizontal: theme.spacing.lg, gap: 12, marginBottom: 30 },
+  canvasContainer: { flex: 1, marginVertical: 20, marginHorizontal: theme.spacing.lg, position: 'relative' },
+  actionButtonGroup: { paddingHorizontal: theme.spacing.lg, gap: 12, marginBottom: 10 },
+  
   primaryButton: { backgroundColor: theme.colors.primary, paddingVertical: 16, borderRadius: theme.borderRadius.md, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
-  primaryButtonText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
-  secondaryButton: { backgroundColor: theme.colors.surface, paddingVertical: 16, borderRadius: theme.borderRadius.md, alignItems: 'center', borderWidth: 1, borderColor: theme.colors.border },
+  primaryButtonText: { color: '#FFF', fontSize: 15, fontWeight: '600' },
+  
+  secondaryButton: { backgroundColor: 'transparent', paddingVertical: 16, borderRadius: theme.borderRadius.md, alignItems: 'center', borderWidth: 1, borderColor: '#D4D4D8' },
   secondaryButtonText: { color: theme.colors.textMuted, fontSize: 14, fontWeight: '600' },
 
-  // Modal Itinerary Sheet Styles
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: theme.colors.surface, borderTopLeftRadius: theme.borderRadius.xl, borderTopRightRadius: theme.borderRadius.xl, paddingHorizontal: theme.spacing.lg, paddingBottom: 40, maxHeight: '85%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 24, borderBottomWidth: 1, borderColor: theme.colors.border },

@@ -12,11 +12,9 @@ export default function OutfitDetailScreen() {
   const router = useRouter();
   const { items } = useWardrobeStore();
 
-  // For this demonstration, we'll treat the dynamic ID as a "vibe style" selector
-  // In your production app, you would fetch the specific outfit array from a database using this ID
   const displayItems = id === 'minimalist' 
-    ? items.filter(item => ['1', '3'].includes(item.id)) // Tee and Sneakers
-    : items; // Full rotation fallback
+    ? items.filter(item => ['1', '3'].includes(item.id)) 
+    : items;
 
   return (
     <View style={styles.container}>
@@ -26,7 +24,7 @@ export default function OutfitDetailScreen() {
           <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Fit Breakdown</Text>
-        <View style={{ width: 40 }} /> {/* Layout Spacer to balance back button */}
+        <View style={{ width: 40 }} /> 
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -42,7 +40,6 @@ export default function OutfitDetailScreen() {
 
         <Text style={styles.sectionHeading}>Garment Checklist</Text>
 
-        {/* List of items making up the look */}
         <View style={styles.itemsContainer}>
           {displayItems.map((item: ClothingItem) => (
             <GlassCard key={item.id} style={styles.itemRow}>
