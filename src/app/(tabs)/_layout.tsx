@@ -91,11 +91,11 @@ export default function TabLayout() {
         }} 
       />
       
-      {/* 5. Closet Tab */}
+      {/* 5. Wardrobe Tab */}
       <Tabs.Screen 
         name="wardrobe" 
         options={{ 
-          title: 'Closet', 
+          title: 'Wardrobe', 
           tabBarIcon: ({ color }) => (
             <MaterialCommunityIcons name="hanger" size={26} color={color} />
           ) 
