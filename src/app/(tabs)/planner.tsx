@@ -1,14 +1,48 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, FlatList, Image } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { theme } from '../../constants/theme';
 import { Calendar } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
+import { supabase } from '../../../lib/supabase';
 
 const occasions = ['Casual', 'Work', 'Dinner', 'Evening', 'Formal', 'Workout'];
 
 export default function PlannerScreen() {
   const [selectedOccasion, setSelectedOccasion] = useState('Casual');
-  const [selectedDate, setSelectedDate] = useState('2026-02-10');
+  
+  // Format today's date for initial load (YYYY-MM-DD)
+  const today = new Date().toISOString().split('T')[0];
+  const [selectedDate, setSelectedDate] = useState(today);
+  
+  const [dailyPlan, setDailyPlan] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchPlanForDate(selectedDate);
+  }, [selectedDate]);
+
+  const fetchPlanForDate = async (date: string) => {
+    setLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+    const { data, error } = await supabase
+      .from('itinerary_plans')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('scheduled_date', date)
+      .single(); 
+
+    if (error && error.code !== 'PGRST116') {
+      console.error("Error fetching plan:", error.message);
+    } else {
+      setDailyPlan(data);
+    }
+    setLoading(false);
+  };
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -26,7 +60,7 @@ export default function PlannerScreen() {
       </ScrollView>
 
       <Calendar
-        current={'2026-02-01'}
+        current={selectedDate}
         theme={{
           backgroundColor: 'transparent',
           calendarBackground: 'transparent',
@@ -42,16 +76,31 @@ export default function PlannerScreen() {
       />
 
       <View style={styles.itinerarySection}>
-        <View style={styles.itineraryHeader}>
-          <Text style={styles.dateTitle}>Mon, Jan 5th - New Work</Text>
-          <TouchableOpacity><Text style={styles.editText}>Edit <Ionicons name="pencil" size={12} /></Text></TouchableOpacity>
-        </View>
-        
-        <View style={styles.outfitPreviewRow}>
-          {['T-Shirt', 'Pants', 'Jacket'].map((item, i) => (
-            <View key={i} style={styles.outfitItem} />
-          ))}
-        </View>
+        {loading ? (
+           <ActivityIndicator size="small" color={theme.colors.primary} />
+        ) : dailyPlan ? (
+          <>
+            <View style={styles.itineraryHeader}>
+              <Text style={styles.dateTitle}>
+                {dailyPlan.occasion} • {dailyPlan.city || 'Local'}
+              </Text>
+              <TouchableOpacity><Text style={styles.editText}>Edit <Ionicons name="pencil" size={12} /></Text></TouchableOpacity>
+            </View>
+            
+            {/* You can map out actual linked outfit items here eventually */}
+            <View style={styles.outfitPreviewRow}>
+              {['T-Shirt', 'Pants', 'Jacket'].map((item, i) => (
+                <View key={i} style={styles.outfitItem}>
+                  <Text style={styles.placeholderText}>{item}</Text>
+                </View>
+              ))}
+            </View>
+          </>
+        ) : (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateText}>No outfit planned for this date.</Text>
+          </View>
+        )}
       </View>
     </ScrollView>
   );
@@ -67,8 +116,11 @@ const styles = StyleSheet.create({
   activeTabText: { color: '#000', fontWeight: '700', borderBottomWidth: 2, borderBottomColor: '#000' },
   itinerarySection: { marginTop: 30, paddingBottom: 120 },
   itineraryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-  dateTitle: { fontSize: 16, fontWeight: '700' },
+  dateTitle: { fontSize: 16, fontWeight: '700', textTransform: 'capitalize' },
   editText: { color: '#A1A1AA', fontSize: 13 },
   outfitPreviewRow: { flexDirection: 'row', gap: 10 },
-  outfitItem: { width: 100, height: 140, backgroundColor: '#F4F4F5', borderRadius: 12 }
+  outfitItem: { width: 100, height: 140, backgroundColor: '#F4F4F5', borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  placeholderText: { color: '#A1A1AA', fontSize: 12, fontWeight: '600' },
+  emptyState: { paddingVertical: 20, alignItems: 'center' },
+  emptyStateText: { color: '#A1A1AA', fontSize: 14, fontWeight: '500' }
 });
