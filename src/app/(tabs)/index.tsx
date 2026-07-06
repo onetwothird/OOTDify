@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Modal, TextInput, Switch, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Modal, TextInput, Switch, ScrollView, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../constants/theme';
 import { SwipeableLook } from '../../components/stylist/SwipeableLook';
 import { ClothingItem } from '../../types';
+import { supabase } from '../../../lib/supabase';
 
 const mockOutfits: ClothingItem[][] = [
   [
@@ -15,10 +16,14 @@ const mockOutfits: ClothingItem[][] = [
 
 export default function AIOutfitsScreen() {
   const [modalVisible, setModalVisible] = useState(false);
-  const [optimizePlan, setOptimizePlan] = useState(false);
-  const [selectedOccasion, setSelectedOccasion] = useState('Casual');
-  
   const [currentIndex, setCurrentIndex] = useState(0);
+  
+  // Form States
+  const [selectedOccasion, setSelectedOccasion] = useState('Casual');
+  const [city, setCity] = useState('');
+  const [country, setCountry] = useState('');
+  const [selectedDate, setSelectedDate] = useState('2026-02-10'); // Can hook this up to a real date picker later
+  const [optimizePlan, setOptimizePlan] = useState(false);
 
   const occasions = [
     { name: 'Casual', icon: 'shirt-outline' },
@@ -27,13 +32,38 @@ export default function AIOutfitsScreen() {
     { name: 'Evening', icon: 'moon-outline' },
   ];
 
-  const handleSwipeLeft = () => {
-    console.log("Swiped Left: Not a match");
+  const handleCreatePlan = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      Alert.alert("Error", "You must be logged in to create a plan.");
+      return;
+    }
+
+    const { error } = await supabase
+      .from('itinerary_plans')
+      .insert({
+        user_id: user.id,
+        occasion: selectedOccasion,
+        city: city,
+        country: country,
+        is_optimized: optimizePlan,
+        scheduled_date: selectedDate,
+      });
+
+    if (error) {
+      Alert.alert("Error saving plan", error.message);
+    } else {
+      Alert.alert("Success", "Outfit plan created!");
+      setModalVisible(false);
+      // Reset form
+      setCity('');
+      setCountry('');
+    }
   };
 
-  const handleSwipeRight = () => {
-    console.log("Swiped Right: Match!");
-  };
+  const handleSwipeLeft = () => console.log("Swiped Left: Not a match");
+  const handleSwipeRight = () => console.log("Swiped Right: Match!");
 
   return (
     <View style={styles.container}>
@@ -69,7 +99,6 @@ export default function AIOutfitsScreen() {
           <Text style={styles.primaryButtonText}>Select Another</Text>
           <Ionicons name="add" size={18} color="#FFF" style={{ marginLeft: 4 }} />
         </TouchableOpacity>
-        
         <TouchableOpacity style={styles.secondaryButton} onPress={handleSwipeLeft}>
           <Text style={styles.secondaryButtonText}>Not a Match</Text>
         </TouchableOpacity>
@@ -109,25 +138,42 @@ export default function AIOutfitsScreen() {
               <View style={styles.inputRow}>
                 <View style={{ flex: 1, marginRight: 12 }}>
                   <Text style={styles.subLabel}>City</Text>
-                  <TextInput style={styles.textInput} placeholder="Manila" placeholderTextColor="#A1A1AA" />
+                  <TextInput 
+                    style={styles.textInput} 
+                    placeholder="Manila" 
+                    placeholderTextColor="#A1A1AA"
+                    value={city}
+                    onChangeText={setCity}
+                  />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.subLabel}>Country</Text>
-                  <TextInput style={styles.textInput} placeholder="Philippines" placeholderTextColor="#A1A1AA" />
+                  <TextInput 
+                    style={styles.textInput} 
+                    placeholder="Philippines" 
+                    placeholderTextColor="#A1A1AA"
+                    value={country}
+                    onChangeText={setCountry}
+                  />
                 </View>
               </View>
 
               <Text style={styles.inputHeading}>Select your dates</Text>
-              <TouchableOpacity style={styles.pickerRow}>
+              <View style={styles.pickerRow}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <Ionicons name="calendar-outline" size={20} color={theme.colors.text} style={{ marginRight: 12 }} />
-                  <View>
+                  <View style={{ flex: 1 }}>
                     <Text style={styles.pickerMainText}>Plan your schedule</Text>
-                    <Text style={styles.pickerSubText}>Select date</Text>
+                    <TextInput 
+                      style={[styles.pickerSubText, { padding: 0, margin: 0, height: 20 }]} 
+                      value={selectedDate}
+                      onChangeText={setSelectedDate}
+                      placeholder="YYYY-MM-DD"
+                    />
                   </View>
                 </View>
-                <Ionicons name="chevron-forward" size={18} color={theme.colors.textMuted} />
-              </TouchableOpacity>
+                <Ionicons name="pencil" size={16} color={theme.colors.textMuted} />
+              </View>
 
               <View style={[styles.pickerRow, { marginTop: 16, marginBottom: 24 }]}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -145,7 +191,7 @@ export default function AIOutfitsScreen() {
                 />
               </View>
 
-              <TouchableOpacity style={styles.modalSubmitButton} onPress={() => setModalVisible(false)}>
+              <TouchableOpacity style={styles.modalSubmitButton} onPress={handleCreatePlan}>
                 <Text style={styles.modalSubmitText}>Create Outfit Plan</Text>
                 <Ionicons name="add" size={18} color="#FFF" style={{ marginLeft: 4 }} />
               </TouchableOpacity>
@@ -164,19 +210,14 @@ const styles = StyleSheet.create({
   dateText: { fontSize: 12, color: theme.colors.textMuted, textTransform: 'uppercase', fontWeight: '600' },
   dropdownTrigger: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
   dropdownText: { fontSize: 18, fontWeight: '900', color: theme.colors.text, marginRight: 4 },
-  
   subHeaderLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: theme.spacing.lg, marginTop: 10 },
   subHeaderText: { flex: 1, fontSize: 14, fontWeight: '500', color: theme.colors.text, marginLeft: 12 },
-  
   canvasContainer: { flex: 1, marginVertical: 20, marginHorizontal: theme.spacing.lg, position: 'relative' },
   actionButtonGroup: { paddingHorizontal: theme.spacing.lg, gap: 12, marginBottom: 10 },
-  
   primaryButton: { backgroundColor: theme.colors.primary, paddingVertical: 16, borderRadius: theme.borderRadius.md, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
   primaryButtonText: { color: '#FFF', fontSize: 15, fontWeight: '600' },
-  
   secondaryButton: { backgroundColor: 'transparent', paddingVertical: 16, borderRadius: theme.borderRadius.md, alignItems: 'center', borderWidth: 1, borderColor: '#D4D4D8' },
   secondaryButtonText: { color: theme.colors.textMuted, fontSize: 14, fontWeight: '600' },
-
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: theme.colors.surface, borderTopLeftRadius: theme.borderRadius.xl, borderTopRightRadius: theme.borderRadius.xl, paddingHorizontal: theme.spacing.lg, paddingBottom: 40, maxHeight: '85%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 24, borderBottomWidth: 1, borderColor: theme.colors.border },
