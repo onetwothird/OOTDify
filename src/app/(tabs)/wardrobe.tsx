@@ -29,7 +29,6 @@ export default function WardrobeScreen() {
     setLoading(false);
   };
 
-  // Optional: Filter items based on the active tab
   const filteredItems = activeFilter === 'All' 
     ? wardrobeItems 
     : wardrobeItems.filter(item => item.category.toLowerCase() === activeFilter.toLowerCase());
