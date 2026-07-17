@@ -1,3 +1,39 @@
+# OOTDify
+
+Project README
+
+New feature scaffolding added:
+
+- src/features/closet: types, scanner stub
+- src/features/outfit: generator, compatibility scoring
+- src/features/weather: simple service with optional OpenWeather usage
+- src/features/analytics: most/least worn and wear timeline helpers
+- src/features/history: outfit history backed by localStorage
+- src/features/search: simple closet search
+- src/store/wardrobeStore.ts: localStorage-backed wardrobe store
+- src/components: small UI skeletons for scanner and outfit card
+
+Next steps:
+
+- Wire UI pages to these services where appropriate (upload photos, call `scanImages`)
+- Replace stubs with actual ML / API integrations (vision model, weather API key)
+- Add tests and type refinements
+
+Quick run & test notes:
+
+- Start app: `npx expo start -c`
+- Run unit tests (after installing dev deps):
+
+```bash
+npm install
+npm test
+```
+
+Optional environment variables:
+
+- `OPENWEATHER_API_KEY` — set to use real weather data in `getWeatherForLocation`.
+- `CLOSET_SCANNER_API_URL` — POST images to this URL (JSON body `{ images: [...] }`) to use an external scanner API. If not set, local stub is used.
+
 # 🧥 OOTDify
 
 OOTDify is a mobile-first AI styling app built with Expo and React Native. It helps users manage a wardrobe, generate outfit ideas, plan looks for special occasions, and explore a polished, minimalist fashion experience.
