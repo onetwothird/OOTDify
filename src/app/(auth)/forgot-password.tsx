@@ -2,15 +2,15 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { supabase } from "../../shared/lib/supabase";
 
@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
     marginBottom: 40,
     fontWeight: "500",
   },
-  form: { gap: 16 },
+  form: {},
   label: {
     fontSize: 13,
     fontWeight: "700",
