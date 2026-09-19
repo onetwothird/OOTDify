@@ -7,16 +7,7 @@
     "icon": "./assets/images/ootdify-logo.png",
     "scheme": "ootdify",
     "userInterfaceStyle": "automatic",
-    "ios": {
-      "icon": "./assets/expo.icon"
-    },
     "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#F4F4F4",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
-      },
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -36,11 +27,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#F4F4F4",
-          "android": {
-            "image": "./assets/images/splash-icon.png",
-            "imageWidth": 76
-          }
+          "backgroundColor": "#F4F4F4"
         }
       ],
       "expo-sqlite",
