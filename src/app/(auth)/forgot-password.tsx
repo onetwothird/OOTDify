@@ -6,12 +6,15 @@ import {
     Alert,
     KeyboardAvoidingView,
     Platform,
+    SafeAreaView,
+    ScrollView,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
     View,
 } from "react-native";
+import { theme } from "../../shared/config/theme";
 import { supabase } from "../../shared/lib/supabase";
 
 export default function ForgotPasswordScreen() {
@@ -37,65 +40,72 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.container}
-    >
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
-          <Ionicons name="arrow-back" size={24} color="#18181B" />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.content}>
-        <Text style={styles.title}>Reset Password</Text>
-        <Text style={styles.subtitle}>
-          Enter your email to receive a reset link.
-        </Text>
-
-        <View style={styles.form}>
-          <Text style={styles.label}>Email Address</Text>
-          <View style={styles.inputContainer}>
-            <Ionicons
-              name="mail-outline"
-              size={20}
-              color="#A1A1AA"
-              style={styles.inputIcon}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Enter Your Email"
-              placeholderTextColor="#A1A1AA"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
-            />
-          </View>
-
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.container}
+      >
+        <View style={styles.header}>
           <TouchableOpacity
-            style={[styles.primaryButton, { marginTop: 16 }]}
-            onPress={handleReset}
-            disabled={loading}
+            onPress={() => router.back()}
+            style={styles.backButton}
           >
-            {loading ? (
-              <ActivityIndicator color="#FFF" />
-            ) : (
-              <Text style={styles.primaryButtonText}>Send Reset Link</Text>
-            )}
+            <Ionicons name="arrow-back" size={24} color="#18181B" />
           </TouchableOpacity>
         </View>
-      </View>
-    </KeyboardAvoidingView>
+
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Text style={styles.title}>Reset Password</Text>
+          <Text style={styles.subtitle}>
+            Enter your email to receive a reset link.
+          </Text>
+
+          <View style={styles.form}>
+            <Text style={styles.label}>Email Address</Text>
+            <View style={styles.inputContainer}>
+              <Ionicons
+                name="mail-outline"
+                size={20}
+                color="#A1A1AA"
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Enter Your Email"
+                placeholderTextColor="#A1A1AA"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                value={email}
+                onChangeText={setEmail}
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[styles.primaryButton, { marginTop: 16 }]}
+              onPress={handleReset}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <Text style={styles.primaryButtonText}>Send Reset Link</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FFFFFF" },
-  header: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20 },
+  safeArea: { flex: 1, backgroundColor: "#FFFFFF" },
+  container: { flex: 1 },
+  header: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 10 },
   backButton: {
     width: 40,
     height: 40,
@@ -104,7 +114,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  content: { flex: 1, paddingHorizontal: 24, paddingTop: 20 },
+  scrollContent: {
+    flexGrow: 1,
+    width: "100%",
+    maxWidth: 480,
+    alignSelf: "center",
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 20,
+  },
   title: {
     fontSize: 28,
     fontWeight: "800",
@@ -123,9 +141,8 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#18181B",
-    marginBottom: -8,
-    zIndex: 1,
+    color: theme.colors.text,
+    marginBottom: 8,
     marginLeft: 4,
   },
   inputContainer: {

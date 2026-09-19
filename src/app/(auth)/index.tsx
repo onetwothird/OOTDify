@@ -3,16 +3,34 @@ import {
     Image,
     Platform,
     SafeAreaView,
+    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
+    useWindowDimensions,
     View,
 } from "react-native";
 
+const ILLUSTRATION_MAX = 300;
+
 export default function LandingScreen() {
+  const { width, height } = useWindowDimensions();
+
+  // Scale the illustration to the viewport so it never overflows small
+  // screens, while capping it on large ones.
+  const illustrationSize = Math.min(
+    Math.min(width, height) * 0.55,
+    ILLUSTRATION_MAX
+  );
+
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
         {/* Top Header Section */}
         <View style={styles.header}>
           <Text style={styles.title}>Get Started!</Text>
@@ -28,7 +46,10 @@ export default function LandingScreen() {
             source={{
               uri: "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=800&q=80",
             }}
-            style={styles.illustration}
+            style={[
+              styles.illustration,
+              { width: illustrationSize, height: illustrationSize },
+            ]}
           />
         </View>
 
@@ -58,7 +79,7 @@ export default function LandingScreen() {
             <Text style={styles.secondaryButtonText}>Log In</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -68,8 +89,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#FFFFFF",
   },
-  container: {
+  scroll: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    width: "100%",
+    maxWidth: 480,
+    alignSelf: "center",
     paddingHorizontal: 24,
     justifyContent: "space-between",
     paddingTop: Platform.OS === "android" ? 40 : 20,
@@ -84,6 +111,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#18181B",
     marginBottom: 12,
+    textAlign: "center",
   },
   subtitle: {
     fontSize: 16,
@@ -96,10 +124,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    minHeight: 160,
   },
   illustration: {
-    width: 280,
-    height: 280,
     resizeMode: "contain",
     borderRadius: 20, // Only needed for the Unsplash placeholder
   },
@@ -114,10 +141,11 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: "#F4F4F5",
+    marginHorizontal: 4,
   },
   activeDot: {
     width: 24,
-    backgroundColor: "#A855F7", // The purple accent from your other screens
+    backgroundColor: "#18181B",
   },
   footer: {
     paddingBottom: 10,
@@ -145,6 +173,7 @@ const styles = StyleSheet.create({
     borderRadius: 100,
     justifyContent: "center",
     alignItems: "center",
+    marginTop: 12,
     borderWidth: 1.5,
     borderColor: "#18181B",
   },
