@@ -186,7 +186,7 @@ export default function AIOutfitsScreen() {
               onSwipeRight={handleSwipeRight}
             />
             <View style={styles.compatBadge}>
-              <Ionicons name="sparkles" size={12} color="#A855F7" />
+              <Ionicons name="sparkles" size={12} color="#3F3F46" />
               <Text style={styles.compatBadgeText}>
                 {scoreOutfit(currentOutfit)}% match
               </Text>

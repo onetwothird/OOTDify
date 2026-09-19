@@ -173,7 +173,7 @@ export default function HomeScreen() {
           <Text style={styles.sectionTitle}>Today's Pick</Text>
           <TouchableOpacity style={styles.restyleBtn}>
             <Text style={styles.restyleText}>Restyle </Text>
-            <Ionicons name="sparkles" size={14} color="#A855F7" />
+            <Ionicons name="sparkles" size={14} color="#3F3F46" />
           </TouchableOpacity>
         </View>
 
@@ -203,7 +203,7 @@ export default function HomeScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <View style={styles.modalIconContainer}>
-              <Ionicons name="log-out-outline" size={28} color="#A855F7" />
+              <Ionicons name="log-out-outline" size={28} color="#18181B" />
             </View>
             <Text style={styles.modalTitle}>Log Out</Text>
             <Text style={styles.modalText}>
@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { fontSize: 18, fontWeight: "700", color: "#18181B" },
   restyleBtn: { flexDirection: "row", alignItems: "center" },
-  restyleText: { fontSize: 15, fontWeight: "700", color: "#A855F7" },
+  restyleText: { fontSize: 15, fontWeight: "700", color: "#18181B" },
   mainCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 24,
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: "#F3E8FF",
+    backgroundColor: "#F4F4F5",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 20,

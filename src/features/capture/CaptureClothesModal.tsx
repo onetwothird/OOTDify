@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
   },
   libraryBtnText: { color: "#18181B", fontWeight: "700", marginLeft: 8, fontSize: 14 },
   doneBtn: {
-    backgroundColor: "#A855F7",
+    backgroundColor: "#18181B",
     paddingVertical: 16,
     borderRadius: 100,
     alignItems: "center",
