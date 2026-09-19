@@ -1,7 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { makeRedirectUri } from "expo-auth-session";
 import { router } from "expo-router";
-import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -16,9 +14,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { theme } from "../../shared/config/theme";
+import { signInWithGoogle } from "../../shared/lib/googleAuth";
 import { supabase } from "../../shared/lib/supabase";
-
-WebBrowser.maybeCompleteAuthSession();
 
 export default function SignupScreen() {
   const [fullName, setFullName] = useState("");
@@ -27,6 +25,7 @@ export default function SignupScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const handleSignup = async () => {
     if (!fullName || !email || !password) {
@@ -59,28 +58,20 @@ export default function SignupScreen() {
   };
 
   const handleGoogleAuth = async () => {
+    if (googleLoading) return;
+    setGoogleLoading(true);
     try {
-      const redirectUrl = makeRedirectUri();
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: redirectUrl,
-        },
-      });
-
-      if (error) throw error;
-
-      if (data?.url) {
-        const result = await WebBrowser.openAuthSessionAsync(
-          data.url,
-          redirectUrl
-        );
-        if (result.type === "success") {
-          router.replace("/(tabs)/home");
-        }
-      }
+      await signInWithGoogle();
+      // The root layout navigates away automatically once the session is set;
+      // navigating here too keeps behavior identical to email sign-up.
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session) router.replace("/(tabs)/home");
     } catch (error: any) {
       Alert.alert("Google Auth Error", error.message);
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -179,7 +170,7 @@ export default function SignupScreen() {
               <Ionicons
                 name={agreed ? "radio-button-on" : "radio-button-off"}
                 size={20}
-                color={agreed ? "#A855F7" : "#A1A1AA"}
+                color={agreed ? theme.colors.primary : "#A1A1AA"}
               />
               <Text style={styles.termsText}>
                 I agree with the{" "}
@@ -210,12 +201,23 @@ export default function SignupScreen() {
               <TouchableOpacity
                 style={styles.socialButton}
                 onPress={handleGoogleAuth}
+                disabled={googleLoading}
                 activeOpacity={0.7}
               >
-                <Ionicons name="logo-google" size={20} color="#EA4335" />
-                <Text style={styles.socialButtonText}>Google</Text>
+                {googleLoading ? (
+                  <ActivityIndicator size="small" color="#18181B" />
+                ) : (
+                  <>
+                    <Ionicons name="logo-google" size={20} color="#18181B" />
+                    <Text style={styles.socialButtonText}>Google</Text>
+                  </>
+                )}
               </TouchableOpacity>
-              <TouchableOpacity style={styles.socialButton} activeOpacity={0.7}>
+              <TouchableOpacity
+                style={[styles.socialButton, { opacity: 0.4 }]}
+                activeOpacity={0.7}
+                disabled
+              >
                 <Ionicons name="logo-apple" size={20} color="#18181B" />
                 <Text style={styles.socialButtonText}>Apple</Text>
               </TouchableOpacity>
@@ -246,7 +248,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingBottom: 20 },
+  scrollContent: {
+    flexGrow: 1,
+    width: "100%",
+    maxWidth: 480,
+    alignSelf: "center",
+    paddingHorizontal: 24,
+    paddingBottom: 20,
+  },
   title: {
     fontSize: 28,
     fontWeight: "800",
@@ -290,7 +299,7 @@ const styles = StyleSheet.create({
   },
   termsText: { fontSize: 13, color: "#71717A", fontWeight: "500" },
   termsLink: {
-    color: "#A855F7",
+    color: theme.colors.primary,
     fontWeight: "700",
     textDecorationLine: "underline",
   },
@@ -341,5 +350,5 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
   footerText: { fontSize: 14, color: "#71717A", fontWeight: "500" },
-  footerLink: { fontSize: 14, color: "#A855F7", fontWeight: "700" },
+  footerLink: { fontSize: 14, color: theme.colors.primary, fontWeight: "700" },
 });

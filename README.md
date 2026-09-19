@@ -79,6 +79,27 @@ npx expo start
 
 4. Open the Expo QR code in Expo Go on your device, or press `i` / `a` for the simulator.
 
+## 🔐 Google Sign-In Setup
+
+The Google button (`src/shared/lib/googleAuth.ts`) uses browser-based OAuth
+through Supabase — no native Google SDK config (Info.plist / SHA-1 fingerprints)
+is required. For it to actually complete, the **server side** must be set up:
+
+1. **Supabase Dashboard → Authentication → Providers → Google**: enable the
+   provider and paste the OAuth Client ID(s) and Client Secret from the
+   [Google Cloud Console](https://console.cloud.google.com/apis/credentials).
+2. **Supabase Dashboard → Authentication → URL Configuration → Redirect URLs**:
+   add `ootdify://` (the redirect URI this app produces on native via its
+   `ootdify` scheme; the exact value is logged by the flow in development if
+   you need to confirm it). Web builds use the site URL instead of `ootdify://`.
+3. **Google Cloud Console → Credentials**: create an OAuth client for the app;
+   under *Authorized redirect URIs* add your Supabase project's callback URL
+   (shown on the Google provider page in the Supabase dashboard).
+
+The flow handles both implicit tokens (`access_token`/`refresh_token`) and
+PKCE (`code` → `exchangeCodeForSession`), then lets the root layout route to
+the app once `onAuthStateChange` reports a session.
+
 ## 📁 Project Structure
 
 Everything lives in `src/`. Two top-level buckets only — code either belongs to a

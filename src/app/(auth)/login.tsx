@@ -1,7 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { makeRedirectUri } from "expo-auth-session";
 import { router } from "expo-router";
-import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -16,16 +14,16 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { theme } from "../../shared/config/theme";
+import { signInWithGoogle } from "../../shared/lib/googleAuth";
 import { supabase } from "../../shared/lib/supabase";
-
-// Required to handle the web browser closing correctly after auth
-WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -48,29 +46,20 @@ export default function LoginScreen() {
   };
 
   const handleGoogleAuth = async () => {
+    if (googleLoading) return;
+    setGoogleLoading(true);
     try {
-      const redirectUrl = makeRedirectUri();
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: redirectUrl,
-        },
-      });
-
-      if (error) throw error;
-
-      if (data?.url) {
-        const result = await WebBrowser.openAuthSessionAsync(
-          data.url,
-          redirectUrl
-        );
-        if (result.type === "success") {
-          // Supabase handles the session automatically if the redirect is caught
-          router.replace("/(tabs)/home");
-        }
-      }
+      await signInWithGoogle();
+      // The root layout navigates away automatically once the session is set;
+      // navigating here too keeps behavior identical to email sign-in.
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session) router.replace("/(tabs)/home");
     } catch (error: any) {
       Alert.alert("Google Auth Error", error.message);
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -177,12 +166,26 @@ export default function LoginScreen() {
               <TouchableOpacity
                 style={styles.socialButton}
                 onPress={handleGoogleAuth}
+                disabled={googleLoading}
                 activeOpacity={0.7}
               >
-                <Ionicons name="logo-google" size={20} color="#EA4335" />
-                <Text style={styles.socialButtonText}>Google</Text>
+                {googleLoading ? (
+                  <ActivityIndicator size="small" color="#18181B" />
+                ) : (
+                  <>
+                    <Ionicons name="logo-google" size={20} color="#18181B" />
+                    <Text style={styles.socialButtonText}>Google</Text>
+                  </>
+                )}
               </TouchableOpacity>
-              <TouchableOpacity style={styles.socialButton} activeOpacity={0.7}>
+              <TouchableOpacity
+                style={[
+                  styles.socialButton,
+                  { opacity: 0.4 },
+                ]}
+                activeOpacity={0.7}
+                disabled
+              >
                 <Ionicons name="logo-apple" size={20} color="#18181B" />
                 <Text style={styles.socialButtonText}>Apple</Text>
               </TouchableOpacity>
@@ -213,7 +216,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingBottom: 20 },
+  scrollContent: {
+    flexGrow: 1,
+    width: "100%",
+    maxWidth: 480,
+    alignSelf: "center",
+    paddingHorizontal: 24,
+    paddingBottom: 20,
+  },
   title: {
     fontSize: 28,
     fontWeight: "800",
@@ -257,7 +267,7 @@ const styles = StyleSheet.create({
   },
   rememberMe: { flexDirection: "row", alignItems: "center", gap: 6 },
   rememberText: { fontSize: 13, color: "#71717A", fontWeight: "500" },
-  forgotText: { fontSize: 13, color: "#A855F7", fontWeight: "700" },
+  forgotText: { fontSize: 13, color: theme.colors.primary, fontWeight: "700" },
   primaryButton: {
     backgroundColor: "#18181B",
     height: 56,
@@ -305,5 +315,5 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
   footerText: { fontSize: 14, color: "#71717A", fontWeight: "500" },
-  footerLink: { fontSize: 14, color: "#A855F7", fontWeight: "700" },
+  footerLink: { fontSize: 14, color: theme.colors.primary, fontWeight: "700" },
 });
