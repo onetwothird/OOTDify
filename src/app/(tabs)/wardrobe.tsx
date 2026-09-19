@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
     ActivityIndicator,
+    Alert,
     FlatList,
     Image,
     ScrollView,
@@ -15,13 +15,12 @@ import {
 import { searchCloset } from "../../features/search/search";
 import { theme } from "../../shared/config/theme";
 import { supabase } from "../../shared/lib/supabase";
-import { useCaptureModalStore } from "../../store/captureModalStore";
-import { useWardrobeStore, WardrobeStore } from "../../store/wardrobeStore";
+import { useCaptureModalStore } from "../../features/capture/captureModalStore";
+import { useWardrobeStore, WardrobeStore } from "../../features/wardrobe/store";
 
 const filters = ["All", "Headwear", "Tops", "Outerwear", "Bottoms", "Shoes"];
 
 export default function WardrobeScreen() {
-  const router = useRouter();
   const [activeFilter, setActiveFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [hydrating, setHydrating] = useState(true);
@@ -196,7 +195,9 @@ export default function WardrobeScreen() {
 
       <TouchableOpacity
         style={styles.fab}
-        onPress={() => router.push("/(tabs)/settings")}
+        onPress={() =>
+          Alert.alert("Settings", "Settings are coming soon.")
+        }
       >
         <View style={styles.fabIcon}>
           <Ionicons name="settings" size={20} color="#fff" />
