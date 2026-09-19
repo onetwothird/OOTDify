@@ -4,14 +4,13 @@ Project README
 
 New feature scaffolding added:
 
-- src/features/closet: types, scanner stub
-- src/features/outfit: generator, compatibility scoring
-- src/features/weather: simple service with optional OpenWeather usage
-- src/features/analytics: most/least worn and wear timeline helpers
-- src/features/history: outfit history backed by localStorage
-- src/features/search: simple closet search
-- src/store/wardrobeStore.ts: localStorage-backed wardrobe store
-- src/components: small UI skeletons for scanner and outfit card
+- features/closet: canonical `ClothingItem` type + scanner stub
+- features/outfit: generator, compatibility scoring, `Outfit` type + tests
+- features/weather: simple service with optional OpenWeather usage
+- features/history: outfit history backed by localStorage
+- features/search: simple closet search
+- features/wardrobe/store.ts: the single wardrobe store (zustand)
+- shared/components: small UI skeletons (Button, GlassCard)
 
 Next steps:
 
@@ -82,34 +81,54 @@ npx expo start
 
 ## 📁 Project Structure
 
+Everything lives in `src/`. Two top-level buckets only — code either belongs to a
+**feature** (it is only used by that screen/flow) or it is genuinely **shared**
+across the whole app. If you're looking for something, start from the feature name.
+
 ```text
 OOTDify/
 ├── app.json
 ├── package.json
 ├── tsconfig.json
-├── assets/
+├── assets/                     # static images / icons
+├── scripts/                    # one-off CLI scripts (reset-project)
 ├── src/
-│   ├── app/                    # Expo Router screens and layouts
-│   │   ├── (auth)/
-│   │   ├── (tabs)/
-│   │   ├── outfit/
+│   ├── app/                    # Expo Router screens & layouts (routes only)
+│   │   ├── (auth)/             #   landing, login, signup, forgot-password
+│   │   ├── (tabs)/             #   home, AI outfits, calendar, wardrobe, + FAB
+│   │   ├── outfit/[id].tsx     #   Fit Breakdown screen
 │   │   ├── _layout.tsx
 │   │   └── +not-found.tsx
-│   ├── features/
-│   │   └── wardrobe/           # Wardrobe-specific feature modules
-│   │       ├── components/
-│   │       ├── services/
-│   │       ├── store/
-│   │       └── types/
-│   ├── hooks/
-│   ├── shared/
-│   │   ├── config/
-│   │   ├── lib/
-│   │   └── ui/
-│   ├── styles/
-│   ├── utils/
-│   └── global.css
+│   ├── features/               # each feature owns its components + logic
+│   │   ├── capture/            #   "Add to Wardrobe" modal + its UI store
+│   │   ├── closet/             #   ClothingItem type (canonical) + scanner
+│   │   ├── history/            #   outfit history (localStorage-backed)
+│   │   ├── outfit/             #   generator, compatibility, Outfit type, tests
+│   │   ├── search/             #   closet search helper
+│   │   ├── wardrobe/           #   single wardrobe store (useWardrobeStore /
+│   │   │                       #   WardrobeStore), SwipeableLook, ItemGrid
+│   │   └── weather/            #   optional OpenWeather service
+│   └── shared/                 # app-wide code only
+│       ├── components/         #   Button, GlassCard
+│       ├── config/             #   theme tokens
+│       ├── lib/                #   supabase client (single instance)
+│       ├── styles/             #   global.css (web)
+│       └── utils/              #   formatters, image helpers
 ```
+
+**Conventions that keep it readable**
+
+- One store per feature: `features/wardrobe/store.ts` holds the single
+  `useWardrobeStore` / `WardrobeStore` pair — there is no second store anywhere.
+- One canonical `ClothingItem` type in `features/closet/types.ts`; the other
+  features import it from there.
+- `src/app/` only ever contains route files; every screen imports its building
+  blocks from `features/` or `shared/`.
+
+**Intentional dead code** (kept as reference, not wired to any screen):
+`shared/components/Button.tsx`, `features/outfit/components/OutfitCard.tsx`,
+`features/wardrobe/components/ItemGrid.tsx`, `features/wardrobe/services/stylist.ts`,
+`features/weather/*`. Delete or wire them up whenever convenient.
 
 ## 🧠 Future Directions
 
