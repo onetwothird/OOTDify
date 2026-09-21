@@ -4,7 +4,7 @@
     "slug": "ootdify",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/ootdify-logo.png",
+    "icon": "./assets/images/ootdify-icon.png",
     "scheme": "ootdify",
     "userInterfaceStyle": "automatic",
     "android": {
@@ -12,7 +12,7 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/ootdify-logo.png"
+      "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
       [
@@ -34,7 +34,13 @@
       "expo-web-browser",
       "expo-font",
       "expo-image",
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "OOTDify uses the camera only when you tap Scan Me, to take a full-body photo for AI body analysis and virtual try-on."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
