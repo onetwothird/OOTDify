@@ -1,425 +1,609 @@
+// C:\OOTDify\src\app\(tabs)\home.tsx
+// Home: "Your wardrobe. Styled by AI." — hero + real-data sections.
+//
+// Real data only: recommendations and trending come from the catalog/DB, saved
+// looks from saved_outfits, wardrobe from clothing_items, recently viewed from
+// the user's history. When the Flask backend is down, the recommendations
+// section degrades to a friendly banner and the rest of the app keeps working.
 import { Ionicons } from "@expo/vector-icons";
-import * as Location from "expo-location";
-import { router, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { Image } from "expo-image";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    BackHandler,
-    Image,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
-import { supabase } from "../../shared/lib/supabase";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import {
+  fetchCatalog,
+  fetchRecentlyViewed,
+  fetchSavedOutfits,
+  recordRecentlyViewed,
+  SavedOutfit,
+} from "../../features/clothing/service";
+import { CatalogItem, OCCASIONS } from "../../features/clothing/types";
+import { useWardrobeStore } from "../../features/wardrobe/store";
+import { AppButton } from "../../shared/components/AppButton";
+import { Chip } from "../../shared/components/Chip";
+import { ClothingCard } from "../../shared/components/ClothingCard";
+import { SkeletonGrid, SkeletonRow } from "../../shared/components/LoadingState";
+import { SectionHeader } from "../../shared/components/SectionHeader";
+import { Skeleton } from "../../shared/components/Skeleton";
+import { theme } from "../../shared/config/theme";
+import { useResponsiveColumns } from "../../shared/hooks/useResponsiveColumns";
+import { resolveMediaUrl } from "../../shared/lib/storageUrl";
+import { ApiError, recommendCatalog } from "../../services/aiApi";
+
+const HORIZONTAL_CARD_W = 150;
 
 export default function HomeScreen() {
-  const [weatherData, setWeatherData] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [firstName, setFirstName] = useState("Thirdy");
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { columns, itemWidth, onLayout } = useResponsiveColumns(16, 120, 12);
 
-  // Custom Modal State
-  const [logoutModalVisible, setLogoutModalVisible] = useState(false);
+  // ---- Recommendations (Flask /api/recommend → real catalog ids) -----------
+  const [occasion, setOccasion] = useState<string>("Casual");
+  const [recommended, setRecommended] = useState<CatalogItem[]>([]);
+  const [recLoading, setRecLoading] = useState(true);
+  const [recError, setRecError] = useState<ApiError | null>(null);
 
-  const today = new Date();
-  const dayName = today
-    .toLocaleDateString("en-US", { weekday: "short" })
-    .toUpperCase();
-  const dateNumber = today.getDate();
+  // ---- Trending (fresh catalog rows, real DB data) --------------------------
+  const [trending, setTrending] = useState<CatalogItem[]>([]);
+  const [trendingLoading, setTrendingLoading] = useState(true);
+  const [trendingError, setTrendingError] = useState<string | null>(null);
 
-  const confirmLogout = async () => {
-    setLogoutModalVisible(false);
+  // ---- Wardrobe / saved / recent (Supabase anon, owner scoped by RLS) ------
+  const closet = useWardrobeStore((s) => s.items);
+  const closetLoading = useWardrobeStore((s) => s.loading);
+  const [saved, setSaved] = useState<SavedOutfit[]>([]);
+  const [savedLoading, setSavedLoading] = useState(true);
+  const [recent, setRecent] = useState<CatalogItem[]>([]);
+  const [recentLoading, setRecentLoading] = useState(true);
 
-    setTimeout(async () => {
-      await supabase.auth.signOut();
+  const firstFocus = useRef(true);
 
-      router.replace("/(auth)");
-    }, 300);
-  };
+  // ---------------------------------------------------------------------------
+  // Loaders (real endpoints only)
+  // ---------------------------------------------------------------------------
+  const loadRecommendations = useCallback(async (occ: string) => {
+    setRecLoading(true);
+    setRecError(null);
+    try {
+      const { recommendations } = await recommendCatalog({ occasion: occ, limit: 8 });
+      setRecommended(recommendations);
+    } catch (e) {
+      setRecError(e instanceof ApiError ? e : new ApiError("unknown", "Something went wrong. Please try again.", 0, e));
+    } finally {
+      setRecLoading(false);
+    }
+  }, []);
+
+  const loadTrending = useCallback(async () => {
+    setTrendingLoading(true);
+    setTrendingError(null);
+    try {
+      setTrending(await fetchCatalog({ limit: 6 }));
+    } catch (e) {
+      setTrendingError(e instanceof Error ? e.message : "Could not load trending items.");
+    } finally {
+      setTrendingLoading(false);
+    }
+  }, []);
+
+  const loadStatic = useCallback(async () => {
+    setSavedLoading(true);
+    setRecentLoading(true);
+    try {
+      const [rows, history] = await Promise.all([
+        fetchSavedOutfits(),
+        fetchRecentlyViewed(10),
+      ]);
+      setSaved(rows);
+      setRecent(history);
+    } catch {
+      // Individual sections render their own empty/error states; ignore globally.
+    } finally {
+      setSavedLoading(false);
+      setRecentLoading(false);
+    }
+    // Wardrobe lives in the shared store; keep it fresh on focus.
+    void useWardrobeStore.getState().loadFromServer().catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    void loadRecommendations(occasion);
+  }, [occasion, loadRecommendations]);
+
+  useEffect(() => {
+    void loadTrending();
+  }, [loadTrending]);
 
   useFocusEffect(
     useCallback(() => {
-      const onBackPress = () => {
-        setLogoutModalVisible(true);
-        return true;
-      };
-
-      const backHandler = BackHandler.addEventListener(
-        "hardwareBackPress",
-        onBackPress,
-      );
-      return () => backHandler.remove();
-    }, []),
+      // Refresh lightweight lists on every focus so cross-tab changes appear;
+      // avoid replacing visible content on the very first mount.
+      if (firstFocus.current) {
+        firstFocus.current = false;
+        void loadStatic();
+        return;
+      }
+      void loadStatic();
+    }, [loadStatic]),
   );
 
-  useEffect(() => {
-    (async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user?.user_metadata?.full_name) {
-        const extractedFirstName = user.user_metadata.full_name.split(" ")[0];
-        setFirstName(extractedFirstName);
-      }
-
-      // 2. Safely fetch location and weather
-      try {
-        let { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== "granted") {
-          setIsLoading(false);
-          return;
-        }
-
-        let location = await Location.getCurrentPositionAsync({});
-        const { latitude, longitude } = location.coords;
-
-        const API_KEY = process.env.EXPO_PUBLIC_WEATHER_API_KEY;
-        const url = `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&units=metric&appid=${API_KEY}`;
-
-        const response = await fetch(url);
-        const data = await response.json();
-        if (response.ok) setWeatherData(data);
-        else setWeatherData(null);
-      } catch (error) {
-        console.log("Location/Weather fetch failed (Safe fallback):", error);
-        setWeatherData(null);
-      } finally {
-        setIsLoading(false);
-      }
-    })();
-  }, []);
-
-  const getWeatherIcon = (condition: string) => {
-    switch (condition) {
-      case "Clear":
-        return "sunny";
-      case "Clouds":
-        return "partly-sunny";
-      case "Rain":
-      case "Drizzle":
-        return "rainy";
-      case "Thunderstorm":
-        return "thunderstorm";
-      case "Snow":
-        return "snow";
-      default:
-        return "cloud";
-    }
-  };
+  // ---------------------------------------------------------------------------
+  // Actions
+  // ---------------------------------------------------------------------------
+  const openItem = useCallback(
+    (item: CatalogItem) => {
+      recordRecentlyViewed(item.id).catch(() => {});
+      router.push(`/catalog/${item.id}`);
+    },
+    [router],
+  );
 
   return (
-    <>
+    <View style={[styles.screen, { paddingTop: insets.top + 8 }]}>
       <ScrollView
-        style={styles.container}
+        contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 120 }}
+        keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Morning, {firstName}!</Text>
-            <View style={styles.locationContainer}>
-              <Ionicons name="location" size={14} color="#71717A" />
-              <Text style={styles.locationText}>
-                {isLoading ? "Locating..." : weatherData?.name || "Local"}
+        {/* ------------------------------------------------ Hero */}
+        <Hero />
+
+        {/* ------------------------------------------------ Recommended looks */}
+        <SectionHeader
+          title="Recommended for you"
+          subtitle={`Real catalog picks for “${occasion}”, scored by the style engine.`}
+        />
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chips}
+        >
+          {OCCASIONS.map((occ) => (
+            <Chip
+              key={occ}
+              label={occ}
+              active={occ === occasion}
+              onPress={() => setOccasion(occ)}
+            />
+          ))}
+        </ScrollView>
+
+        {recLoading ? (
+          <SkeletonGrid />
+        ) : recError ? (
+          <View style={styles.unavailable}>
+            <Ionicons name="cloud-offline-outline" size={20} color={theme.colors.accent} />
+            <View style={styles.unavailableBody}>
+              <Text style={styles.unavailableTitle}>AI styling is temporarily unavailable</Text>
+              <Text style={styles.unavailableText}>
+                {recError.message} Make sure the AI service is running, then try again.
               </Text>
             </View>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => void loadRecommendations(occasion)}
+              style={styles.unavailableRetry}
+            >
+              <Text style={styles.unavailableRetryText}>Retry</Text>
+            </Pressable>
           </View>
-
-          <View style={styles.headerActions}>
-            <TouchableOpacity>
-              <Ionicons
-                name="notifications-outline"
-                size={24}
-                color="#18181B"
+        ) : recommended.length === 0 ? (
+          <Text style={styles.emptyLine}>
+            No catalog items for this occasion yet — try another one.
+          </Text>
+        ) : (
+          <View style={styles.grid} onLayout={onLayout}>
+            {recommended.map((item) => (
+              <ClothingCard
+                key={item.id}
+                item={item}
+                width={itemWidth}
+                onPress={() => openItem(item)}
               />
-            </TouchableOpacity>
+            ))}
           </View>
-        </View>
+        )}
 
-        <View style={styles.scheduleCard}>
-          <View style={styles.dateBadge}>
-            <Text style={styles.dateDay}>{dayName}</Text>
-            <Text style={styles.dateNumber}>{dateNumber}</Text>
+        {/* ------------------------------------------------ My wardrobe */}
+        <SectionHeader
+          title="My wardrobe"
+          subtitle="Your pieces, stored privately."
+          actionLabel="Open"
+          onAction={() => router.push("/(tabs)/discover")}
+        />
+        {closetLoading && closet.length === 0 ? (
+          <View style={styles.hRow}>
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} width={110} height={140} radius={theme.borderRadius.md} />
+            ))}
           </View>
-
-          <View style={styles.scheduleInfo}>
-            <Text style={styles.scheduleTitle}>Chill Weekend Indoors</Text>
-            <Text style={styles.scheduleTime}>All Day</Text>
-          </View>
-
-          <View style={styles.weatherInfo}>
-            {isLoading ? (
-              <ActivityIndicator size="small" color="#A1A1AA" />
-            ) : weatherData?.weather?.[0] ? (
-              <>
-                <Ionicons
-                  name={getWeatherIcon(weatherData.weather[0].main)}
-                  size={20}
-                  color="#A1A1AA"
-                />
-                <Text style={styles.weatherTemp}>
-                  {Math.round(weatherData.main.temp)}°C
-                </Text>
-              </>
-            ) : (
-              <Text style={styles.weatherTemp}>--°C</Text>
-            )}
-          </View>
-        </View>
-
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Today's Pick</Text>
-          <TouchableOpacity style={styles.restyleBtn}>
-            <Text style={styles.restyleText}>Restyle </Text>
-            <Ionicons name="sparkles" size={14} color="#3F3F46" />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.mainCard}>
-          <Image
-            source={{
-              uri: "https://images.unsplash.com/photo-1584273143981-41c073dfe8f8?auto=format&fit=crop&w=800&q=80",
-            }}
-            style={styles.cardImage}
-          />
-          <View style={styles.cardFooter}>
-            <Text style={styles.cardFooterTitle}>Cozy Home Fit</Text>
-            <TouchableOpacity style={styles.bookmarkBtn}>
-              <Ionicons name="bookmark-outline" size={20} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </ScrollView>
-
-      {/* --- CUSTOM LOGOUT MODAL --- */}
-      <Modal
-        visible={logoutModalVisible}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setLogoutModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalIconContainer}>
-              <Ionicons name="log-out-outline" size={28} color="#18181B" />
-            </View>
-            <Text style={styles.modalTitle}>Log Out</Text>
-            <Text style={styles.modalText}>
-              Are you sure you want to log out of your account?
+        ) : closet.length === 0 ? (
+          <View style={styles.hEmpty}>
+            <Text style={styles.emptyLine}>
+              Your wardrobe is empty — add your first pieces.
             </Text>
-
-            <View style={styles.modalButtonRow}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => setLogoutModalVisible(false)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.confirmButton}
-                onPress={confirmLogout}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.confirmButtonText}>Yes, Log Out</Text>
-              </TouchableOpacity>
-            </View>
+            <AppButton
+              label="Add clothes"
+              size="md"
+              icon="add"
+              onPress={() => router.push("/(tabs)/discover")}
+              style={styles.inlineBtn}
+            />
           </View>
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tileRow}
+          >
+            {closet.slice(0, 8).map((item) => (
+              <WardrobeTile
+                key={item.id}
+                id={item.id}
+                imageRef={item.image_url}
+                name={item.name || item.category || "Item"}
+                category={item.category ?? ""}
+                onPress={() => router.push(`/item/${item.id}`)}
+              />
+            ))}
+          </ScrollView>
+        )}
+
+        {/* ------------------------------------------------ Recent looks (saved) */}
+        <SectionHeader
+          title="Recent looks"
+          subtitle="Outfits you saved — built from real pieces."
+          actionLabel="All"
+          onAction={() => router.push("/(tabs)/outfits")}
+        />
+        {savedLoading ? (
+          <SkeletonRow />
+        ) : saved.length === 0 ? (
+          <Text style={styles.emptyLine}>
+            Build your first outfit and it will show up here.
+          </Text>
+        ) : (
+          <View style={styles.savedList}>
+            {saved.slice(0, 4).map((o) => (
+              <SavedLookRow
+                key={o.id}
+                outfit={o}
+                onPress={() => router.push(`/outfit/${o.id}`)}
+              />
+            ))}
+          </View>
+        )}
+
+        {/* ------------------------------------------------ Recently viewed */}
+        <SectionHeader title="Recently viewed" subtitle="Pick up where you left off." />
+        {recentLoading ? (
+          <SkeletonRow />
+        ) : recent.length === 0 ? (
+          <Text style={styles.emptyLine}>
+            Items you open will appear here.
+          </Text>
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tileRow}
+          >
+            {recent.slice(0, 10).map((item) => (
+              <ClothingCard
+                key={item.id}
+                item={item}
+                width={HORIZONTAL_CARD_W}
+                onPress={() => openItem(item)}
+              />
+            ))}
+          </ScrollView>
+        )}
+
+        {/* ------------------------------------------------ Trending inspiration */}
+        <SectionHeader
+          title="Trending inspiration"
+          subtitle="Fresh from the catalog."
+          actionLabel="Browse"
+          onAction={() => router.push("/(tabs)/discover")}
+        />
+        {trendingLoading ? (
+          <SkeletonGrid count={3} />
+        ) : trendingError ? (
+          <Text style={styles.emptyLine}>{trendingError}</Text>
+        ) : trending.length === 0 ? (
+          <Text style={styles.emptyLine}>The catalog is being seeded — check back soon.</Text>
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tileRow}
+          >
+            {trending.map((item) => (
+              <ClothingCard
+                key={item.id}
+                item={item}
+                width={HORIZONTAL_CARD_W}
+                onPress={() => openItem(item)}
+              />
+            ))}
+          </ScrollView>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Hero
+// ---------------------------------------------------------------------------
+function Hero() {
+  const router = useRouter();
+  return (
+    <View style={styles.hero}>
+      <Text style={styles.heroEyebrow}>OOTDIFY · AI STYLIST</Text>
+      <Text style={styles.heroTitle}>
+        Your wardrobe.
+        {"\n"}
+        Styled by AI.
+      </Text>
+      <Text style={styles.heroText}>
+        Create outfits, try clothes virtually, and discover what to wear next.
+      </Text>
+      <View style={styles.heroActions}>
+        <AppButton
+          label="Create outfit"
+          icon="shirt-outline"
+          onPress={() => router.push("/(tabs)/outfits")}
+          style={styles.heroBtn}
+        />
+        <AppButton
+          label="Try it on"
+          icon="sparkles-outline"
+          variant="secondary"
+          onPress={() => router.push("/(tabs)/scan")}
+          style={styles.heroBtn}
+        />
+      </View>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.push("/(tabs)/discover")}
+        style={styles.heroWalletLink}
+      >
+        <Ionicons name="folder-open-outline" size={16} color={theme.colors.onPrimary} />
+        <Text style={styles.heroWalletText}>My wardrobe</Text>
+        <Ionicons name="chevron-forward" size={14} color={theme.colors.onPrimary} />
+      </Pressable>
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Wardrobe tile (home preview)
+// ---------------------------------------------------------------------------
+function WardrobeTile({
+  id,
+  imageRef,
+  name,
+  category,
+  onPress,
+}: {
+  id: string;
+  imageRef: string | null;
+  name: string;
+  category: string;
+  onPress: () => void;
+}) {
+  const [uri, setUri] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    resolveMediaUrl(imageRef, 900).then((u) => {
+      if (alive) setUri(u);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [imageRef]);
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      key={id}
+      onPress={onPress}
+      style={({ pressed }) => [styles.tile, pressed && { opacity: 0.9 }]}
+    >
+      {uri ? (
+        <Image source={{ uri }} style={styles.tileImage} contentFit="cover" transition={150} />
+      ) : (
+        <View style={[styles.tileImage, styles.tilePlaceholder]}>
+          <Ionicons name="shirt-outline" size={22} color={theme.colors.textMuted} />
         </View>
-      </Modal>
-    </>
+      )}
+      <Text style={styles.tileName} numberOfLines={1}>
+        {name}
+      </Text>
+      <Text style={styles.tileMeta} numberOfLines={1}>
+        {category}
+      </Text>
+    </Pressable>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Saved look row
+// ---------------------------------------------------------------------------
+function SavedLookRow({ outfit, onPress }: { outfit: SavedOutfit; onPress: () => void }) {
+  const count = outfit.clothing_ids?.length ?? 0;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [styles.savedRow, pressed && { opacity: 0.85 }]}
+    >
+      <View style={styles.savedIcon}>
+        <Ionicons name="sparkles" size={18} color={theme.colors.onPrimary} />
+      </View>
+      <View style={styles.savedBody}>
+        <Text style={styles.savedName} numberOfLines={1}>
+          {outfit.name || (outfit.occasion ? `${outfit.occasion} look` : "Untitled look")}
+        </Text>
+        <Text style={styles.savedMeta} numberOfLines={1}>
+          {outfit.occasion ?? "No occasion"} · {count} item{count === 1 ? "" : "s"} ·{" "}
+          {new Date(outfit.created_at).toLocaleDateString()}
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={16} color={theme.colors.textMuted} />
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 20,
-    paddingTop: 50,
+  screen: { flex: 1, backgroundColor: theme.colors.background },
+  content: { paddingHorizontal: theme.spacing.page, paddingBottom: 40 },
+
+  // Hero
+  hero: {
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.borderRadius.lg,
+    padding: 22,
+    paddingBottom: 18,
+    marginTop: theme.spacing.sm,
   },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 24,
+  heroEyebrow: {
+    color: "#E8A88F",
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 2,
+    marginBottom: 10,
   },
-  headerActions: { flexDirection: "row", alignItems: "center" },
-  greeting: { fontSize: 32, fontWeight: "900", color: "#18181B" },
-  locationContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 4,
+  heroTitle: {
+    color: theme.colors.onPrimary,
+    fontSize: 34,
+    lineHeight: 38,
+    fontWeight: "800",
+    letterSpacing: -1,
   },
-  locationText: {
+  heroText: {
+    color: "#C9C5BC",
     fontSize: 14,
-    color: "#71717A",
-    fontWeight: "500",
-    marginLeft: 4,
+    lineHeight: 20,
+    marginTop: 10,
+    maxWidth: 300,
   },
-  scheduleCard: {
+  heroActions: { flexDirection: "row", gap: 10, marginTop: 18 },
+  heroBtn: { flex: 1 },
+  heroWalletLink: {
     flexDirection: "row",
-    backgroundColor: "#F4F4F5",
-    borderRadius: 20,
-    padding: 16,
     alignItems: "center",
-    marginBottom: 32,
+    gap: 6,
+    marginTop: 14,
+    alignSelf: "flex-start",
   },
-  dateBadge: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    alignItems: "center",
-    marginRight: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  dateDay: {
-    fontSize: 10,
+  heroWalletText: {
+    color: theme.colors.onPrimary,
+    fontSize: 13.5,
     fontWeight: "700",
-    color: "#3F3F46",
-    marginBottom: 2,
-  },
-  dateNumber: { fontSize: 16, fontWeight: "800", color: "#18181B" },
-  scheduleInfo: { flex: 1 },
-  scheduleTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#18181B",
-    marginBottom: 4,
-  },
-  scheduleTime: { fontSize: 13, color: "#71717A", fontWeight: "500" },
-  weatherInfo: { flexDirection: "row", alignItems: "center" },
-  weatherTemp: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#18181B",
-    marginLeft: 6,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  sectionTitle: { fontSize: 18, fontWeight: "700", color: "#18181B" },
-  restyleBtn: { flexDirection: "row", alignItems: "center" },
-  restyleText: { fontSize: 15, fontWeight: "700", color: "#18181B" },
-  mainCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#F4F4F5",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06,
-    shadowRadius: 24,
-    elevation: 5,
-  },
-  cardImage: {
-    width: "100%",
-    height: 340,
-    borderRadius: 16,
-    resizeMode: "cover",
-    marginBottom: 20,
-  },
-  cardFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 8,
-    paddingBottom: 8,
-  },
-  cardFooterTitle: { fontSize: 16, fontWeight: "700", color: "#18181B" },
-  bookmarkBtn: {
-    backgroundColor: "#18181B",
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    justifyContent: "center",
-    alignItems: "center",
   },
 
-  // --- MODAL STYLES ---
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.45)",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 24,
-  },
-  modalContainer: {
-    width: "100%",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 32,
-    padding: 32,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  modalIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: "#F4F4F5",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#18181B",
-    marginBottom: 8,
-  },
-  modalText: {
-    fontSize: 15,
-    color: "#71717A",
-    textAlign: "center",
-    marginBottom: 32,
-    fontWeight: "500",
-    lineHeight: 22,
-  },
-  modalButtonRow: {
+  // Sections
+  chips: { gap: 8, paddingRight: 16, paddingBottom: 4 },
+  grid: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    width: "100%",
+    flexWrap: "wrap",
+    gap: 12,
+    justifyContent: "flex-start",
   },
-  cancelButton: {
-    flex: 1,
-    height: 56,
-    borderRadius: 100,
-    backgroundColor: "#F4F4F5",
-    justifyContent: "center",
-    alignItems: "center",
+  hRow: { flexDirection: "row", gap: 12 },
+  hEmpty: { gap: 10 },
+  tileRow: { gap: 12, paddingRight: 16 },
+  tile: { width: 108 },
+  tileImage: {
+    width: 108,
+    height: 128,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.surfaceAlt,
   },
-  cancelButtonText: {
-    color: "#18181B",
-    fontSize: 15,
+  tilePlaceholder: { alignItems: "center", justifyContent: "center" },
+  tileName: {
+    fontSize: 13,
     fontWeight: "700",
+    color: theme.colors.text,
+    marginTop: 6,
   },
-  confirmButton: {
-    flex: 1,
-    height: 56,
-    borderRadius: 100,
-    backgroundColor: "#18181B",
-    justifyContent: "center",
+  tileMeta: {
+    fontSize: 11,
+    color: theme.colors.textMuted,
+    marginTop: 1,
+  },
+
+  savedList: { gap: 10 },
+  savedRow: {
+    flexDirection: "row",
     alignItems: "center",
+    gap: 12,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+    padding: 12,
   },
-  confirmButtonText: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "700",
+  savedIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: theme.colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
   },
+  savedBody: { flex: 1, minWidth: 0 },
+  savedName: { fontSize: 14, fontWeight: "700", color: theme.colors.text },
+  savedMeta: { fontSize: 11.5, color: theme.colors.textMuted, marginTop: 2 },
+
+  emptyLine: {
+    fontSize: 13,
+    color: theme.colors.textMuted,
+    lineHeight: 19,
+    paddingVertical: 8,
+  },
+  inlineBtn: { alignSelf: "flex-start" },
+
+  // Backend-unavailable banner (friendly, actionable)
+  unavailable: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    backgroundColor: "#FBF0EA",
+    borderRadius: theme.borderRadius.md,
+    padding: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#EBCFBE",
+  },
+  unavailableBody: { flex: 1, minWidth: 0 },
+  unavailableTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#9A4A28",
+  },
+  unavailableText: {
+    fontSize: 12,
+    color: "#8A5A40",
+    lineHeight: 17,
+    marginTop: 2,
+  },
+  unavailableRetry: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: theme.borderRadius.sm,
+    backgroundColor: "#FFFFFF",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#E0BFA9",
+  },
+  unavailableRetryText: { fontSize: 12, fontWeight: "700", color: "#9A4A28" },
 });
