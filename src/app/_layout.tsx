@@ -1,8 +1,10 @@
 // C:\OOTDify\src\app\_layout.tsx
+// Root layout: auth gating + SafeAreaProvider + stack routes.
 import { Session } from "@supabase/supabase-js";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { theme } from "../shared/config/theme";
 import { supabase } from "../shared/lib/supabase";
 
@@ -15,12 +17,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     let mounted = true;
-    if (
-      !supabase ||
-      !supabase.auth ||
-      typeof supabase.auth.getSession !== "function"
-    ) {
-      // no supabase configured; continue without session
+    if (!supabase || !supabase.auth || typeof supabase.auth.getSession !== "function") {
       setInitialized(true);
       return;
     }
@@ -32,8 +29,7 @@ export default function RootLayout() {
         setSession(session);
         setInitialized(true);
       })
-      .catch((e) => {
-        console.warn("supabase.getSession failed", e);
+      .catch(() => {
         if (mounted) setInitialized(true);
       });
 
@@ -47,29 +43,26 @@ export default function RootLayout() {
       mounted = false;
       try {
         subscription.unsubscribe();
-      } catch (e) {}
+      } catch {
+        /* ignore */
+      }
     };
   }, []);
 
   useEffect(() => {
     if (!initialized) return;
-
     const inAuthGroup = segments[0] === "(auth)";
-
     if (!session && !inAuthGroup) {
-      // Send them to the landing page first instead of login
       router.push("/(auth)");
     } else if (session && inAuthGroup) {
       router.replace("/(tabs)/home");
     }
   }, [session, initialized, segments]);
 
-  if (!initialized) {
-    return null;
-  }
+  if (!initialized) return null;
 
   return (
-    <>
+    <SafeAreaProvider>
       <StatusBar style="dark" />
       <Stack
         screenOptions={{
@@ -79,9 +72,13 @@ export default function RootLayout() {
       >
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="catalog/[id]" />
         <Stack.Screen name="outfit/[id]" />
+        <Stack.Screen name="privacy/data" />
+        <Stack.Screen name="privacy/policy" />
+        <Stack.Screen name="privacy/terms" />
         <Stack.Screen name="+not-found" />
       </Stack>
-    </>
+    </SafeAreaProvider>
   );
 }
