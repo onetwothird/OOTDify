@@ -1,0 +1,34 @@
+# OOTDify — optional Docker Compose for the Flask AI backend (local dev).
+#
+# The primary local-dev path remains the venv flow in the README; this is for
+# anyone who prefers to run the backend in a container.
+#
+# Start:
+#   docker compose up --build
+#
+# Verify:
+#   curl http://127.0.0.1:5000/health
+#
+# env_file is optional: if backend/.env does not exist (no SUPABASE_URL /
+# SUPABASE_SERVICE_ROLE_KEY), the app still boots and /health works; the
+# try-on worker and Supabase-backed routes pause gracefully.
+services:
+  backend:
+    build: ./backend
+    container_name: ootdify-backend
+    ports:
+      - "5000:5000"
+    env_file:
+      - path: ./backend/.env
+        required: false
+    environment:
+      FLASK_HOST: "0.0.0.0"
+      FLASK_PORT: "5000"
+      FLASK_DEBUG: "0"
+    volumes:
+      # Persist runtime artifacts so jobs/yolov8 weights survive restarts.
+      - ./backend/uploads:/app/uploads
+      - ./backend/outputs:/app/outputs
+      - ./backend/data:/app/data
+      - ./backend/models:/app/models
+    restart: unless-stopped
