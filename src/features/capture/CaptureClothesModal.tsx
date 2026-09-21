@@ -1,3 +1,11 @@
+// C:\OOTDify\src\features\capture\CaptureClothesModal.tsx
+// Capture flow: take/choose photos → upload to the PRIVATE `wardrobe` bucket →
+// insert real rows into public.clothing_items. No scanner stub, no local-only
+// items, no fake detection. The user picks the category; we never guess.
+//
+// PRIVACY: the camera permission is requested only when the user taps
+// "Take Photo" (with the context copy below). Library picks use the system
+// photo picker — no broad gallery permission is requested on Android.
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useState } from "react";
@@ -12,12 +20,13 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { scanImages } from "../closet/scanner";
+
+import { insertClothingItem, uploadToWardrobeBucket } from "../clothing/service";
+import { ClothingItem } from "../clothing/types";
 import { WardrobeStore } from "../wardrobe/store";
-import { supabase } from "../../shared/lib/supabase";
 import { useCaptureModalStore } from "./captureModalStore";
 
-const CATEGORIES = ["Tops", "Bottoms", "Outerwear", "Shoes", "Headwear"];
+const CATEGORIES = ["Tops", "Bottoms", "Outerwear", "Shoes", "Dresses", "Bags", "Accessories"];
 
 type CapturedEntry = { uri: string; category: string };
 
@@ -39,48 +48,42 @@ export default function CaptureClothesModal() {
   };
 
   const addUris = (uris: string[]) => {
-    // category starts unset ("") - if the user doesn't tag it, we fall back
-    // to whatever the scanner/API returns instead of guessing wrong.
     setEntries((prev) => [...prev, ...uris.map((uri) => ({ uri, category: "" }))]);
   };
 
   const takePhoto = async () => {
+    // Camera permission is only requested here — after the user deliberately
+    // taps "Take Photo" and has read the context copy below.
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
       Alert.alert(
         "Camera access needed",
-        "Please enable camera access to capture your clothes.",
+        "We only use the camera to photograph the clothes you choose to add to your wardrobe.",
       );
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images"],
       quality: 0.7,
       allowsEditing: true,
       aspect: [3, 4],
     });
     if (!result.canceled && result.assets?.length) {
-      addUris(result.assets.map((a: { uri: string }) => a.uri));
+      addUris(result.assets.map((a) => a.uri));
     }
   };
 
   const pickFromLibrary = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert(
-        "Photo access needed",
-        "Please enable photo library access to import your clothes.",
-      );
-      return;
-    }
+    // Android uses the system photo picker (no broad storage permission);
+    // iOS may prompt for limited library access on selection.
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images"],
       quality: 0.7,
       allowsMultipleSelection: true,
       selectionLimit: 10,
     });
     if (!result.canceled && result.assets?.length) {
-      addUris(result.assets.map((a: { uri: string }) => a.uri));
+      addUris(result.assets.map((a) => a.uri));
     }
   };
 
@@ -94,57 +97,55 @@ export default function CaptureClothesModal() {
     setEntries((prev) => prev.filter((e) => e.uri !== uri));
   };
 
-  const finishAndScan = async () => {
+  const saveEntries = async () => {
     if (!entries.length) {
       handleClose();
       return;
     }
     setProcessing(true);
-    try {
-      const scanned = await scanImages(entries.map((e) => e.uri));
-      const finalItems = scanned.map((item, idx) => ({
-        ...item,
-        // user's tag wins; otherwise fall back to whatever scanImages returned
-        category: entries[idx]?.category || item.category,
-      }));
-
-      WardrobeStore.addItems(finalItems);
-
-      // best-effort cloud sync - never blocks the local add
+    const saved: ClothingItem[] = [];
+    let failed = 0;
+    for (const entry of entries) {
       try {
-        if (supabase && typeof supabase.from === "function") {
-          const {
-            data: { user },
-          } = await supabase.auth.getUser();
-          if (user) {
-            await supabase.from("clothing_items").insert(
-              finalItems.map((item) => ({
-                user_id: user.id,
-                name: item.name,
-                category: item.category,
-                image_url: item.images[0],
-                tags: item.tags,
-              })),
-            );
-          }
+        if (!entry.category) {
+          throw new Error("Pick a category first.");
         }
+        const storageRef = await uploadToWardrobeBucket(entry.uri, `item-${Date.now()}.jpg`, "image/jpeg");
+        const row = await insertClothingItem({
+          name: entry.category,
+          category: entry.category,
+          image_url: storageRef,
+          tags: [],
+        });
+        saved.push(row);
       } catch (e) {
-        console.warn("Supabase sync of scanned items failed (kept locally):", e);
+        console.warn("Failed to save captured item:", e);
+        failed += 1;
       }
-
-      Alert.alert(
-        "Added to your wardrobe",
-        `${finalItems.length} item${finalItems.length > 1 ? "s" : ""} added. Check the AI Outfits tab for new pairings.`,
-      );
-      handleClose();
-    } catch (e) {
-      console.warn("Scanning captured clothes failed:", e);
-      Alert.alert(
-        "Something went wrong",
-        "We couldn't process those photos. Please try again.",
-      );
-      setProcessing(false);
     }
+
+    if (saved.length) {
+      WardrobeStore.addItems(saved);
+    }
+
+    setProcessing(false);
+
+    if (saved.length === 0) {
+      Alert.alert(
+        "Nothing saved",
+        failed > 0
+          ? "We couldn't upload those photos. Check your connection and try again."
+          : "Pick a category for each photo, then save.",
+      );
+      return;
+    }
+
+    Alert.alert(
+      "Added to your wardrobe",
+      `${saved.length} item${saved.length > 1 ? "s" : ""} saved to your closet` +
+        (failed ? ` (${failed} failed).` : "."),
+    );
+    handleClose();
   };
 
   return (
@@ -157,15 +158,15 @@ export default function CaptureClothesModal() {
       <View style={styles.overlay}>
         <View style={styles.sheet}>
           <View style={styles.header}>
-            <Text style={styles.title}>Add to Wardrobe</Text>
+            <Text style={styles.title}>Add to Closet</Text>
             <TouchableOpacity onPress={handleClose}>
               <Ionicons name="close-outline" size={26} color="#18181B" />
             </TouchableOpacity>
           </View>
 
           <Text style={styles.subtitle}>
-            Snap a photo of each item and we'll add it to your wardrobe so
-            the AI Outfits tab can start pairing it right away.
+            Photos are stored privately and only ever shown to you. Pick a
+            category for each item — we never guess what it is.
           </Text>
 
           {entries.length > 0 && (
@@ -220,7 +221,7 @@ export default function CaptureClothesModal() {
 
           <TouchableOpacity
             style={styles.doneBtn}
-            onPress={finishAndScan}
+            onPress={saveEntries}
             disabled={processing}
           >
             {processing ? (
@@ -228,7 +229,7 @@ export default function CaptureClothesModal() {
             ) : (
               <Text style={styles.doneBtnText}>
                 {entries.length
-                  ? `Add ${entries.length} Item${entries.length > 1 ? "s" : ""} to Wardrobe`
+                  ? `Save ${entries.length} Item${entries.length > 1 ? "s" : ""} to Closet`
                   : "Skip for now"}
               </Text>
             )}
