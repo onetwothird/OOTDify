@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Environment (never commit real secrets)
+.env
+
+# Runtime artifacts
+uploads/
+outputs/
+!uploads/.gitkeep
+!outputs/.gitkeep
+
+# Model weights can be re-downloaded; do not commit them
+models/yolo/*.pt
