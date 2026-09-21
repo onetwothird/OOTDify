@@ -1,0 +1,22 @@
+# ---- Web framework ----
+flask>=3.0,<4
+flask-cors>=4.0,<5
+
+# ---- Computer vision ----
+# Installs torch, opencv-python, numpy and the YOLO inference stack automatically.
+ultralytics>=8.3.0
+
+# ---- Image validation ----
+pillow>=10.3.0
+
+# ---- Environment variables ----
+python-dotenv>=1.0,<2
+
+# ---- Supabase (backend service-role client for DB + private storage) ----
+supabase>=2.6,<3
+
+# ---- Testing the API from a script (backend/scripts/test_api.py) ----
+requests>=2.31.0
+
+# ---- Production only (Linux). Not used during local Windows development. ----
+# gunicorn>=21.2.0
