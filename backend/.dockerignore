@@ -1,0 +1,18 @@
+# Keep the image small and free of local state / secrets.
+.venv
+venv
+__pycache__
+*.py[cod]
+.env
+.pytest_cache
+tests
+scripts
+uploads
+outputs
+data
+models/yolo/*.pt
+.git
+.gitignore
+README.md
+Dockerfile
+docker-compose.yml
