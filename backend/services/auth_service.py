@@ -55,6 +55,11 @@ def require_user() -> dict:
 
     try:
         auth_response = get_supabase().auth.get_user(token)
+    except SupabaseNotConfiguredError:
+        # Surface the REAL cause (backend missing its Supabase credentials) as a
+        # clean 503 instead of a misleading "session expired" 401. require_auth
+        # maps this exception to a 503 response.
+        raise
     except Exception as exc:  # invalid/expired token, network issue, etc.
         logger.warning("Token validation failed: %s", exc)
         raise AuthError("Invalid or expired session. Please sign in again.") from exc
