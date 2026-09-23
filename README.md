@@ -133,6 +133,23 @@ npx expo start
 Scan the QR code in Expo Go (phone and PC must be on the same Wi-Fi). Press
 `i` / `a` for simulators, `w` for web.
 
+### 5. One command for everything (recommended)
+
+Instead of running the backend and Expo in separate terminals, kick off both
+from the repo root:
+
+```bash
+npm run dev
+```
+
+This launches the Flask backend (`backend/app.py`, reusing `backend/.venv` if
+present) and `npx expo start` side by side, with `[backend]` / `[expo]`
+prefixed logs. `Ctrl+C` shuts both down.
+
+- `npm run backend` — backend only
+- `npm run expo` — Expo only
+- `npm run dev` — both (default)
+
 ## 🐳 Docker (optional)
 
 A `Dockerfile` (in `backend/`) and `docker-compose.yml` are provided for anyone
