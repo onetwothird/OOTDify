@@ -31,19 +31,20 @@ import { AppButton } from "../../shared/components/AppButton";
 import { Chip } from "../../shared/components/Chip";
 import { ClothingCard } from "../../shared/components/ClothingCard";
 import { SkeletonGrid, SkeletonRow } from "../../shared/components/LoadingState";
+import { Mascot } from "../../shared/components/Mascot";
 import { SectionHeader } from "../../shared/components/SectionHeader";
 import { Skeleton } from "../../shared/components/Skeleton";
 import { theme } from "../../shared/config/theme";
 import { useResponsiveColumns } from "../../shared/hooks/useResponsiveColumns";
 import { resolveMediaUrl } from "../../shared/lib/storageUrl";
-import { ApiError, recommendCatalog } from "../../services/aiApi";
+import { ApiError, getProfile, recommendCatalog } from "../../services/aiApi";
 
 const HORIZONTAL_CARD_W = 150;
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { columns, itemWidth, onLayout } = useResponsiveColumns(16, 120, 12);
+  const { columns, itemWidth, onLayout } = useResponsiveColumns(120, 12);
 
   // ---- Recommendations (Flask /api/recommend → real catalog ids) -----------
   const [occasion, setOccasion] = useState<string>("Casual");
@@ -63,6 +64,10 @@ export default function HomeScreen() {
   const [savedLoading, setSavedLoading] = useState(true);
   const [recent, setRecent] = useState<CatalogItem[]>([]);
   const [recentLoading, setRecentLoading] = useState(true);
+
+  // ---- Greeting (profile first name; generic fallback when backend is down) --
+  const [firstName, setFirstName] = useState<string | null>(null);
+  const [greetingLoading, setGreetingLoading] = useState(true);
 
   const firstFocus = useRef(true);
 
@@ -114,6 +119,23 @@ export default function HomeScreen() {
     void useWardrobeStore.getState().loadFromServer().catch(() => {});
   }, []);
 
+  const loadGreeting = useCallback(async () => {
+    setGreetingLoading(true);
+    try {
+      const { profile } = await getProfile();
+      const name =
+        profile.first_name?.trim() ||
+        profile.display_name?.trim() ||
+        null;
+      setFirstName(name);
+    } catch {
+      // AI service down / not signed in: fall back to a generic greeting.
+      setFirstName(null);
+    } finally {
+      setGreetingLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void loadRecommendations(occasion);
   }, [occasion, loadRecommendations]);
@@ -129,10 +151,12 @@ export default function HomeScreen() {
       if (firstFocus.current) {
         firstFocus.current = false;
         void loadStatic();
+        void loadGreeting();
         return;
       }
       void loadStatic();
-    }, [loadStatic]),
+      void loadGreeting();
+    }, [loadStatic, loadGreeting]),
   );
 
   // ---------------------------------------------------------------------------
@@ -153,6 +177,13 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {/* ------------------------------------------------ Greeting header */}
+        <GreetingHeader
+          firstName={firstName}
+          loading={greetingLoading}
+          onProfile={() => router.push("/(tabs)/profile")}
+        />
+
         {/* ------------------------------------------------ Hero */}
         <Hero />
 
@@ -226,16 +257,24 @@ export default function HomeScreen() {
             ))}
           </View>
         ) : closet.length === 0 ? (
-          <View style={styles.hEmpty}>
-            <Text style={styles.emptyLine}>
-              Your wardrobe is empty — add your first pieces.
-            </Text>
+          <View style={styles.emptyCard}>
+            <View style={styles.emptyTop}>
+              <View style={styles.emptyIconTile}>
+                <Ionicons name="shirt-outline" size={22} color={theme.colors.text} />
+              </View>
+              <View style={styles.emptyBody}>
+                <Text style={styles.emptyTitle}>Your wardrobe is empty</Text>
+                <Text style={styles.emptyText}>
+                  Add your first pieces to build looks and try them on.
+                </Text>
+              </View>
+            </View>
             <AppButton
               label="Add clothes"
               size="md"
               icon="add"
               onPress={() => router.push("/(tabs)/discover")}
-              style={styles.inlineBtn}
+              style={styles.emptyBtn}
             />
           </View>
         ) : (
@@ -342,6 +381,58 @@ export default function HomeScreen() {
 }
 
 // ---------------------------------------------------------------------------
+// Greeting header (time-based greeting + first name + avatar → Profile)
+// ---------------------------------------------------------------------------
+function GreetingHeader({
+  firstName,
+  loading,
+  onProfile,
+}: {
+  firstName: string | null;
+  loading: boolean;
+  onProfile: () => void;
+}) {
+  const hour = new Date().getHours();
+  const greeting =
+    hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : hour < 21 ? "Good evening" : "Good night";
+  const initial = (firstName?.[0] ?? "").toUpperCase();
+
+  return (
+    <View style={styles.greetingRow}>
+      <View style={styles.mascotWrap}>
+        <Mascot size={46} />
+      </View>
+      <View style={styles.greetingBody}>
+        <Text style={styles.greetingTitle} numberOfLines={1}>
+          {greeting}
+          {firstName ? `, ${firstName}` : ""}
+        </Text>
+        <Text style={styles.greetingSub} numberOfLines={1}>
+          {firstName
+            ? "Here's what works today."
+            : loading
+              ? "Checking your account…"
+              : "Welcome — Style your wardrobe."}
+        </Text>
+      </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Open profile"
+        onPress={onProfile}
+        hitSlop={8}
+        style={({ pressed }) => [styles.avatarBtn, pressed && { opacity: 0.8 }]}
+      >
+        {initial ? (
+          <Text style={styles.avatarText}>{initial}</Text>
+        ) : (
+          <Ionicons name="person-outline" size={22} color={theme.colors.onPrimary} />
+        )}
+      </Pressable>
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Hero
 // ---------------------------------------------------------------------------
 function Hero() {
@@ -361,7 +452,7 @@ function Hero() {
         <AppButton
           label="Create outfit"
           icon="shirt-outline"
-          onPress={() => router.push("/(tabs)/outfits")}
+          onPress={() => router.push("/ai-picker")}
           style={styles.heroBtn}
         />
         <AppButton
@@ -468,6 +559,42 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   content: { paddingHorizontal: theme.spacing.page, paddingBottom: 40 },
 
+  // Greeting header
+  greetingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    marginTop: theme.spacing.sm,
+    marginBottom: 4,
+  },
+  mascotWrap: {
+    width: 48,
+    height: 48,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  greetingBody: { flex: 1, minWidth: 0 },
+  greetingTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    letterSpacing: -0.4,
+    color: theme.colors.text,
+  },
+  greetingSub: {
+    fontSize: 12.5,
+    color: theme.colors.textMuted,
+    marginTop: 3,
+  },
+  avatarBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: theme.colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarText: { color: theme.colors.onPrimary, fontSize: 16, fontWeight: "800" },
+
   // Hero
   hero: {
     backgroundColor: theme.colors.primary,
@@ -477,7 +604,7 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.sm,
   },
   heroEyebrow: {
-    color: "#E8A88F",
+    color: "#B8B8B8",
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 2,
@@ -491,14 +618,19 @@ const styles = StyleSheet.create({
     letterSpacing: -1,
   },
   heroText: {
-    color: "#C9C5BC",
+    color: "#C9C9C9",
     fontSize: 14,
     lineHeight: 20,
     marginTop: 10,
     maxWidth: 300,
   },
-  heroActions: { flexDirection: "row", gap: 10, marginTop: 18 },
-  heroBtn: { flex: 1 },
+  heroActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginTop: 18,
+  },
+  heroBtn: { flexGrow: 1, flexShrink: 1, flexBasis: 150, minWidth: 140 },
   heroWalletLink: {
     flexDirection: "row",
     alignItems: "center",
@@ -521,7 +653,32 @@ const styles = StyleSheet.create({
     justifyContent: "flex-start",
   },
   hRow: { flexDirection: "row", gap: 12 },
-  hEmpty: { gap: 10 },
+  emptyCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+    padding: 16,
+    gap: 14,
+  },
+  emptyTop: { flexDirection: "row", alignItems: "center", gap: 12 },
+  emptyIconTile: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: theme.colors.surfaceAlt,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyBody: { flex: 1, minWidth: 0 },
+  emptyTitle: { fontSize: 14, fontWeight: "800", color: theme.colors.text },
+  emptyText: {
+    fontSize: 12.5,
+    color: theme.colors.textMuted,
+    marginTop: 2,
+    lineHeight: 17,
+  },
+  emptyBtn: { alignSelf: "stretch" },
   tileRow: { gap: 12, paddingRight: 16 },
   tile: { width: 108 },
   tileImage: {
@@ -572,28 +729,27 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     paddingVertical: 8,
   },
-  inlineBtn: { alignSelf: "flex-start" },
 
-  // Backend-unavailable banner (friendly, actionable)
+  // Offline / error banner (monochrome, calm)
   unavailable: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 10,
-    backgroundColor: "#FBF0EA",
+    backgroundColor: theme.colors.surfaceAlt,
     borderRadius: theme.borderRadius.md,
     padding: 12,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#EBCFBE",
+    borderColor: theme.colors.border,
   },
   unavailableBody: { flex: 1, minWidth: 0 },
   unavailableTitle: {
     fontSize: 13,
     fontWeight: "800",
-    color: "#9A4A28",
+    color: theme.colors.text,
   },
   unavailableText: {
     fontSize: 12,
-    color: "#8A5A40",
+    color: theme.colors.textMuted,
     lineHeight: 17,
     marginTop: 2,
   },
@@ -601,9 +757,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: theme.borderRadius.sm,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: theme.colors.surface,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#E0BFA9",
+    borderColor: theme.colors.border,
   },
-  unavailableRetryText: { fontSize: 12, fontWeight: "700", color: "#9A4A28" },
+  unavailableRetryText: { fontSize: 12, fontWeight: "700", color: theme.colors.text },
 });

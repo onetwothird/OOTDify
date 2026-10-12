@@ -2,7 +2,6 @@ import { router } from "expo-router";
 import {
     Image,
     Platform,
-    SafeAreaView,
     ScrollView,
     StyleSheet,
     Text,
@@ -10,6 +9,7 @@ import {
     useWindowDimensions,
     View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const ILLUSTRATION_MAX = 300;
 

@@ -20,6 +20,7 @@ from flask_cors import CORS
 
 from config import Config
 from routes.detection import detection_bp
+from routes.outfits import outfits_bp
 from routes.users import users_bp
 from routes.pose import pose_bp
 from routes.recommend import recommend_bp
@@ -70,6 +71,7 @@ def create_app(config_object=Config) -> Flask:
     app.register_blueprint(users_bp)
     app.register_blueprint(pose_bp)
     app.register_blueprint(recommend_bp)
+    app.register_blueprint(outfits_bp)
     app.register_blueprint(tryon_bp)
     app.register_blueprint(segmentation_bp)
 

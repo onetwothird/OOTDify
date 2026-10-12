@@ -127,13 +127,7 @@ export default function CatalogDetailScreen() {
             ) : (
               <View style={[styles.heroImage, styles.heroPlaceholder]} />
             )}
-            <View style={styles.pricePill}>
-              <Text style={styles.priceText}>
-                {item.currency === "USD" ? "$" : `${item.currency} `}
-                {Number(item.price ?? 0).toFixed(2)}
-              </Text>
             </View>
-          </View>
 
           <View style={styles.body}>
             <Text style={styles.name}>{item.name}</Text>
@@ -193,16 +187,6 @@ const styles = StyleSheet.create({
   hero: { position: "relative" },
   heroImage: { width: "100%", aspectRatio: 0.8, backgroundColor: theme.colors.primaryMuted },
   heroPlaceholder: { backgroundColor: theme.colors.border },
-  pricePill: {
-    position: "absolute",
-    bottom: 12,
-    left: 12,
-    backgroundColor: "rgba(9,9,11,0.82)",
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-  },
-  priceText: { color: "#FFF", fontWeight: "800", fontSize: 14 },
   body: { padding: 16, gap: 14 },
   name: { fontSize: 22, fontWeight: "800", color: theme.colors.text, letterSpacing: -0.3 },
   brand: { fontSize: 13, color: theme.colors.textMuted, marginTop: -8 },

@@ -22,7 +22,6 @@ import { CATALOG_CATEGORIES, WARDROBE_CATEGORIES } from "../../features/clothing
 import {
   addItemFavorite,
   fetchItemFavoriteIds,
-  fetchMyCloset,
   recordRecentlyViewed,
   removeItemFavorite,
 } from "../../features/clothing/service";
@@ -42,7 +41,7 @@ export default function WardrobeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const openCapture = useCaptureModalStore((s) => s.open);
-  const { columns, itemWidth, onLayout } = useResponsiveColumns(16, 110, 12);
+  const { itemWidth, onLayout } = useResponsiveColumns(110, 12);
 
   // ---- My closet (real, owner-scoped) --------------------------------------
   const closet = useWardrobeStore((s) => s.items);
@@ -299,7 +298,7 @@ export default function WardrobeScreen() {
               <ClothingCard
                 key={item.id}
                 item={item}
-                width={columns >= 4 ? itemWidth : itemWidth}
+                width={itemWidth}
                 favorited={catalogs.favoriteIds.has(item.id)}
                 onPress={() => openCatalogItem(item)}
                 onToggleFavorite={() => catalogs.toggleFavorite(item).catch(() => {})}

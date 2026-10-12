@@ -26,6 +26,7 @@ import {
 import { generateOutfit } from "../../features/outfit/generator";
 import { Outfit } from "../../features/outfit/types";
 import { CatalogItem } from "../../features/clothing/types";
+import { OutfitCalendar } from "../../features/outfit/components/OutfitCalendar";
 import { AppButton } from "../../shared/components/AppButton";
 import { Chip } from "../../shared/components/Chip";
 import { ClothingCard } from "../../shared/components/ClothingCard";
@@ -53,6 +54,7 @@ export default function OutfitsScreen() {
 
   // Builder state
   const [builderMode, setBuilderMode] = useState(false);
+  const [view, setView] = useState<"looks" | "calendar">("looks");
   const [occasion, setOccasion] = useState<string>("Casual");
   const [condition, setCondition] = useState<(typeof CONDITIONS)[number]>(CONDITIONS[0]);
   const [pool, setPool] = useState<CatalogItem[]>([]);
@@ -182,22 +184,64 @@ export default function OutfitsScreen() {
           subtitle={
             builderMode
               ? "Compose a new look from real catalog picks."
-              : "Looks you've built and saved."
+              : view === "calendar"
+                ? "Plan which look to wear each day."
+                : "Looks you've built and saved."
           }
         />
 
         {!builderMode ? (
           <>
-            <AppButton
-              label="Build a new outfit"
-              icon="add-circle-outline"
-              onPress={() => setBuilderMode(true)}
-              style={styles.buildCta}
-            />
-            <SectionHeader
-              title="Saved looks"
-              subtitle="Outfits you've built and kept."
-            />
+            <View style={styles.segment}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ selected: view === "looks" }}
+                onPress={() => setView("looks")}
+                style={[styles.segmentBtn, view === "looks" && styles.segmentBtnActive]}
+              >
+                <Text
+                  style={[styles.segmentText, view === "looks" && styles.segmentTextActive]}
+                >
+                  Saved looks
+                </Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ selected: view === "calendar" }}
+                onPress={() => setView("calendar")}
+                style={[styles.segmentBtn, view === "calendar" && styles.segmentBtnActive]}
+              >
+                <Text
+                  style={[styles.segmentText, view === "calendar" && styles.segmentTextActive]}
+                >
+                  Calendar
+                </Text>
+              </Pressable>
+            </View>
+
+            {view === "calendar" ? (
+              <OutfitCalendar
+                outfits={saved}
+                onOpenOutfit={(id) => router.push(`/outfit/${id}`)}
+              />
+            ) : (
+              <>
+                <AppButton
+                  label="Build a new outfit"
+                  icon="add-circle-outline"
+                  onPress={() => setBuilderMode(true)}
+                  style={styles.buildCta}
+                />
+                <AppButton
+                  label="AI Outfit Picker"
+                  icon="sparkles-outline"
+                  variant="secondary"
+                  onPress={() => router.push("/ai-picker")}
+                />
+                <SectionHeader
+                  title="Saved looks"
+                  subtitle="Outfits you've built and kept."
+                />
 
             {savedLoading ? (
               <LoadingState label="Loading outfits" />
@@ -220,6 +264,8 @@ export default function OutfitsScreen() {
                   onDelete={() => removeOutfit(o.id)}
                 />
               ))
+            )}
+              </>
             )}
           </>
         ) : (
@@ -390,6 +436,23 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     marginTop: 8,
   },
+  segment: {
+    flexDirection: "row",
+    backgroundColor: theme.colors.surfaceAlt,
+    borderRadius: theme.borderRadius.pill,
+    padding: 4,
+    gap: 4,
+  },
+  segmentBtn: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 9,
+    borderRadius: theme.borderRadius.pill,
+  },
+  segmentBtnActive: { backgroundColor: theme.colors.primary },
+  segmentText: { fontSize: 13, fontWeight: "700", color: theme.colors.textMuted },
+  segmentTextActive: { color: theme.colors.onPrimary },
   chips: { gap: 8, paddingRight: 16 },
   chip: {
     paddingHorizontal: 14,
@@ -414,7 +477,7 @@ const styles = StyleSheet.create({
   },
   buildBtnText: { color: "#FFF", fontWeight: "700", fontSize: 15 },
   btnDisabled: { opacity: 0.4 },
-  errorText: { color: "#B45309", fontSize: 12.5 },
+  errorText: { color: theme.colors.warning, fontSize: 12.5 },
   outfitPreview: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.lg,

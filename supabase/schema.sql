@@ -73,6 +73,9 @@ create table if not exists public.user_profiles (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null unique references auth.users (id) on delete cascade,
   display_name text,
+  first_name text,
+  last_name text,
+  gender text,
   avatar_url text,
   body_photo_url text,
   preferred_styles text[] not null default '{}',
@@ -82,6 +85,11 @@ create table if not exists public.user_profiles (
   preferred_occasions text[] not null default '{}',
   updated_at timestamptz not null default now()
 );
+
+-- Newer profile fields, added idempotently for databases that already ran this file.
+alter table public.user_profiles add column if not exists first_name text;
+alter table public.user_profiles add column if not exists last_name text;
+alter table public.user_profiles add column if not exists gender text;
 
 create table if not exists public.body_photos (
   id uuid primary key default gen_random_uuid(),
@@ -122,6 +130,20 @@ create table if not exists public.saved_outfits (
 
 create index if not exists saved_outfits_user_idx on public.saved_outfits (user_id, created_at desc);
 
+-- Style calendar: one planned look per day (owner-only). The app upserts by
+-- (user_id, plan_date) so re-picking an outfit for a day replaces the plan.
+create table if not exists public.outfit_plans (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  plan_date date not null,
+  outfit_id uuid references public.saved_outfits (id) on delete cascade,
+  note text,
+  created_at timestamptz not null default now(),
+  unique (user_id, plan_date)
+);
+
+create index if not exists outfit_plans_user_date_idx on public.outfit_plans (user_id, plan_date);
+
 create table if not exists public.favorites (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
@@ -159,6 +181,7 @@ do $$ begin
   alter table public.body_photos    enable row level security;
   alter table public.try_on_jobs    enable row level security;
   alter table public.saved_outfits  enable row level security;
+  alter table public.outfit_plans   enable row level security;
   alter table public.favorites      enable row level security;
   alter table public.recently_viewed enable row level security;
 end $$;
@@ -209,6 +232,11 @@ select public._ensure_policy('saved_outfits_select', 'public.saved_outfits', 'se
 select public._ensure_policy('saved_outfits_insert', 'public.saved_outfits', 'insert', 'auth.uid() = user_id', 'auth.uid() = user_id');
 select public._ensure_policy('saved_outfits_update', 'public.saved_outfits', 'update', 'auth.uid() = user_id');
 select public._ensure_policy('saved_outfits_delete', 'public.saved_outfits', 'delete', 'auth.uid() = user_id');
+
+select public._ensure_policy('outfit_plans_select', 'public.outfit_plans', 'select', 'auth.uid() = user_id');
+select public._ensure_policy('outfit_plans_insert', 'public.outfit_plans', 'insert', 'auth.uid() = user_id', 'auth.uid() = user_id');
+select public._ensure_policy('outfit_plans_update', 'public.outfit_plans', 'update', 'auth.uid() = user_id');
+select public._ensure_policy('outfit_plans_delete', 'public.outfit_plans', 'delete', 'auth.uid() = user_id');
 
 select public._ensure_policy('favorites_select', 'public.favorites', 'select', 'auth.uid() = user_id');
 select public._ensure_policy('favorites_insert', 'public.favorites', 'insert', 'auth.uid() = user_id', 'auth.uid() = user_id');

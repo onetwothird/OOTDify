@@ -31,6 +31,9 @@ users_bp = Blueprint("users", __name__)
 
 _PROFILE_FIELDS = (
     "display_name",
+    "first_name",
+    "last_name",
+    "gender",
     "avatar_url",
     "preferred_styles",
     "preferred_colors",

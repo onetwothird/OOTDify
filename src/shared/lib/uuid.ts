@@ -1,4 +1,5 @@
 // C:\OOTDify\src\shared\lib\uuid.ts
+// C:\OOTDify\src\shared\lib\uuid.ts
 // Minimal dependency-free uuid v4 used for optimistic/local keys.
 // Kept in its own module so pure logic (outfit generator, etc.) never pulls
 // in the Supabase client chain (which Jest cannot transform in tests).

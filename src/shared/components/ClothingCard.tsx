@@ -1,5 +1,7 @@
 // C:\OOTDify\src\shared\components\ClothingCard.tsx
-// Catalog item card: image, name, price, favorite toggle.
+// Catalog item card: image, name, category, favorite toggle.
+// NOTE: OOTDify is a styling advisor, not a store — prices are deliberately
+// never shown; the row's meta slot carries the garment category instead.
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { memo, useEffect, useState } from "react";
@@ -54,8 +56,6 @@ export const ClothingCard = memo(function ClothingCard({
 }: Props) {
   const imageRef = (item.thumbnail_url || item.image_url || "") as string;
   const uri = useResolvedImage(imageRef);
-  const price = item.price != null ? Number(item.price) : null;
-  const currency = item.currency ?? "USD";
 
   return (
     <Pressable
@@ -83,14 +83,9 @@ export const ClothingCard = memo(function ClothingCard({
           {item.name}
         </Text>
         <View style={styles.metaRow}>
-          {price != null ? (
-            <Text style={styles.price}>
-              {currency === "USD" ? "$" : `${currency} `}
-              {price.toFixed(2)}
-            </Text>
-          ) : (
-            <Text style={styles.price}>{item.category ?? ""}</Text>
-          )}
+          <Text style={styles.meta} numberOfLines={1}>
+            {item.category ?? ""}
+          </Text>
           {onToggleFavorite ? (
             <Pressable
               accessibilityRole="button"
@@ -152,7 +147,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 8,
   },
-  price: {
+  meta: {
     fontSize: 12,
     color: theme.colors.textMuted,
     flexShrink: 1,

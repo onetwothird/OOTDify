@@ -19,7 +19,8 @@ backend/
 │   ├── pose.py             # POST /api/pose, GET /api/pose/annotated/<f>
 │   ├── segmentation.py     # POST /api/segment, GET /api/segment/annotated/<f>
 │   ├── tryon.py            # POST /api/try-on (job), GET /api/try-on/<id>, GET /api/try-on/result/<f>
-│   └── recommend.py        # POST /api/recommend (server-side outfit suggestions)
+│   ├── recommend.py        # POST /api/recommend (server-side outfit suggestions)
+│   └── outfits.py          # POST /api/outfits (complete looks from real catalog rows)
 ├── services/
 │   ├── __init__.py
 │   ├── yolo_service.py     # Loads YOLO once, runs inference, returns JSON-ready data
@@ -27,12 +28,16 @@ backend/
 │   ├── segmentation_service.py  # yolov8n-seg: instance masks as polygons
 │   ├── tryon_service.py    # Async job system + VTON integration boundary
 │   ├── recommend_service.py     # Rule-based outfit recommender (LLM swap point)
+│   ├── outfit_service.py   # Composes complete looks from scored catalog rows
+│   ├── catalog_service.py  # Category-balanced catalog reads for recommender endpoints
+│   ├── fashion_taxonomy.py # Dataset taxonomy → OOTDify category/occasion/gender mapping
 │   └── image_service.py    # Upload validation, safe filenames, cleanup
 ├── models/yolo/            # Model weights live here (auto-downloads on first run)
 ├── uploads/                # Temporary uploads (deleted after processing)
 ├── outputs/                # Annotated / generated result images
 ├── data/jobs/              # Try-on job records (JSON)
-└── scripts/test_api.py     # CLI smoke test against a running server
+├── scripts/test_api.py     # CLI smoke test against a running server
+└── scripts/ingest_fashion.py  # Fills public.clothing from a public product-photo dataset
 ```
 
 ## Purpose of each file
@@ -44,6 +49,10 @@ backend/
 | `routes/detection.py` | The HTTP layer: validates the upload, delegates to the YOLO service, serialises the result, cleans up temp files. Routes are thin — no AI logic lives here. |
 | `services/yolo_service.py` | The AI layer. `YOLOService` holds one loaded model for the process lifetime; `detect()` returns `DetectionResult` (classes, confidences, boxes, optional annotated file). |
 | `services/image_service.py` | `secure_filename` + UUID naming, extension/format checks, PIL image verification, best-effort cleanup. |
+| `services/outfit_service.py` | Server-side look composer: pairs tops/bottoms/shoes/layers from scored catalog rows, weather-aware, deterministic per seed. Used by `POST /api/outfits`. |
+| `services/catalog_service.py` | Balanced catalog reads: a bounded slice per category so recommendation endpoints see tops *and* bottoms *and* shoes even when one category dominates the table. |
+| `services/fashion_taxonomy.py` | Pure-function translation from third-party dataset taxonomies (masterCategory/subCategory/articleType/usage) to OOTDify's `clothing` vocabulary. |
+| `scripts/ingest_fashion.py` | Idempotent, category-balanced ingestion of a public product-photo dataset into `public.clothing` + the `clothing` bucket. |
 | `models/yolo/` | Folder where `yolo11n.pt` is stored (auto-downloaded on first run). |
 | `uploads/` / `outputs/` | Runtime folders; gitignored. Uploads are deleted after processing. |
 

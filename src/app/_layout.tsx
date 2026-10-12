@@ -72,6 +72,7 @@ export default function RootLayout() {
       >
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="ai-picker" />
         <Stack.Screen name="catalog/[id]" />
         <Stack.Screen name="outfit/[id]" />
         <Stack.Screen name="privacy/data" />

@@ -1,24 +1,23 @@
 // C:\OOTDify\src\shared\config\theme.ts
-// OOTDify design tokens — warm editorial neutrals (ivory/zinc/ink) with a
-// single terracotta accent used sparingly. Typography-led, generous spacing,
-// intentional radii. Keep new screens on these tokens instead of one-off hexes.
+// OOTDify design tokens — strict black / white / gray (editorial monochrome).
+// One near-black ink, one muted gray, one light gray surface, nothing warm.
 
 export const theme = {
   colors: {
-    // Warm off-white page background (fashion-editorial, not cold gray).
-    background: "#F6F4F0",
+    // Light gray page background (needle-point white, not cream).
+    background: "#F5F5F5",
     // Cards / sheets.
     surface: "#FFFFFF",
     // Raised-but-quiet fills (chips, icon tiles).
-    surfaceAlt: "#EFECE6",
-    border: "#E5E1D8",
+    surfaceAlt: "#EDEDED",
+    border: "#E3E3E3",
     // Primary ink (buttons, active states, headings).
-    primary: "#141414",
-    primaryMuted: "#F1EFEA",
-    text: "#17150F",
-    textMuted: "#6E6A60",
-    // Single expressive accent — used only as a highlight, never for large fills.
-    accent: "#C4653F",
+    primary: "#111111",
+    primaryMuted: "#F0F0F0",
+    text: "#161616",
+    textMuted: "#6E6E6E",
+    // Single expressive accent — charcoal, used only as a highlight.
+    accent: "#3A3A3A",
     success: "#2E7D4F",
     warning: "#A35C2A",
     danger: "#B23A2E",

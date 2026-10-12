@@ -1,3 +1,5 @@
+// C:\OOTDify\src\features\wardrobe\store.ts
+// Wardrobe store for managing user's closet items, favorites, and history.
 import { create } from "zustand";
 import { ClothingItem } from "../clothing/types";
 import {

@@ -77,8 +77,8 @@ export function SkeletonBlock({
 }
 
 const styles = StyleSheet.create({
-  base: { backgroundColor: "#E2DED4" },
-  block: { width: "100%", backgroundColor: "#E2DED4" },
+  base: { backgroundColor: "#E4E4E4" },
+  block: { width: "100%", backgroundColor: "#E4E4E4" },
   card: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.md,

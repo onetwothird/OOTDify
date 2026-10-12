@@ -4,23 +4,25 @@
 // items, no fake detection. The user picks the category; we never guess.
 //
 // PRIVACY: the camera permission is requested only when the user taps
-// "Take Photo" (with the context copy below). Library picks use the system
-// photo picker — no broad gallery permission is requested on Android.
+// "Camera" (with the context copy below). Library picks use the system photo
+// picker — no broad gallery permission is requested on Android.
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Image,
   Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { AppButton } from "../../shared/components/AppButton";
+import { theme } from "../../shared/config/theme";
 import { insertClothingItem, uploadToWardrobeBucket } from "../clothing/service";
 import { ClothingItem } from "../clothing/types";
 import { WardrobeStore } from "../wardrobe/store";
@@ -31,6 +33,7 @@ const CATEGORIES = ["Tops", "Bottoms", "Outerwear", "Shoes", "Dresses", "Bags", 
 type CapturedEntry = { uri: string; category: string };
 
 export default function CaptureClothesModal() {
+  const insets = useSafeAreaInsets();
   const isOpen = useCaptureModalStore((s) => s.isOpen);
   const close = useCaptureModalStore((s) => s.close);
 
@@ -53,7 +56,7 @@ export default function CaptureClothesModal() {
 
   const takePhoto = async () => {
     // Camera permission is only requested here — after the user deliberately
-    // taps "Take Photo" and has read the context copy below.
+    // taps "Camera" and has read the context copy above.
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
       Alert.alert(
@@ -88,14 +91,14 @@ export default function CaptureClothesModal() {
   };
 
   const setCategory = (index: number, category: string) => {
-    setEntries((prev) =>
-      prev.map((e, i) => (i === index ? { ...e, category } : e)),
-    );
+    setEntries((prev) => prev.map((e, i) => (i === index ? { ...e, category } : e)));
   };
 
-  const removeEntry = (uri: string) => {
-    setEntries((prev) => prev.filter((e) => e.uri !== uri));
+  const removeEntry = (index: number) => {
+    setEntries((prev) => prev.filter((_, i) => i !== index));
   };
+
+  const allCategorized = entries.length > 0 && entries.every((e) => e.category);
 
   const saveEntries = async () => {
     if (!entries.length) {
@@ -149,91 +152,127 @@ export default function CaptureClothesModal() {
   };
 
   return (
-    <Modal
-      visible={isOpen}
-      animationType="slide"
-      transparent
-      onRequestClose={handleClose}
-    >
+    <Modal visible={isOpen} animationType="slide" transparent onRequestClose={handleClose}>
       <View style={styles.overlay}>
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, { paddingBottom: insets.bottom + 20 }]}>
+          <View style={styles.handle} />
+
           <View style={styles.header}>
-            <Text style={styles.title}>Add to Closet</Text>
-            <TouchableOpacity onPress={handleClose}>
-              <Ionicons name="close-outline" size={26} color="#18181B" />
-            </TouchableOpacity>
+            <View style={styles.headerText}>
+              <Text style={styles.title}>Add to Closet</Text>
+              <Text style={styles.headerSub}>
+                Photos stay private — only ever shown to you.
+              </Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+              hitSlop={8}
+              onPress={handleClose}
+              style={styles.closeBtn}
+            >
+              <Ionicons name="close" size={22} color={theme.colors.text} />
+            </Pressable>
           </View>
 
-          <Text style={styles.subtitle}>
-            Photos are stored privately and only ever shown to you. Pick a
-            category for each item — we never guess what it is.
-          </Text>
-
-          {entries.length > 0 && (
-            <ScrollView style={styles.itemsList} showsVerticalScrollIndicator={false}>
-              {entries.map((entry, idx) => (
-                <View key={entry.uri} style={styles.itemRow}>
-                  <View style={styles.itemImageWrap}>
-                    <Image source={{ uri: entry.uri }} style={styles.itemImage} />
-                    <TouchableOpacity
-                      style={styles.removeBadge}
-                      onPress={() => removeEntry(entry.uri)}
-                    >
-                      <Ionicons name="close" size={12} color="#FFF" />
-                    </TouchableOpacity>
-                  </View>
-                  <View style={styles.chipWrap}>
-                    {CATEGORIES.map((cat) => (
-                      <TouchableOpacity
-                        key={cat}
-                        style={[
-                          styles.chip,
-                          entry.category === cat && styles.chipActive,
-                        ]}
-                        onPress={() => setCategory(idx, cat)}
+          {entries.length === 0 ? (
+            <View style={styles.emptyState}>
+              <View style={styles.emptyIcon}>
+                <Ionicons name="images-outline" size={26} color={theme.colors.text} />
+              </View>
+              <Text style={styles.emptyTitle}>No photos yet</Text>
+              <Text style={styles.emptyText}>
+                Take a photo or pick from your library, then tag each piece with a
+                category. We never guess what it is.
+              </Text>
+            </View>
+          ) : (
+            <ScrollView
+              style={styles.itemsList}
+              contentContainerStyle={styles.itemsListContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {entries.map((entry, idx) => {
+                const chosen = Boolean(entry.category);
+                return (
+                  <View key={`${entry.uri}-${idx}`} style={styles.itemCard}>
+                    <View style={styles.itemImageWrap}>
+                      <Image source={{ uri: entry.uri }} style={styles.itemImage} />
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Remove photo"
+                        hitSlop={6}
+                        style={styles.removeBadge}
+                        onPress={() => removeEntry(idx)}
                       >
-                        <Text
-                          style={[
-                            styles.chipText,
-                            entry.category === cat && styles.chipTextActive,
-                          ]}
-                        >
-                          {cat}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
+                        <Ionicons name="close" size={12} color={theme.colors.onPrimary} />
+                      </Pressable>
+                    </View>
+                    <View style={styles.itemBody}>
+                      <Text style={[styles.itemLabel, !chosen && styles.itemLabelMuted]}>
+                        {chosen ? entry.category : "Choose a category"}
+                      </Text>
+                      <View style={styles.chipWrap}>
+                        {CATEGORIES.map((cat) => {
+                          const active = entry.category === cat;
+                          return (
+                            <Pressable
+                              key={cat}
+                              accessibilityRole="button"
+                              accessibilityState={{ selected: active }}
+                              style={[styles.chip, active && styles.chipActive]}
+                              onPress={() => setCategory(idx, cat)}
+                            >
+                              <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                                {cat}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </View>
                   </View>
-                </View>
-              ))}
+                );
+              })}
             </ScrollView>
           )}
 
           <View style={styles.actionsRow}>
-            <TouchableOpacity style={styles.captureBtn} onPress={takePhoto}>
-              <Ionicons name="camera" size={20} color="#FFF" />
-              <Text style={styles.captureBtnText}>Take Photo</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.libraryBtn} onPress={pickFromLibrary}>
-              <Ionicons name="images-outline" size={20} color="#18181B" />
-              <Text style={styles.libraryBtnText}>Choose Photos</Text>
-            </TouchableOpacity>
+            <AppButton
+              label="Camera"
+              icon="camera-outline"
+              variant="secondary"
+              size="md"
+              onPress={takePhoto}
+              style={styles.actionBtn}
+            />
+            <AppButton
+              label="Library"
+              icon="images-outline"
+              variant="secondary"
+              size="md"
+              onPress={pickFromLibrary}
+              style={styles.actionBtn}
+            />
           </View>
 
-          <TouchableOpacity
-            style={styles.doneBtn}
-            onPress={saveEntries}
-            disabled={processing}
-          >
-            {processing ? (
-              <ActivityIndicator color="#FFF" />
-            ) : (
-              <Text style={styles.doneBtnText}>
-                {entries.length
-                  ? `Save ${entries.length} Item${entries.length > 1 ? "s" : ""} to Closet`
-                  : "Skip for now"}
-              </Text>
-            )}
-          </TouchableOpacity>
+          {entries.length === 0 ? (
+            <AppButton label="Done" onPress={handleClose} />
+          ) : (
+            <>
+              <AppButton
+                label={`Save ${entries.length} item${entries.length > 1 ? "s" : ""}`}
+                icon="checkmark"
+                loading={processing}
+                disabled={!allCategorized}
+                onPress={saveEntries}
+              />
+              {!allCategorized ? (
+                <Text style={styles.hint}>Pick a category for every photo to save.</Text>
+              ) : null}
+            </>
+          )}
         </View>
       </View>
     </Modal>
@@ -247,88 +286,120 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   sheet: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    padding: 24,
-    paddingBottom: 40,
+    backgroundColor: theme.colors.surface,
+    borderTopLeftRadius: theme.borderRadius.xl,
+    borderTopRightRadius: theme.borderRadius.xl,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    maxHeight: "88%",
+  },
+  handle: {
+    alignSelf: "center",
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: theme.colors.border,
+    marginBottom: 14,
   },
   header: {
     flexDirection: "row",
+    alignItems: "flex-start",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  title: { fontSize: 20, fontWeight: "800", color: "#18181B" },
-  subtitle: {
-    fontSize: 13,
-    color: "#71717A",
-    lineHeight: 19,
+    gap: 12,
     marginBottom: 16,
   },
-  itemsList: { maxHeight: 260, marginBottom: 12 },
-  itemRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 14,
+  headerText: { flex: 1, minWidth: 0 },
+  title: { fontSize: 21, fontWeight: "800", color: theme.colors.text, letterSpacing: -0.3 },
+  headerSub: { fontSize: 12.5, color: theme.colors.textMuted, marginTop: 3, lineHeight: 17 },
+  closeBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: theme.colors.surfaceAlt,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  itemImageWrap: { marginRight: 12, position: "relative" },
+
+  emptyState: {
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 26,
+    paddingHorizontal: 16,
+    marginBottom: 4,
+  },
+  emptyIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 18,
+    backgroundColor: theme.colors.surfaceAlt,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 2,
+  },
+  emptyTitle: { fontSize: 15, fontWeight: "800", color: theme.colors.text },
+  emptyText: {
+    fontSize: 13,
+    color: theme.colors.textMuted,
+    textAlign: "center",
+    lineHeight: 19,
+    maxWidth: 280,
+  },
+
+  itemsList: { flexShrink: 1 },
+  itemsListContent: { gap: 10, paddingBottom: 4 },
+
+  itemCard: {
+    flexDirection: "row",
+    gap: 12,
+    backgroundColor: theme.colors.surfaceAlt,
+    borderRadius: theme.borderRadius.md,
+    padding: 10,
+  },
+  itemImageWrap: { position: "relative" },
   itemImage: {
-    width: 64,
+    width: 62,
     height: 76,
     borderRadius: 12,
-    backgroundColor: "#F4F4F5",
+    backgroundColor: theme.colors.border,
   },
   removeBadge: {
     position: "absolute",
     top: -6,
     right: -6,
-    backgroundColor: "#18181B",
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: theme.colors.primary,
     alignItems: "center",
     justifyContent: "center",
   },
-  chipWrap: { flex: 1, flexDirection: "row", flexWrap: "wrap" },
+  itemBody: { flex: 1, minWidth: 0, justifyContent: "center" },
+  itemLabel: {
+    fontSize: 12.5,
+    fontWeight: "800",
+    color: theme.colors.text,
+    marginBottom: 8,
+  },
+  itemLabelMuted: { color: theme.colors.textMuted, fontWeight: "700" },
+  chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   chip: {
-    backgroundColor: "#F4F4F5",
+    backgroundColor: theme.colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 999,
-    marginRight: 6,
-    marginBottom: 6,
+    borderRadius: theme.borderRadius.pill,
   },
-  chipActive: { backgroundColor: "#18181B" },
-  chipText: { fontSize: 11, fontWeight: "600", color: "#71717A" },
-  chipTextActive: { color: "#FFF" },
-  actionsRow: { flexDirection: "row", marginBottom: 16 },
-  captureBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#18181B",
-    paddingVertical: 14,
-    borderRadius: 16,
-    marginRight: 10,
+  chipActive: { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
+  chipText: { fontSize: 11.5, fontWeight: "600", color: theme.colors.textMuted },
+  chipTextActive: { color: theme.colors.onPrimary },
+
+  actionsRow: { flexDirection: "row", gap: 10, marginTop: 16, marginBottom: 12 },
+  actionBtn: { flex: 1 },
+  hint: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    textAlign: "center",
+    marginTop: 10,
   },
-  captureBtnText: { color: "#FFF", fontWeight: "700", marginLeft: 8, fontSize: 14 },
-  libraryBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#F4F4F5",
-    paddingVertical: 14,
-    borderRadius: 16,
-  },
-  libraryBtnText: { color: "#18181B", fontWeight: "700", marginLeft: 8, fontSize: 14 },
-  doneBtn: {
-    backgroundColor: "#18181B",
-    paddingVertical: 16,
-    borderRadius: 100,
-    alignItems: "center",
-  },
-  doneBtnText: { color: "#FFF", fontWeight: "700", fontSize: 15 },
 });

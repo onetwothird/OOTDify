@@ -15,7 +15,9 @@ ideas, run virtual try-ons, and keep your photos secure.
   season/occasion, search, filter, favorite, edit, and delete. Multiple photo
   uploads with per-image success/failure reporting.
 - **AI styling** — image analysis (detection, pose, segmentation) and
-  server-side outfit recommendations over the real catalog.
+  server-side outfit recommendations + complete looks over the real catalog.
+- **AI Outfit Picker** — pick an occasion/weather and get ready-to-save looks,
+  composed server-side from real catalog pieces (`/api/outfits`).
 - **Virtual try-on** — 5-step workflow (Photo → Clothing → Generate → Review →
   Save) with an honest "model not configured" state until a real VTON model is
   provided server-side.
@@ -79,6 +81,26 @@ fail with errors like `storageApiError: bucket not found`.
 
 If you later see `bucket not found`, the schema was not applied (or was applied
 before the storage section existed) — re-run `supabase/schema.sql`.
+
+### 1b. Fill the catalog with real clothing (recommended)
+
+The picker and recommender draw from `public.clothing`. To go beyond the 10-item
+seed, ingest a real public dataset — the **Fashion Product Images** dataset
+(44k product photos with category / colour / usage metadata), fetched over plain
+HTTPS from the Hugging Face datasets mirror. **No Kaggle account or token is
+needed.**
+
+```bash
+cd backend
+.\.venv\Scripts\python.exe scripts\ingest_fashion.py --limit 1200   # ~1,200 items
+.\.venv\Scripts\python.exe scripts\ingest_fashion.py --reset        # undo an ingestion
+```
+
+The run is idempotent (already-ingested rows are skipped) and category-balanced
+(article types like T-Shirts, Shorts, Jeans, Sneakers, Jackets, Dresses, Bags
+are each capped so one category can't dominate). Images are uploaded to the
+public `clothing` bucket and every `clothing` row carries real `image_url`s.
+Run with `--dry-run` first to preview the distribution.
 
 ### 2. Configure environment files
 
@@ -213,4 +235,7 @@ npx expo export -p web    # static web export (sanitizes build)
 
 - Plug a real virtual-try-on model into `backend/services/tryon_service.py`.
 - Register Shopee / TikTok Shop providers in `src/features/shopping/`.
-- Model-based outfit scoring behind the existing `/api/recommend` contract.
+- Swap the rule-based scorer in `backend/services/recommender_service.py` for a
+  model-based one (e.g. embeddings) while keeping the same signature — the UI
+  renders whatever catalog ids the `/api/recommend` and `/api/outfits` contracts
+  return.

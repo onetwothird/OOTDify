@@ -14,13 +14,14 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCaptureModalStore } from "../../features/capture/captureModalStore";
-import { OCCASIONS } from "../../features/clothing/types";
-import { Button } from "../../shared/components/Button";
+import { CATALOG_CATEGORIES, OCCASIONS } from "../../features/clothing/types";
+import { AppButton } from "../../shared/components/AppButton";
 import { ErrorState } from "../../shared/components/StateViews";
 import { LoadingState } from "../../shared/components/LoadingState";
 import { ScreenHeader } from "../../shared/components/ScreenHeader";
@@ -37,22 +38,28 @@ import type { HealthResult } from "../../services/aiApi";
 const STYLES = ["Minimal", "Streetwear", "Classic", "Sporty", "Smart casual", "Vintage", "Edgy"];
 const COLORS = ["Black", "White", "Neutral", "Pastel", "Bold", "Earthy"];
 const SIZES = ["XS", "S", "M", "L", "XL"];
+const GENDERS = ["men", "women", "unisex"] as const;
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const openCapture = useCaptureModalStore((s) => s.open);
+  const { width } = useWindowDimensions();
+  const condensed = width < 380;
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [email, setEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [displayName, setDisplayName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [gender, setGender] = useState("");
   const [stylesSel, setStylesSel] = useState<Set<string>>(new Set());
   const [colorsSel, setColorsSel] = useState<Set<string>>(new Set());
   const [occasionsSel, setOccasionsSel] = useState<Set<string>>(new Set());
   const [sizesSel, setSizesSel] = useState<Set<string>>(new Set());
+  const [categoriesSel, setCategoriesSel] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
 
@@ -77,11 +84,14 @@ export default function ProfileScreen() {
       const { profile: p, email: mail } = await getProfile();
       setProfile(p);
       setEmail(mail);
-      setDisplayName(p.display_name ?? "");
+      setFirstName(p.first_name ?? "");
+      setLastName(p.last_name ?? "");
+      setGender(p.gender ?? "");
       setStylesSel(new Set(p.preferred_styles ?? []));
       setColorsSel(new Set(p.preferred_colors ?? []));
       setOccasionsSel(new Set(p.preferred_occasions ?? []));
       setSizesSel(new Set(p.sizes ?? []));
+      setCategoriesSel(new Set(p.preferred_categories ?? []));
       setDirty(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load your profile.");
@@ -106,11 +116,18 @@ export default function ProfileScreen() {
   const save = async () => {
     setSaving(true);
     try {
+      const f = firstName.trim();
+      const l = lastName.trim();
+      const derived = [f, l].filter(Boolean).join(" ") || null;
       const updated = await updateProfile({
-        display_name: displayName.trim() || null,
+        first_name: f || null,
+        last_name: l || null,
+        gender: gender || null,
+        display_name: derived,
         preferred_styles: Array.from(stylesSel),
         preferred_colors: Array.from(colorsSel),
         preferred_occasions: Array.from(occasionsSel),
+        preferred_categories: Array.from(categoriesSel),
         sizes: Array.from(sizesSel),
       });
       setProfile(updated);
@@ -156,27 +173,77 @@ export default function ProfileScreen() {
               <View style={styles.avatarRow}>
                 <View style={styles.avatar}>
                   <Text style={styles.avatarText}>
-                    {(displayName || email || "?")
-                      .trim()
-                      .slice(0, 2)
-                      .toUpperCase()}
+                    {(
+                      firstName.trim()[0] ||
+                      lastName.trim()[0] ||
+                      email?.[0] ||
+                      "?"
+                    ).toUpperCase()}
                   </Text>
                 </View>
                 <View style={styles.identity}>
-                  <TextInput
-                    style={styles.nameInput}
-                    value={displayName}
-                    onChangeText={(t) => {
-                      setDisplayName(t);
-                      markDirty();
-                    }}
-                    placeholder="Your display name"
-                    placeholderTextColor={theme.colors.textMuted}
-                    maxLength={40}
-                  />
                   <Text style={styles.email} numberOfLines={1}>
                     {email ?? "Signed in"}
                   </Text>
+                </View>
+              </View>
+
+              <View style={[styles.nameRow, condensed && styles.nameRowStacked]}>
+                <View style={styles.nameField}>
+                  <Text style={styles.fieldLabel}>FIRST NAME</Text>
+                  <TextInput
+                    style={styles.nameInput}
+                    value={firstName}
+                    onChangeText={(t) => {
+                      setFirstName(t);
+                      markDirty();
+                    }}
+                    placeholder="First name"
+                    placeholderTextColor={theme.colors.textMuted}
+                    maxLength={40}
+                    autoCorrect={false}
+                  />
+                </View>
+                <View style={styles.nameField}>
+                  <Text style={styles.fieldLabel}>LAST NAME</Text>
+                  <TextInput
+                    style={styles.nameInput}
+                    value={lastName}
+                    onChangeText={(t) => {
+                      setLastName(t);
+                      markDirty();
+                    }}
+                    placeholder="Last name"
+                    placeholderTextColor={theme.colors.textMuted}
+                    maxLength={40}
+                    autoCorrect={false}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.genderGroup}>
+                <Text style={styles.fieldLabel}>I SHOP FOR</Text>
+                <View style={styles.prefChips}>
+                  {GENDERS.map((g) => {
+                    const active = gender === g;
+                    return (
+                      <Pressable
+                        key={g}
+                        accessibilityRole="button"
+                        onPress={() => {
+                          setGender(active ? "" : g);
+                          markDirty();
+                        }}
+                        style={[styles.prefChip, active && styles.prefChipActive]}
+                      >
+                        <Text
+                          style={[styles.prefChipText, active && styles.prefChipTextActive]}
+                        >
+                          {g[0].toUpperCase() + g.slice(1)}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
                 </View>
               </View>
             </View>
@@ -220,12 +287,21 @@ export default function ProfileScreen() {
                   markDirty();
                 }}
               />
+              <PrefGroup
+                label="Categories"
+                options={Array.from(CATALOG_CATEGORIES)}
+                selected={categoriesSel}
+                onToggle={(k) => {
+                  setCategoriesSel((s) => toggle(s, k));
+                  markDirty();
+                }}
+              />
             </View>
 
-            <Button
-              title="Save preferences"
+            <AppButton
+              label="Save preferences"
               loading={saving}
-              disabled={!dirty && !displayName.trim()}
+              disabled={!dirty && !firstName.trim() && !lastName.trim()}
               onPress={save}
             />
 
@@ -308,7 +384,7 @@ export default function ProfileScreen() {
               style={styles.signOut}
               onPress={signOut}
             >
-              <Ionicons name="log-out-outline" size={18} color="#B45309" />
+              <Ionicons name="log-out-outline" size={18} color={theme.colors.danger} />
               <Text style={styles.signOutText}>Sign out</Text>
             </Pressable>
           </>
@@ -409,11 +485,27 @@ const styles = StyleSheet.create({
   },
   avatarText: { color: "#FFF", fontSize: 18, fontWeight: "800" },
   identity: { flex: 1, minWidth: 0 },
-  nameInput: {
-    fontSize: 17,
+  nameRow: { flexDirection: "row", gap: 12 },
+  nameRowStacked: { flexDirection: "column", gap: 12 },
+  nameField: { flex: 1, minWidth: 0 },
+  fieldLabel: {
+    fontSize: 10.5,
     fontWeight: "800",
+    letterSpacing: 1,
+    color: theme.colors.textMuted,
+    marginBottom: 2,
+  },
+  genderGroup: { gap: 8 },
+  nameInput: {
+    fontSize: 16,
+    fontWeight: "700",
     color: theme.colors.text,
-    paddingVertical: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+    borderRadius: theme.borderRadius.sm,
+    backgroundColor: theme.colors.surfaceAlt,
   },
   email: { fontSize: 12.5, color: theme.colors.textMuted, marginTop: 2 },
   prefGroup: { gap: 8 },
@@ -467,5 +559,5 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingVertical: 14,
   },
-  signOutText: { color: "#B45309", fontWeight: "700", fontSize: 15 },
+  signOutText: { color: theme.colors.danger, fontWeight: "700", fontSize: 15 },
 });

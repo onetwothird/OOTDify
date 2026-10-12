@@ -1,4 +1,5 @@
-import { Ionicons } from "@expo/vector-icons";
+// C:\OOTDify\src\app\(auth)\signup.tsx
+// Signup screen for new user registration.
 import { router } from "expo-router";
 import { useState } from "react";
 import {
@@ -6,7 +7,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { theme } from "../../shared/config/theme";
 import { signInWithGoogle } from "../../shared/lib/googleAuth";
 import { supabase } from "../../shared/lib/supabase";

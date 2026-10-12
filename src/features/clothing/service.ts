@@ -4,9 +4,10 @@
 // that favorites/recently_viewed rows can only be touched by their owner;
 // the catalog itself is readable by any authenticated user.
 
+import { File } from "expo-file-system";
+
 import { supabase } from "../../shared/lib/supabase";
 import { CatalogItem, ClothingItem, FavoriteRow } from "./types";
-
 export { uuid } from "../../shared/lib/uuid";
 
 export const currentUserId = async (): Promise<string | null> => {

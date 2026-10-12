@@ -99,6 +99,12 @@ export interface UserProfile {
   id: string;
   user_id: string;
   display_name: string | null;
+  /** First/given name, used for the home greeting. */
+  first_name: string | null;
+  /** Last/family name. */
+  last_name: string | null;
+  /** "men" | "women" | "unisex" — biases outfit composition. */
+  gender: string | null;
   avatar_url: string | null;
   body_photo_url: string | null;
   preferred_styles: string[];
@@ -150,6 +156,28 @@ export interface CatalogItem {
 export interface Recommendation {
   recommendations: CatalogItem[];
   occasion: string | null;
+}
+
+export interface ComposedOutfit {
+  /** Deterministic id from the backend composer. */
+  id: string;
+  /** Real catalog rows that make up the look. */
+  items: CatalogItem[];
+  /** Coverage score 0–100. */
+  score: number;
+  /** Plain-language "why" copied from the composer. */
+  reason: string;
+  occasion: string | null;
+  /** Core slots the catalog could not fill (e.g. ["shoes"]). */
+  missing: string[];
+}
+
+export interface OutfitsResult {
+  outfits: ComposedOutfit[];
+  occasion: string | null;
+  weather: { tempC?: number; condition?: string } | null;
+  /** Number of catalog items the composer drew from. */
+  pool: number;
 }
 
 export interface PrivacySummary {
@@ -268,6 +296,9 @@ export async function updateProfile(
     Pick<
       UserProfile,
       | "display_name"
+      | "first_name"
+      | "last_name"
+      | "gender"
       | "avatar_url"
       | "preferred_styles"
       | "preferred_colors"
@@ -456,5 +487,48 @@ export async function recommendCatalog(
   return {
     recommendations: p.recommendations,
     occasion: p.occasion ?? null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Composed outfits (complete looks, composed server-side from real catalog rows)
+// ---------------------------------------------------------------------------
+export async function composeOutfits(
+  options: {
+    occasion?: string;
+    count?: number;
+    weather?: { tempC?: number; condition?: string };
+    gender?: "men" | "women" | "unisex";
+    seed?: number;
+  } = {},
+): Promise<OutfitsResult> {
+  const payload = await apiRequest(
+    "/api/outfits",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        occasion: options.occasion ?? null,
+        count: options.count ?? 3,
+        weather: options.weather ?? null,
+        gender: options.gender ?? null,
+        seed: options.seed ?? null,
+      }),
+    },
+    { timeoutMs: API_TIMEOUT_MS },
+  );
+  const p = payload as {
+    outfits?: ComposedOutfit[];
+    occasion?: string | null;
+    weather?: { tempC?: number; condition?: string } | null;
+    pool?: number;
+  };
+  if (!Array.isArray(p.outfits)) {
+    throw new ApiError("invalid-response", "The AI service returned an unexpected response.", 200, payload);
+  }
+  return {
+    outfits: p.outfits,
+    occasion: p.occasion ?? null,
+    weather: p.weather ?? null,
+    pool: typeof p.pool === "number" ? p.pool : 0,
   };
 }

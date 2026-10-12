@@ -15,9 +15,9 @@ from typing import Optional
 from flask import Blueprint, jsonify, request
 
 from services.auth_service import require_auth, require_user
+from services.catalog_service import load_candidates
 from services.ratelimit import default_limits
 from services.recommender_service import recommend
-from services.supabase_client import get_supabase
 from routes.users import ensure_profile
 
 logger = logging.getLogger(__name__)
@@ -47,15 +47,9 @@ def recommend_endpoint():
 
     profile = ensure_profile(user["id"])
 
-    # Load the catalog (service-role read; the UI also has RLS read access).
-    rows = (
-        get_supabase()
-        .table("clothing")
-        .select("*")
-        .order("created_at")
-        .execute()
-        .data
-    )
+    # Load a bounded, category-balanced slice of the catalog (service-role read;
+    # the UI also has RLS read access).
+    rows = load_candidates()
     if not rows:
         return jsonify(success=True, recommendations=[], occasion=occasion or None)
 

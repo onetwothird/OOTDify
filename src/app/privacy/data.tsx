@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
   rowHint: { fontSize: 11.5, color: theme.colors.textMuted, marginTop: 2 },
   dangerCard: { gap: 10 },
   dangerText: { fontSize: 12.5, color: theme.colors.textMuted, lineHeight: 18 },
-  dangerBtn: { backgroundColor: "#B45309" },
+  dangerBtn: { backgroundColor: theme.colors.danger },
   footnote: { fontSize: 11, color: theme.colors.textMuted, lineHeight: 16 },
   modalOverlay: {
     position: "absolute",

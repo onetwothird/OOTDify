@@ -16,7 +16,7 @@ export function LoadingState({ label }: { label?: string }) {
 
 /** Grid of pulsing card skeletons while a catalog/grid loads. */
 export function SkeletonGrid({ count = 6 }: { count?: number }) {
-  const { columns, itemWidth, onLayout } = useResponsiveColumns(16, 110, 12);
+  const { columns, itemWidth, onLayout } = useResponsiveColumns(110, 12);
   const n = count || columns;
   return (
     <View style={styles.grid} onLayout={onLayout}>

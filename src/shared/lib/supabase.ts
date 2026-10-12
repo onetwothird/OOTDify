@@ -1,3 +1,7 @@
+// C:\OOTDify\src\shared\lib\supabase.ts
+// Supabase client configuration for OOTDify.
+//
+
 import { createClient } from "@supabase/supabase-js";
 import "expo-sqlite/localStorage/install";
 import "react-native-url-polyfill/auto";

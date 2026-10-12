@@ -60,7 +60,7 @@ type CameraMode = "idle" | "camera" | "preview";
 export default function ScanScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { itemWidth, onLayout } = useResponsiveColumns(12, 110, 12);
+  const { itemWidth, onLayout } = useResponsiveColumns(110, 12);
 
   // Camera view ref (component instance exposes takePictureAsync).
   const cameraRef = useRef<CameraView | null>(null);
@@ -101,12 +101,18 @@ export default function ScanScreen() {
 
   const openCapture = useCaptureModalStore((s) => s.open);
 
-  // Cross-tab preselection ("Use in try-on" from Discover/Home).
+  // Cross-tab preselection ("Use in try-on" from Discover/Home). Consumed
+  // ONCE on mount via effect — never in render (useRef initializers re-run on
+  // every render, which would mutate the store and discard the selection).
   const preselected = useRef<{
     clothingId: string | null;
     clothingSource: "catalog" | "item" | null;
     bodyPhotoId: string | null;
-  } | null>(useTryOnSelection.getState().consume());
+  } | null>(null);
+
+  useEffect(() => {
+    preselected.current = useTryOnSelection.getState().consume();
+  }, []);
 
   // ---------------------------------------------------------------------------
   // Consent
@@ -262,8 +268,8 @@ export default function ScanScreen() {
       setBodyPhotos((prev) => [photo, ...prev]);
       setSelectedBodyId(photo.id);
       setLastAnalysis({
-        detected: analysis.personDetected,
-        confidence: analysis.personConfidence,
+        detected: analysis?.personDetected ?? false,
+        confidence: analysis?.personConfidence ?? null,
       });
       setCameraMode("idle");
       setCapturedUri(null);
@@ -602,7 +608,7 @@ export default function ScanScreen() {
             <Ionicons
               name={lastAnalysis.detected ? "checkmark-circle" : "alert-circle-outline"}
               size={16}
-              color={lastAnalysis.detected ? theme.colors.primary : "#B45309"}
+              color={lastAnalysis.detected ? theme.colors.primary : theme.colors.warning}
             />
             <Text style={styles.analysisText}>
               {lastAnalysis.detected
@@ -643,12 +649,12 @@ export default function ScanScreen() {
                   <BodyPhotoImage photo={p} />
                   <View style={styles.photoBadgeRow}>
                     <Ionicons
-                      name={p.detection.personDetected ? "person" : "help-circle-outline"}
+                      name={p.detection?.personDetected ? "person" : "help-circle-outline"}
                       size={12}
                       color={theme.colors.textMuted}
                     />
                     <Text style={styles.photoBadgeText}>
-                      {p.detection.personDetected ? "Person" : "Check scan"}
+                      {p.detection?.personDetected ? "Person" : "Check scan"}
                     </Text>
                   </View>
                   <Pressable
@@ -922,6 +928,12 @@ function StepIndicator({ current }: { current: number }) {
   );
 }
 
+function formatJobDate(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleString();
+}
+
 function JobCard({
   job,
   onDelete,
@@ -941,7 +953,7 @@ function JobCard({
           <JobStatusPill status={job.status} />
         </View>
         <Text style={styles.jobDate} numberOfLines={1}>
-          {new Date(job.created_at).toLocaleString()}
+          {formatJobDate(job.created_at)}
         </Text>
         <Pressable accessibilityRole="button" hitSlop={8} onPress={() => onDelete(job)} style={styles.jobDelete}>
           <Ionicons name="trash-outline" size={16} color={theme.colors.textMuted} />
@@ -967,7 +979,7 @@ function JobCard({
         </View>
       ) : (
         <View style={styles.jobFailed}>
-          <Ionicons name="alert-circle-outline" size={16} color="#B45309" />
+          <Ionicons name="alert-circle-outline" size={16} color={theme.colors.warning} />
           <Text style={styles.jobFailedText}>{job.error || "The try-on job failed."}</Text>
           <Pressable accessibilityRole="button" style={styles.linkBtn} onPress={() => onRetry(job.id)}>
             <Text style={styles.linkBtnText}>Retry</Text>
@@ -983,8 +995,8 @@ function JobStatusPill({ status }: { status: TryOnJob["status"] }) {
     uploading: theme.colors.textMuted,
     queued: theme.colors.textMuted,
     processing: theme.colors.primary,
-    completed: "#15803D",
-    failed: "#B45309",
+    completed: theme.colors.success,
+    failed: theme.colors.warning,
   };
   return (
     <View style={[styles.pill, { borderColor: colors[status] }]}>
@@ -1136,7 +1148,7 @@ const styles = StyleSheet.create({
   secondaryBtnText: { color: theme.colors.text, fontWeight: "700", fontSize: 14 },
   linkBtn: { paddingVertical: 6, paddingHorizontal: 8 },
   linkBtnText: { color: theme.colors.primary, fontWeight: "700", fontSize: 13 },
-  errorText: { color: "#B45309", fontSize: 12.5, marginTop: 8 },
+  errorText: { color: theme.colors.warning, fontSize: 12.5, marginTop: 8 },
 
   // camera
   cameraBox: { borderRadius: theme.borderRadius.lg, overflow: "hidden" },
@@ -1335,7 +1347,7 @@ const styles = StyleSheet.create({
   jobResultPlaceholder: { backgroundColor: theme.colors.border },
   jobDoneActions: { flexDirection: "row", alignItems: "center", gap: 12 },
   jobFailed: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 4, flexWrap: "wrap" },
-  jobFailedText: { flex: 1, fontSize: 12.5, color: "#B45309", lineHeight: 18 },
+  jobFailedText: { flex: 1, fontSize: 12.5, color: theme.colors.warning, lineHeight: 18 },
 
   footnote: {
     fontSize: 11,

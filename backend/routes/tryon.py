@@ -27,15 +27,20 @@ logger = logging.getLogger(__name__)
 
 tryon_bp = Blueprint("tryon", __name__)
 
-_store: Optional[TryOnJobStore] = None
+_store_instance: Optional[TryOnJobStore] = None
 
 
 def _store() -> TryOnJobStore:
-    """Lazy job store (client is created on first use, not at import time)."""
-    global _store
-    if _store is None:
-        _store = TryOnJobStore()
-    return _store
+    """Lazy job store (client is created on first use, not at import time).
+
+    NOTE: the cached instance lives in `_store_instance` — if it shared the
+    function's name, `_store()` would return the function itself and every call
+    would crash with AttributeError.
+    """
+    global _store_instance
+    if _store_instance is None:
+        _store_instance = TryOnJobStore()
+    return _store_instance
 
 
 def _public_job(job: dict) -> dict:
