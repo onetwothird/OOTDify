@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from services.fashion_taxonomy import (  # noqa: E402
+from services.fashion_taxonomy import (  
     normalize_category,
     normalize_colors,
     normalize_gender,
@@ -129,4 +129,4 @@ def test_normalize_row_handles_nan_like_values():
     assert out["category"] == "Bottoms"
     assert out["color"] == []
     assert out["occasion"] == ["Casual"]
-    assert out["name"]  # never empty
+    assert out["name"]  
