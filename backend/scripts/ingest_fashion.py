@@ -46,9 +46,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("ingest_fashion")
 
-# ---------------------------------------------------------------------------
-# Dataset source (public HF mirror of the Fashion Product Images dataset)
-# ---------------------------------------------------------------------------
+
 DATASET = "ashraq/fashion-product-images-small"
 SOURCE = "kaggle:fashion-product-images-small"
 ROWS_URL = "https://datasets-server.huggingface.co/filter"
@@ -58,14 +56,10 @@ IMAGE_PREFIX = "fashion"
 INSERT_BATCH = 100
 ROWS_PER_PAGE = 100
 REQUEST_TIMEOUT = 60
-# The datasets-server occasionally 5xx's or stalls under load; retry a page a
-# few times with exponential backoff before giving up on that article type.
 MAX_FETCH_ATTEMPTS = 4
 FETCH_BACKOFF_MAX = 20
 
-# (subCategory filter, articleType) pairs queried and balanced. Keeping the
-# queries narrow means a page of 100 rows is all one article type, so the
-# per-article budget fills evenly instead of one type hogging the category cap.
+
 ARTICLE_TARGETS: Sequence[Tuple[str, str]] = (
     ("Topwear", "Tshirts"),
     ("Topwear", "Shirts"),
@@ -98,9 +92,7 @@ ARTICLE_TARGETS: Sequence[Tuple[str, str]] = (
 )
 
 
-# ---------------------------------------------------------------------------
-# Dataset-server queries
-# ---------------------------------------------------------------------------
+
 def _where_clause(article_type: str) -> str:
     return f'"articleType"=\'{article_type}\''
 
@@ -195,9 +187,6 @@ def _extension(content_type: str) -> str:
     return {"image/png": "png", "image/webp": "webp"}.get(content_type, "jpg")
 
 
-# ---------------------------------------------------------------------------
-# Selection budget — keeps the catalog balanced across categories / article types
-# ---------------------------------------------------------------------------
 class Budget:
     def __init__(self, total: int, per_category: int, per_article: int) -> None:
         self.total = total
@@ -224,9 +213,6 @@ class Budget:
         return True
 
 
-# ---------------------------------------------------------------------------
-# Supabase helpers
-# ---------------------------------------------------------------------------
 def existing_external_ids(sb) -> Set[str]:
     """All `metadata.external_id` values already in the catalog (for idempotency)."""
     found: Set[str] = set()
@@ -289,10 +275,6 @@ def flush(sb, rows: List[Dict[str, Any]]) -> int:
         logger.error("Insert batch failed (%d rows): %s", len(rows), exc)
         return 0
 
-
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
 def run(args: argparse.Namespace) -> int:
     from services.supabase_client import is_configured, get_supabase
 
@@ -371,7 +353,7 @@ def run(args: argparse.Namespace) -> int:
                 if not image_url:
                     if args.require_image:
                         skipped_no_image += 1
-                        budget.accepted -= 1  # give the slot back
+                        budget.accepted -= 1  
                         continue
                     image_url = ""
 
@@ -390,8 +372,7 @@ def run(args: argparse.Namespace) -> int:
                         time.time() - started,
                     )
 
-            # Stop paging once this article's budget is full or the page yielded
-            # nothing countable (exhausted / all dupes).
+          
             article_now = budget.article_counts.get(article_type, 0)
             if added_this_page == 0 or article_now >= args.per_article:
                 break
