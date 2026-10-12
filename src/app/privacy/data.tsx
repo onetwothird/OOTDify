@@ -1,7 +1,3 @@
-// C:\OOTDify\src\app\privacy\data.tsx
-// Privacy & Data dashboard: per-category store counts, body-photo management
-// shortcut, real "Download My Data" export (fetched from the server) and real
-// account deletion (performed server-side, with explicit confirmation).
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
