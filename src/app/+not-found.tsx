@@ -1,5 +1,6 @@
 // C:\OOTDify\src\app\+not-found.tsx
 // Generic not-found screen for invalid routes.
+import { Link, Stack } from "expo-router";
 import { StyleSheet, Text, View } from "react-native";
 import { theme } from "../shared/config/theme";
 
