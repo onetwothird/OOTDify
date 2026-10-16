@@ -206,6 +206,7 @@ export default function HomeScreen() {
             />
           ))}
         </ScrollView>
+        <View style={styles.chipsSpacer} />
 
         {recLoading ? (
           <SkeletonGrid />
@@ -646,6 +647,7 @@ const styles = StyleSheet.create({
 
   // Sections
   chips: { gap: 8, paddingRight: 16, paddingBottom: 4 },
+  chipsSpacer: { height: 4 },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
