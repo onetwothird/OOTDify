@@ -1,5 +1,6 @@
 // C:\OOTDify\src\app\(auth)\signup.tsx
 // Signup screen for new user registration.
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
