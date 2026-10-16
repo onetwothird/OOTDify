@@ -1,5 +1,6 @@
 // C:\OOTDify\src\app\(auth)\login.tsx
 // Login screen for existing user authentication.
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
