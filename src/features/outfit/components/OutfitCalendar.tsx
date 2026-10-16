@@ -298,7 +298,7 @@ export function OutfitCalendar({ outfits, onOpenOutfit }: Props) {
                         pressed && { opacity: 0.9 },
                       ]}
                     >
-                      <MiniThumb ref={outfitThumbRef(o)} size={44} />
+                      <MiniThumb imageRef={outfitThumbRef(o)} size={44} />
                       <View style={styles.pickerRowBody}>
                         <Text style={styles.pickerRowName} numberOfLines={1}>
                           {o.name || "Untitled outfit"}
@@ -366,21 +366,21 @@ function fromISOToLabel(iso: string): string {
 }
 
 /** Small square outfit thumbnail with a graceful placeholder. */
-function MiniThumb({ ref, size }: { ref: string | null; size: number }) {
+function MiniThumb({ imageRef, size }: { imageRef: string | null; size: number }) {
   const [uri, setUri] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
-    if (!ref) {
+    if (!imageRef) {
       setUri(null);
       return;
     }
-    resolveMediaUrl(ref, 900).then((u) => {
+    resolveMediaUrl(imageRef, 900).then((u) => {
       if (alive) setUri(u);
     });
     return () => {
       alive = false;
     };
-  }, [ref]);
+  }, [imageRef]);
 
   const box = { width: size, height: size, borderRadius: size / 4 };
   if (uri) {
