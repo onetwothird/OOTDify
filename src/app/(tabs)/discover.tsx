@@ -194,6 +194,7 @@ export default function WardrobeScreen() {
             <Chip key={cat} label={cat} active={cat === filter} onPress={() => setFilter(cat)} />
           ))}
         </ScrollView>
+        <View style={styles.chipsSpacer} />
 
         {/* ------------------------- Closet grid ------------------------- */}
         {closetLoading && closet.length === 0 ? (
@@ -279,6 +280,7 @@ export default function WardrobeScreen() {
             />
           ))}
         </ScrollView>
+        <View style={styles.chipsSpacer} />
 
         {catalogs.loading ? (
           <SkeletonGrid />
@@ -422,6 +424,7 @@ const styles = StyleSheet.create({
   },
 
   chips: { gap: 8, paddingTop: 12, paddingRight: 16 },
+  chipsSpacer: { height: 4 },
 
   grid: {
     flexDirection: "row",
