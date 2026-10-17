@@ -83,6 +83,8 @@ def analyze():
 
 
 @detection_bp.post("/api/detect")
+@require_auth
+@upload_limits("detect_upload")
 def detect():
     """Accept a multipart/form-data upload (`image=<file>`) and run YOLO.
 
@@ -161,6 +163,7 @@ def detect():
 
 
 @detection_bp.get("/api/detect/annotated/<path:filename>")
+@require_auth
 def annotated_image(filename: str):
     """Serve annotated result images (development convenience)."""
     outputs_dir = Path(current_app.config["OUTPUT_FOLDER"])
