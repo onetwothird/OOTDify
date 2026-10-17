@@ -11,7 +11,9 @@ from pathlib import Path
 from flask import Blueprint, current_app, jsonify, request, send_from_directory
 
 from services import image_service
+from services.auth_service import require_auth
 from services.pose_service import get_pose_service
+from services.ratelimit import upload_limits
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +21,8 @@ pose_bp = Blueprint("pose", __name__)
 
 
 @pose_bp.post("/api/pose")
+@require_auth
+@upload_limits("pose_upload")
 def pose():
     """Accept a multipart/form-data upload (`image=<file>`) and estimate poses.
 
@@ -76,6 +80,7 @@ def pose():
 
 
 @pose_bp.get("/api/pose/annotated/<path:filename>")
+@require_auth
 def pose_annotated_image(filename: str):
     """Serve annotated pose images (development convenience)."""
     outputs_dir = Path(current_app.config["OUTPUT_FOLDER"])
