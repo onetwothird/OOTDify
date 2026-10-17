@@ -11,6 +11,8 @@ from pathlib import Path
 from flask import Blueprint, current_app, jsonify, request, send_from_directory
 
 from services import image_service
+from services.auth_service import require_auth
+from services.ratelimit import upload_limits
 from services.segmentation_service import get_segmentation_service
 
 logger = logging.getLogger(__name__)
@@ -19,6 +21,8 @@ segmentation_bp = Blueprint("segmentation", __name__)
 
 
 @segmentation_bp.post("/api/segment")
+@require_auth
+@upload_limits("segment_upload")
 def segment():
     """Accept a multipart/form-data upload (`image=<file>`) and run instance
     segmentation.
@@ -80,6 +84,7 @@ def segment():
 
 
 @segmentation_bp.get("/api/segment/annotated/<path:filename>")
+@require_auth
 def segment_annotated_image(filename: str):
     """Serve annotated segmentation images (development convenience)."""
     outputs_dir = Path(current_app.config["OUTPUT_FOLDER"])
