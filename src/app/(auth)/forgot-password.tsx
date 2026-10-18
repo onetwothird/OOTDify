@@ -1,19 +1,21 @@
+// C:\OOTDify\src\app\(auth)\forgot-password.tsx
+// Password reset request — shares the auth design system (FormField/AppButton).
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { AppButton } from "../../shared/components/AppButton";
+import { FormField } from "../../shared/components/FormField";
 import { theme } from "../../shared/config/theme";
 import { supabase } from "../../shared/lib/supabase";
 
@@ -22,8 +24,9 @@ export default function ForgotPasswordScreen() {
   const [loading, setLoading] = useState(false);
 
   const handleReset = async () => {
+    if (loading) return;
     if (!email) {
-      Alert.alert("Required", "Please enter your email address.");
+      Alert.alert("Email required", "Please enter your email address.");
       return;
     }
 
@@ -31,10 +34,11 @@ export default function ForgotPasswordScreen() {
     const { error } = await supabase.auth.resetPasswordForEmail(email);
 
     if (error) {
-      Alert.alert("Error", error.message);
+      Alert.alert("Could not send link", error.message);
     } else {
-      Alert.alert("Check your inbox", "We sent you a password reset link.");
-      router.back();
+      Alert.alert("Check your inbox", "We sent you a password reset link.", [
+        { text: "OK", onPress: () => router.back() },
+      ]);
     }
     setLoading(false);
   };
@@ -46,12 +50,15 @@ export default function ForgotPasswordScreen() {
         style={styles.container}
       >
         <View style={styles.header}>
-          <TouchableOpacity
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
             onPress={() => router.back()}
-            style={styles.backButton}
+            hitSlop={8}
+            style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
           >
-            <Ionicons name="arrow-back" size={24} color="#18181B" />
-          </TouchableOpacity>
+            <Ionicons name="arrow-back" size={22} color={theme.colors.text} />
+          </Pressable>
         </View>
 
         <ScrollView
@@ -59,43 +66,34 @@ export default function ForgotPasswordScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.title}>Reset Password</Text>
+          <Text style={styles.title}>Reset password</Text>
           <Text style={styles.subtitle}>
-            Enter your email to receive a reset link.
+            Enter your email and we&apos;ll send you a link to set a new password.
           </Text>
 
-          <View style={styles.form}>
-            <Text style={styles.label}>Email Address</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons
-                name="mail-outline"
-                size={20}
-                color="#A1A1AA"
-                style={styles.inputIcon}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Enter Your Email"
-                placeholderTextColor="#A1A1AA"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                value={email}
-                onChangeText={setEmail}
-              />
-            </View>
+          <FormField
+            label="Email address"
+            icon="mail-outline"
+            value={email}
+            onChangeText={setEmail}
+            placeholder="you@example.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="email"
+            textContentType="emailAddress"
+            returnKeyType="send"
+            onSubmitEditing={handleReset}
+            editable={!loading}
+          />
 
-            <TouchableOpacity
-              style={[styles.primaryButton, { marginTop: 16 }]}
-              onPress={handleReset}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#FFF" />
-              ) : (
-                <Text style={styles.primaryButtonText}>Send Reset Link</Text>
-              )}
-            </TouchableOpacity>
-          </View>
+          <AppButton
+            label="Send reset link"
+            onPress={handleReset}
+            loading={loading}
+            disabled={loading}
+            style={styles.pill}
+          />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -103,71 +101,44 @@ export default function ForgotPasswordScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#FFFFFF" },
+  safeArea: { flex: 1, backgroundColor: theme.colors.background },
   container: { flex: 1 },
-  header: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 10 },
+  header: {
+    paddingHorizontal: theme.spacing.page,
+    paddingTop: theme.spacing.sm,
+    paddingBottom: theme.spacing.sm,
+  },
   backButton: {
     width: 40,
     height: 40,
-    backgroundColor: "#F4F4F5",
     borderRadius: 20,
-    justifyContent: "center",
     alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.surfaceAlt,
   },
+  pressed: { opacity: 0.7 },
   scrollContent: {
     flexGrow: 1,
     width: "100%",
     maxWidth: 480,
     alignSelf: "center",
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 20,
+    paddingHorizontal: theme.spacing.lg,
+    paddingBottom: theme.spacing.lg,
   },
   title: {
-    fontSize: 28,
+    fontSize: 30,
+    lineHeight: 36,
     fontWeight: "800",
-    color: "#18181B",
-    textAlign: "center",
-    marginBottom: 8,
+    letterSpacing: -0.8,
+    color: theme.colors.text,
+    marginTop: theme.spacing.sm,
   },
   subtitle: {
-    fontSize: 14,
-    color: "#A1A1AA",
-    textAlign: "center",
-    marginBottom: 40,
-    fontWeight: "500",
+    fontSize: 14.5,
+    lineHeight: 21,
+    color: theme.colors.textMuted,
+    marginTop: 6,
+    marginBottom: theme.spacing.xl,
   },
-  form: {},
-  label: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: theme.colors.text,
-    marginBottom: 8,
-    marginLeft: 4,
-  },
-  inputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F4F4F5",
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    height: 56,
-    borderWidth: 1,
-    borderColor: "#E4E4E7",
-  },
-  inputIcon: { marginRight: 12 },
-  input: { flex: 1, fontSize: 15, color: "#18181B", fontWeight: "500" },
-  primaryButton: {
-    backgroundColor: "#18181B",
-    height: 56,
-    borderRadius: 100,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  primaryButtonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
+  pill: { borderRadius: theme.borderRadius.pill },
 });
