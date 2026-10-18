@@ -19,6 +19,7 @@ from flask import Blueprint, jsonify, request
 from config import Config
 from services import storage_service
 from services.auth_service import require_auth, require_user
+from services.consent import require_consent
 from services.ratelimit import default_limits, upload_limits
 from services.supabase_client import get_supabase
 from services.tryon_service import TryOnJobStore
@@ -59,6 +60,7 @@ def _public_job(job: dict) -> dict:
 @tryon_bp.post("/api/tryon")
 @require_auth
 @upload_limits("tryon_create")
+@require_consent
 def create_tryon():
     user = require_user()
     payload = request.get_json(silent=True) or {}
