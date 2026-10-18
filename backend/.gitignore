@@ -12,6 +12,8 @@ uploads/
 outputs/
 !uploads/.gitkeep
 !outputs/.gitkeep
+# Local job data + manual backup files (seed_dedupe_backup_*.json)
+data/
 
 # Model weights can be re-downloaded; do not commit them
 models/yolo/*.pt
