@@ -18,9 +18,8 @@ export function useCatalog(category?: string): UseCatalogResult {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Core loader — effect-safe (no synchronous setState); state starts as loading.
   const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
     try {
       const [rows, favs] = await Promise.all([
         fetchCatalog({ category }),
@@ -35,8 +34,27 @@ export function useCatalog(category?: string): UseCatalogResult {
     }
   }, [category]);
 
+  // Reset loading/error during render when the category changes — React's
+  // documented alternative to a synchronous setState inside an effect.
+  const [prevCategory, setPrevCategory] = useState(category);
+  if (prevCategory !== category) {
+    setPrevCategory(category);
+    setLoading(true);
+    setError(null);
+  }
+
   useEffect(() => {
-    void load();
+    // Microtask kick-off: no setState runs synchronously within the effect body.
+    Promise.resolve()
+      .then(() => load())
+      .catch(() => {});
+  }, [load]);
+
+  // Handler-facing wrapper for explicit refetches: spinner + clear old error.
+  const refetch = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    await load();
   }, [load]);
 
   const toggleFavorite = useCallback(
@@ -67,5 +85,5 @@ export function useCatalog(category?: string): UseCatalogResult {
     [favoriteIds],
   );
 
-  return { items, loading, error, favoriteIds, refetch: load, toggleFavorite };
+  return { items, loading, error, favoriteIds, refetch, toggleFavorite };
 }
