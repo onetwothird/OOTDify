@@ -203,9 +203,9 @@ def create_body_photo():
         )
     except ValueError as exc:
         return jsonify(success=False, error=str(exc)), 400
-    except Exception as exc:
+    except Exception:
         logger.exception("Body photo upload failed")
-        return jsonify(success=False, error=f"Could not process body photo: {exc}"), 500
+        return jsonify(success=False, error="Could not process body photo. Please try again."), 500
     finally:
         if temp_path is not None:
             image_service.cleanup(temp_path)
@@ -272,9 +272,9 @@ def privacy_summary():
             "favorites": _count("favorites", user["id"]),
             "recentlyViewed": _count("recently_viewed", user["id"]),
         }
-    except Exception as exc:
+    except Exception:
         logger.exception("Privacy summary failed")
-        return jsonify(success=False, error=f"Could not load data summary: {exc}"), 500
+        return jsonify(success=False, error="Could not load data summary."), 500
     return jsonify(success=True, summary=summary)
 
 
@@ -305,9 +305,9 @@ def export_account():
             "savedOutfits": rows("saved_outfits", ["id", "name", "occasion", "clothing_ids", "created_at"]),
             "tryOnJobs": rows("try_on_jobs", ["id", "status", "clothing_ids", "created_at", "updated_at"]),
         }
-    except Exception as exc:
+    except Exception:
         logger.exception("Export failed")
-        return jsonify(success=False, error=f"Could not build export: {exc}"), 500
+        return jsonify(success=False, error="Could not build export."), 500
 
     data = json.dumps(payload, indent=2, default=str).encode("utf-8")
     return send_file(
@@ -335,23 +335,29 @@ def delete_account():
         # 1. Storage
         storage_service.delete_user_storage(uid)
 
-        # 2. Rows (best-effort explicit; cascades cover the rest)
+        # 2. Rows (best-effort explicit; cascades from auth.users cover the rest)
         for table in (
             "body_photos",
             "clothing_items",
             "favorites",
             "recently_viewed",
             "saved_outfits",
+            "outfit_plans",
             "try_on_jobs",
             "user_profiles",
         ):
-            get_supabase().table(table).delete().eq("user_id", uid).execute()
+            try:
+                get_supabase().table(table).delete().eq("user_id", uid).execute()
+            except Exception:
+                # Table may not exist yet (pre-migration DB) or a row may be
+                # locked; the auth-user delete below cascades anything left.
+                logger.warning("Could not clear %s for %s; relying on cascade", table, uid)
 
         # 3. Auth account
         get_supabase().auth.admin.delete_user(uid)
-    except Exception as exc:
+    except Exception:
         logger.exception("Account deletion failed for %s", uid)
-        return jsonify(success=False, error=f"Account deletion failed: {exc}"), 500
+        return jsonify(success=False, error="Account deletion failed. Please try again or contact support."), 500
 
     logger.warning("Account deleted: %s", uid)
     return jsonify(success=True, message="Account and all associated data deleted.")
