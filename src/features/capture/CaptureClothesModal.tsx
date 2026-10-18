@@ -7,11 +7,11 @@
 // "Camera" (with the context copy below). Library picks use the system photo
 // picker — no broad gallery permission is requested on Android.
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { useState } from "react";
 import {
   Alert,
-  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -198,7 +198,7 @@ export default function CaptureClothesModal() {
                 return (
                   <View key={`${entry.uri}-${idx}`} style={styles.itemCard}>
                     <View style={styles.itemImageWrap}>
-                      <Image source={{ uri: entry.uri }} style={styles.itemImage} />
+                      <Image source={{ uri: entry.uri }} style={styles.itemImage} contentFit="cover" transition={150} />
                       <Pressable
                         accessibilityRole="button"
                         accessibilityLabel="Remove photo"
