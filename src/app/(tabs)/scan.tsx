@@ -19,7 +19,6 @@ import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -27,10 +26,11 @@ import {
   Text,
   View,
 } from "react-native";
+import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCaptureModalStore } from "../../features/capture/captureModalStore";
-import { fetchCatalog } from "../../features/clothing/service";
+import { fetchCatalog, insertSavedOutfit } from "../../features/clothing/service";
 import { CatalogItem } from "../../features/clothing/types";
 import { useTryOnSelection } from "../../features/tryon/selectionStore";
 import { useWardrobeStore } from "../../features/wardrobe/store";
@@ -45,7 +45,6 @@ import {
   TryOnJob,
   uploadBodyPhoto,
 } from "../../services/aiApi";
-import { insertSavedOutfit } from "../../features/clothing/service";
 import { EmptyState, ErrorState } from "../../shared/components/StateViews";
 import { ScreenHeader } from "../../shared/components/ScreenHeader";
 import { SkeletonBlock } from "../../shared/components/Skeleton";
@@ -80,7 +79,9 @@ export default function ScanScreen() {
 
   // --- Body photos ----------------------------------------------------------
   const [bodyPhotos, setBodyPhotos] = useState<BodyPhotoWithUrl[]>([]);
-  const [photosLoading, setPhotosLoading] = useState(false);
+  // Start as loading: the sections only render behind the consent gate, so the
+  // first visible frame after consent shows the skeleton, not an empty list.
+  const [photosLoading, setPhotosLoading] = useState(true);
   const [photosError, setPhotosError] = useState<string | null>(null);
   const [selectedBodyId, setSelectedBodyId] = useState<string | null>(null);
   const [lastAnalysis, setLastAnalysis] = useState<{
@@ -94,7 +95,7 @@ export default function ScanScreen() {
   const closetItems = useWardrobeStore((s) => s.items);
   const [selectedClothing, setSelectedClothing] = useState<Set<string>>(new Set());
   const [jobs, setJobs] = useState<TryOnJob[]>([]);
-  const [jobsLoading, setJobsLoading] = useState(false);
+  const [jobsLoading, setJobsLoading] = useState(true);
   const [jobsError, setJobsError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
@@ -134,23 +135,17 @@ export default function ScanScreen() {
     };
   }, []);
 
-  const acceptConsent = async () => {
-    setConsented(true);
-    try {
-      await AsyncStorage.setItem(CONSENT_KEY, "true");
-    } catch {
-      /* in-memory consent is fine for this session */
-    }
-    void refreshBodyPhotos();
-    void refreshJobs();
-  };
-
   // ---------------------------------------------------------------------------
   // Data loading
+  //
+  // Two layers per resource: the *core* loaders never setState before their
+  // awaits, so effects can kick them off safely; the refresh* wrappers show the
+  // spinner / clear the error and are called from user actions only.
+  // No manual useCallback here — the React Compiler memoizes these instead
+  // (it cannot preserve the hand-written memoization this component used to
+  // declare, which is why the whole component previously went uncompiled).
   // ---------------------------------------------------------------------------
-  const refreshBodyPhotos = useCallback(async () => {
-    setPhotosLoading(true);
-    setPhotosError(null);
+  const loadBodyPhotos = useCallback(async () => {
     try {
       const photos = await listBodyPhotos();
       setBodyPhotos(photos);
@@ -166,8 +161,13 @@ export default function ScanScreen() {
     }
   }, []);
 
-  const refreshJobs = useCallback(async () => {
-    setJobsLoading(true);
+  const refreshBodyPhotos = async () => {
+    setPhotosLoading(true);
+    setPhotosError(null);
+    await loadBodyPhotos();
+  };
+
+  const loadTryOnJobs = useCallback(async () => {
     try {
       const rows = await listTryOnJobs();
       setJobs(rows);
@@ -179,11 +179,37 @@ export default function ScanScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    if (!consented) return;
+  const refreshJobs = async () => {
+    setJobsLoading(true);
+    await loadTryOnJobs();
+  };
+
+  const acceptConsent = async () => {
+    // The handler kicks the loads itself (below), so the consent effect below
+    // must not double-fetch when `consented` flips to true.
+    initialLoadsStarted.current = true;
+    setConsented(true);
+    try {
+      await AsyncStorage.setItem(CONSENT_KEY, "true");
+    } catch {
+      /* in-memory consent is fine for this session */
+    }
     void refreshBodyPhotos();
     void refreshJobs();
-  }, [consented, refreshBodyPhotos, refreshJobs]);
+  };
+
+  // Initial loads: consent is either freshly accepted (acceptConsent above) or
+  // restored from storage — both transitions land here. Single-flight so repeat
+  // effect runs never double-fetch.
+  const initialLoadsStarted = useRef(false);
+  useEffect(() => {
+    if (!consented || initialLoadsStarted.current) return;
+    initialLoadsStarted.current = true;
+    // Microtask kick-off: no setState runs synchronously within the effect body.
+    Promise.resolve()
+      .then(() => Promise.all([loadBodyPhotos(), loadTryOnJobs()]))
+      .catch(() => {});
+  }, [consented, loadBodyPhotos, loadTryOnJobs]);
 
   // Load catalog for the try-on garment picker.
   useEffect(() => {
@@ -201,30 +227,35 @@ export default function ScanScreen() {
     };
   }, [consented]);
 
-  // Apply cross-tab preselection once data is available.
+  // Apply cross-tab preselection once data is available (through a microtask:
+  // setState outside the synchronous effect body).
   useEffect(() => {
     if (!consented || !preselected.current) return;
     const sel = preselected.current;
     preselected.current = null;
-    if (sel.bodyPhotoId) setSelectedBodyId(sel.bodyPhotoId);
-    if (sel.clothingId) {
-      setClothingSource(sel.clothingSource === "item" ? "closet" : "catalog");
-      setSelectedClothing(new Set([sel.clothingId]));
-    }
+    Promise.resolve().then(() => {
+      if (sel.bodyPhotoId) setSelectedBodyId(sel.bodyPhotoId);
+      if (sel.clothingId) {
+        setClothingSource(sel.clothingSource === "item" ? "closet" : "catalog");
+        setSelectedClothing(new Set([sel.clothingId]));
+      }
+    });
   }, [consented, catalogItems, closetItems, bodyPhotos]);
 
-  // Poll until the tab has no active jobs.
+  // Poll until the tab has no active jobs. The interval callback is an
+  // external-system subscription; it calls the core loader, which never
+  // setState synchronously (and keeps the jobs skeleton from flashing).
   useEffect(() => {
     if (!consented) return;
     const tick = () => {
       const hasActive = jobs.some(
         (j) => j.status === "uploading" || j.status === "queued" || j.status === "processing",
       );
-      if (hasActive) void refreshJobs();
+      if (hasActive) void loadTryOnJobs();
     };
     const id = setInterval(tick, 5000);
     return () => clearInterval(id);
-  }, [consented, jobs, refreshJobs]);
+  }, [consented, jobs, loadTryOnJobs]);
 
   // ---------------------------------------------------------------------------
   // Actions
@@ -545,7 +576,7 @@ export default function ScanScreen() {
                         setCapturedUri(photo.uri);
                         setCameraMode("preview");
                       }
-                    } catch (e) {
+                    } catch {
                       Alert.alert("Capture failed", "Please try again.");
                     }
                   }}
@@ -564,7 +595,7 @@ export default function ScanScreen() {
           </View>
         ) : cameraMode === "preview" && capturedUri ? (
           <View style={styles.previewBox}>
-            <Image source={{ uri: capturedUri }} style={styles.previewImage} resizeMode="cover" />
+            <Image source={{ uri: capturedUri }} style={styles.previewImage} contentFit="cover" transition={150} />
             <View style={styles.previewActions}>
               <Pressable
                 accessibilityRole="button"
@@ -715,7 +746,7 @@ export default function ScanScreen() {
                     onPress={() => toggleClothing(item.id)}
                     style={[styles.pickCard, { width: itemWidth }]}
                   >
-                    <PickImage ref={item.image_url} />
+                    <PickImage source={item.image_url} />
                     <Text style={styles.pickName} numberOfLines={1}>
                       {item.name}
                     </Text>
@@ -750,7 +781,7 @@ export default function ScanScreen() {
                   onPress={() => toggleClothing(item.id)}
                   style={[styles.pickCard, { width: itemWidth }]}
                 >
-                  <PickImage ref={item.image_url} />
+                  <PickImage source={item.image_url} />
                   <Text style={styles.pickName} numberOfLines={1}>
                     {item.name || item.category || "Item"}
                   </Text>
@@ -812,7 +843,7 @@ export default function ScanScreen() {
 
         <Text style={styles.footnote}>
           Try-on generation requires an AI virtual-try-on model on the server.
-          If it isn't configured yet, jobs will fail honestly instead of
+          If it isn&apos;t configured yet, jobs will fail honestly instead of
           showing fake images.
         </Text>
       </ScrollView>
@@ -833,25 +864,25 @@ function BodyPhotoImage({ photo }: { photo: BodyPhotoWithUrl }) {
     };
   }, [photo.storage_path, uri]);
   return uri ? (
-    <Image source={{ uri }} style={styles.photoImage} resizeMode="cover" />
+    <Image source={{ uri }} style={styles.photoImage} contentFit="cover" transition={150} />
   ) : (
     <View style={[styles.photoImage, styles.photoPlaceholder]} />
   );
 }
 
-function PickImage({ ref: imageRef }: { ref: string | null }) {
+function PickImage({ source }: { source: string | null }) {
   const [uri, setUri] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
-    resolveMediaUrl(imageRef, 900).then((u) => {
+    resolveMediaUrl(source, 900).then((u) => {
       if (alive) setUri(u);
     });
     return () => {
       alive = false;
     };
-  }, [imageRef]);
+  }, [source]);
   return uri ? (
-    <Image source={{ uri }} style={styles.pickImage} resizeMode="cover" />
+    <Image source={{ uri }} style={styles.pickImage} contentFit="cover" transition={150} />
   ) : (
     <View style={[styles.pickImage, styles.pickImagePlaceholder]} />
   );
@@ -1020,7 +1051,7 @@ function JobResultImage({ job }: { job: TryOnJob }) {
   return (
     <View style={styles.jobResultWrap}>
       {uri ? (
-        <Image source={{ uri }} style={styles.jobResultImage} resizeMode="cover" />
+        <Image source={{ uri }} style={styles.jobResultImage} contentFit="cover" transition={150} />
       ) : (
         <View style={[styles.jobResultImage, styles.jobResultPlaceholder]} />
       )}
