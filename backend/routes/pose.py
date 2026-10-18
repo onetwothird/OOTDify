@@ -12,6 +12,7 @@ from flask import Blueprint, current_app, jsonify, request, send_from_directory
 
 from services import image_service
 from services.auth_service import require_auth
+from services.consent import require_consent
 from services.pose_service import get_pose_service
 from services.ratelimit import upload_limits
 
@@ -23,6 +24,7 @@ pose_bp = Blueprint("pose", __name__)
 @pose_bp.post("/api/pose")
 @require_auth
 @upload_limits("pose_upload")
+@require_consent
 def pose():
     """Accept a multipart/form-data upload (`image=<file>`) and estimate poses.
 
