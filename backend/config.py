@@ -15,7 +15,11 @@ load_dotenv(dotenv_path=BASE_DIR / ".env")
 
 class Config:
     # ----------------------------- Flask core -----------------------------
-    DEBUG = os.getenv("FLASK_DEBUG", "1").lower() in {"1", "true", "yes", "on"}
+    # Flask debug mode: OFF by default. The Werkzeug debugger exposes an
+    # interactive console (PIN-protected but brute-forceable on a LAN) — a
+    # remote-code-execution risk on any reachable host. Set FLASK_DEBUG=1
+    # explicitly when actively debugging on an isolated machine.
+    DEBUG = os.getenv("FLASK_DEBUG", "0").lower() in {"1", "true", "yes", "on"}
     HOST = os.getenv("FLASK_HOST", "0.0.0.0")
     PORT = int(os.getenv("FLASK_PORT", "5000"))
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-change-me")
