@@ -44,7 +44,7 @@ const HORIZONTAL_CARD_W = 150;
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { columns, itemWidth, onLayout } = useResponsiveColumns(120, 12);
+  const { itemWidth, onLayout } = useResponsiveColumns(120, 12);
 
   // ---- Recommendations (Flask /api/recommend → real catalog ids) -----------
   const [occasion, setOccasion] = useState<string>("Casual");
@@ -74,9 +74,9 @@ export default function HomeScreen() {
   // ---------------------------------------------------------------------------
   // Loaders (real endpoints only)
   // ---------------------------------------------------------------------------
-  const loadRecommendations = useCallback(async (occ: string) => {
-    setRecLoading(true);
-    setRecError(null);
+  // Core loader — safe to call from effects: no synchronous setState (the
+  // loading flag starts true; the spinner/error reset lives in the wrapper).
+  const fetchRecommendations = useCallback(async (occ: string) => {
     try {
       const { recommendations } = await recommendCatalog({ occasion: occ, limit: 8 });
       setRecommended(recommendations);
@@ -87,9 +87,18 @@ export default function HomeScreen() {
     }
   }, []);
 
+  // Handler-facing wrapper: show the spinner and clear the previous error.
+  const loadRecommendations = useCallback(
+    async (occ: string) => {
+      setRecLoading(true);
+      setRecError(null);
+      await fetchRecommendations(occ);
+    },
+    [fetchRecommendations],
+  );
+
   const loadTrending = useCallback(async () => {
-    setTrendingLoading(true);
-    setTrendingError(null);
+    // Effect-only (no synchronous setState); state starts as loading.
     try {
       setTrending(await fetchCatalog({ limit: 6 }));
     } catch (e) {
@@ -136,12 +145,27 @@ export default function HomeScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    void loadRecommendations(occasion);
-  }, [occasion, loadRecommendations]);
+  // Reset loading/error during render when the occasion changes — React's
+  // documented alternative to a synchronous setState inside an effect.
+  const [prevOccasion, setPrevOccasion] = useState(occasion);
+  if (prevOccasion !== occasion) {
+    setPrevOccasion(occasion);
+    setRecLoading(true);
+    setRecError(null);
+  }
 
   useEffect(() => {
-    void loadTrending();
+    // Microtask kick-off: keeps setState from running synchronously inside the
+    // effect body (cascading renders) — the loader only sets state after await.
+    Promise.resolve()
+      .then(() => fetchRecommendations(occasion))
+      .catch(() => {});
+  }, [occasion, fetchRecommendations]);
+
+  useEffect(() => {
+    Promise.resolve()
+      .then(() => loadTrending())
+      .catch(() => {});
   }, [loadTrending]);
 
   useFocusEffect(
