@@ -5,6 +5,7 @@
 // independently rejects AI processing without that record (403 consent_required).
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
   Alert,
@@ -16,8 +17,9 @@ import {
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppButton } from "../../shared/components/AppButton";
+import { AuthCard, AuthHero } from "../../shared/components/AuthShell";
 import { FormField } from "../../shared/components/FormField";
 import { OAuthButtons } from "../../shared/components/OAuthButtons";
 import { PRIVACY_ROUTE, TERMS_ROUTE, TERMS_VERSION } from "../../shared/config/legal";
@@ -29,6 +31,7 @@ const CONSENT_MESSAGE =
   "Please agree to the Terms of Service and Privacy Policy to create an account.";
 
 export default function SignupScreen() {
+  const insets = useSafeAreaInsets();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -124,32 +127,24 @@ export default function SignupScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.screen}>
+      <StatusBar style="light" />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.container}
+        style={styles.flex}
       >
-        <View style={styles.header}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
-            onPress={() => router.back()}
-            hitSlop={8}
-            style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
-          >
-            <Ionicons name="arrow-back" size={22} color={theme.colors.text} />
-          </Pressable>
-        </View>
-
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.title}>Create your account</Text>
-          <Text style={styles.subtitle}>Your wardrobe, organised in minutes.</Text>
+          <AuthHero
+            title="Create your account"
+            subtitle="Your wardrobe, organised in minutes."
+            onBack={() => router.back()}
+          />
 
-          <View style={styles.form}>
+          <AuthCard>
             <FormField
               label="Full name"
               icon="person-outline"
@@ -250,10 +245,15 @@ export default function SignupScreen() {
               facebookLoading={facebookLoading}
               disabled={loading}
             />
-          </View>
+          </AuthCard>
+
+          <Text style={styles.note}>
+            Body photos you scan stay in your private account and are used only
+            for the AI features you ask for.
+          </Text>
         </ScrollView>
 
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: insets.bottom + theme.spacing.md }]}>
           <Text style={styles.footerText}>Already have an account? </Text>
           <Pressable
             accessibilityRole="button"
@@ -264,51 +264,19 @@ export default function SignupScreen() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: theme.colors.background },
-  container: { flex: 1 },
-  header: {
-    paddingHorizontal: theme.spacing.page,
-    paddingTop: theme.spacing.sm,
-    paddingBottom: theme.spacing.sm,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: theme.colors.surfaceAlt,
-  },
-  pressed: { opacity: 0.7 },
-  scrollContent: {
-    flexGrow: 1,
+  screen: { flex: 1, backgroundColor: theme.colors.background },
+  flex: { flex: 1 },
+  scroll: {
     width: "100%",
     maxWidth: 480,
     alignSelf: "center",
-    paddingHorizontal: theme.spacing.lg,
     paddingBottom: theme.spacing.lg,
   },
-  title: {
-    fontSize: 30,
-    lineHeight: 36,
-    fontWeight: "800",
-    letterSpacing: -0.8,
-    color: theme.colors.text,
-    marginTop: theme.spacing.sm,
-  },
-  subtitle: {
-    fontSize: 14.5,
-    lineHeight: 21,
-    color: theme.colors.textMuted,
-    marginTop: 6,
-    marginBottom: theme.spacing.xl,
-  },
-  form: { width: "100%" },
   consentCard: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -316,9 +284,7 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: theme.spacing.md,
     borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceAlt,
   },
   checkboxHit: { paddingTop: 1 },
   consentText: {
@@ -326,11 +292,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     fontWeight: "500",
-    color: theme.colors.textMuted,
+    color: theme.colors.text,
   },
   consentLink: {
     color: theme.colors.text,
-    fontWeight: "700",
+    fontWeight: "800",
     textDecorationLine: "underline",
   },
   pill: { borderRadius: theme.borderRadius.pill },
@@ -350,14 +316,20 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: theme.colors.textMuted,
   },
+  note: {
+    marginTop: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: "center",
+    color: theme.colors.textMuted,
+  },
   footer: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: theme.spacing.md,
+    paddingTop: theme.spacing.md,
     paddingHorizontal: theme.spacing.page,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: theme.colors.border,
   },
   footerText: { fontSize: 14, fontWeight: "500", color: theme.colors.textMuted },
   footerLink: { fontSize: 14, fontWeight: "800", color: theme.colors.text },
