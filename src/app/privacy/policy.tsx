@@ -5,9 +5,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import type { ReactNode } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Pressable } from "react-native";
 
 import { theme } from "../../shared/config/theme";
 
@@ -69,7 +68,7 @@ export default function PrivacyPolicyScreen() {
             Files in private buckets are accessed through short-lived signed
             URLs. We apply access controls, but no system is completely
             secure — we work to reduce risk rather than promise that
-            "nothing can ever go wrong".
+            &ldquo;nothing can ever go wrong&rdquo;.
           </P>
         </Section>
 
