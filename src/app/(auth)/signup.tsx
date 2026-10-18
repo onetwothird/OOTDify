@@ -297,7 +297,6 @@ const styles = StyleSheet.create({
   consentLink: {
     color: theme.colors.text,
     fontWeight: "800",
-    textDecorationLine: "underline",
   },
   pill: { borderRadius: theme.borderRadius.pill },
   dividerRow: {
