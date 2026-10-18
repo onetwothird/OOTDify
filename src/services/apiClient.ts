@@ -29,6 +29,7 @@ export type ApiErrorKind =
   | "network" // host unreachable / DNS / connection refused / offline
   | "timeout" // request exceeded its deadline
   | "auth" // 401 — session missing/expired/invalid
+  | "consent" // 403 consent_required — terms/privacy acceptance on file missing
   | "server" // 5xx — backend crashed or misbehaved
   | "http" // other non-2xx with a usable response
   | "invalid-response" // 2xx but the body was not what we expected
@@ -61,6 +62,8 @@ export function friendlyMessageFor(kind: ApiErrorKind): string {
       return "The request took too long. Check your connection and try again.";
     case "auth":
       return "Your session has expired. Please sign in again.";
+    case "consent":
+      return "Please accept the Terms of Service and Privacy Policy to use AI features.";
     case "server":
       return "Something went wrong on our end. Please try again in a moment.";
     case "http":
@@ -170,8 +173,21 @@ export async function apiRequest<T>(
   }
 
   if (!raw.ok) {
-    const kind: ApiErrorKind =
-      raw.status === 401 ? "auth" : raw.status >= 500 ? "server" : "http";
+    // Backend marks consent rejections with error_code "consent_required"
+    // (see backend/services/consent.py) — surface it as its own kind so the
+    // UI can point at the consent screen instead of a generic failure.
+    const consentRequired =
+      raw.status === 403 &&
+      !!payload &&
+      typeof payload === "object" &&
+      (payload as { error_code?: unknown }).error_code === "consent_required";
+    const kind: ApiErrorKind = consentRequired
+      ? "consent"
+      : raw.status === 401
+        ? "auth"
+        : raw.status >= 500
+          ? "server"
+          : "http";
     throw toFriendlyError(kind, raw.status, payload);
   }
 
