@@ -32,11 +32,18 @@ export default function OutfitDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Reset to the loading state during render when the route param changes —
+  // React's documented alternative to a synchronous setState inside an effect.
+  const [prevId, setPrevId] = useState(id);
+  if (prevId !== id) {
+    setPrevId(id);
+    setLoading(true);
+    setError(null);
+  }
+
   useEffect(() => {
     if (!id) return;
     let alive = true;
-    setLoading(true);
-    setError(null);
     (async () => {
       try {
         const saved = await fetchSavedOutfits();
@@ -158,10 +165,11 @@ export default function OutfitDetailScreen() {
   );
 }
 
-/** Fetch catalog rows by ids (public.clothing has no RLS filter issues here). */
+/** Fetch catalog rows by ids (server-side `.in` filter — never loads the whole catalog). */
 async function fetchCatalogish(ids: string[]): Promise<{ data: CatalogItem[] }> {
-  const all = await fetchCatalog({ limit: 500 });
-  const byId = new Map(all.map((c) => [c.id, c]));
+  if (!ids.length) return { data: [] };
+  const rows = await fetchCatalog({ ids });
+  const byId = new Map(rows.map((c) => [c.id, c]));
   const data = ids.map((i) => byId.get(i)).filter((v): v is CatalogItem => !!v);
   return { data };
 }
