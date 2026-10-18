@@ -15,10 +15,18 @@ export default function PrivacyPolicyScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
+  // Opened from the landing page (or a deep link / web reload, where there is
+  // no history entry to pop) — fall back to the landing page rather than
+  // leaving the reader stuck.
+  const goBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace("/(auth)");
+  };
+
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 8 }]}>
       <View style={styles.navRow}>
-        <Pressable accessibilityRole="button" onPress={() => router.back()} hitSlop={8} style={styles.navBtn}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={goBack} hitSlop={8} style={styles.navBtn}>
           <Ionicons name="arrow-back" size={22} color={theme.colors.text} />
         </Pressable>
         <Text style={styles.navTitle}>Privacy Policy</Text>
