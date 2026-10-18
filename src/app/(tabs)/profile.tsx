@@ -31,7 +31,6 @@ import {
   checkBackendHealth,
   getProfile,
   updateProfile,
-  UserProfile,
 } from "../../services/aiApi";
 import type { HealthResult } from "../../services/aiApi";
 
@@ -47,7 +46,6 @@ export default function ProfileScreen() {
   const { width } = useWindowDimensions();
   const condensed = width < 380;
 
-  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [email, setEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,23 +64,30 @@ export default function ProfileScreen() {
   // ---- AI backend /health probe --------------------------------------------
   const [health, setHealth] = useState<HealthResult | null>(null);
   const [checking, setChecking] = useState(true);
-  const checkHealth = useCallback(async () => {
-    setChecking(true);
+  // Core probe — effect-safe (no synchronous setState); state starts as checking.
+  const probeHealth = useCallback(async () => {
     const result = await checkBackendHealth();
     setHealth(result);
     setChecking(false);
   }, []);
 
-  useEffect(() => {
-    void checkHealth();
-  }, [checkHealth]);
+  // Handler-facing wrapper: show the spinner on manual re-checks.
+  const checkHealth = useCallback(async () => {
+    setChecking(true);
+    await probeHealth();
+  }, [probeHealth]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  useEffect(() => {
+    // Microtask kick-off: no setState runs synchronously within the effect body.
+    Promise.resolve()
+      .then(() => probeHealth())
+      .catch(() => {});
+  }, [probeHealth]);
+
+  // Core loader — effect-safe (no synchronous setState); state starts as loading.
+  const fetchProfile = useCallback(async () => {
     try {
       const { profile: p, email: mail } = await getProfile();
-      setProfile(p);
       setEmail(mail);
       setFirstName(p.first_name ?? "");
       setLastName(p.last_name ?? "");
@@ -100,9 +105,19 @@ export default function ProfileScreen() {
     }
   }, []);
 
+  // Handler-facing wrapper: show the spinner and clear the previous error.
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    await fetchProfile();
+  }, [fetchProfile]);
+
   useEffect(() => {
-    void load();
-  }, [load]);
+    // Microtask kick-off: no setState runs synchronously within the effect body.
+    Promise.resolve()
+      .then(() => fetchProfile())
+      .catch(() => {});
+  }, [fetchProfile]);
 
   const markDirty = () => setDirty(true);
 
@@ -119,7 +134,7 @@ export default function ProfileScreen() {
       const f = firstName.trim();
       const l = lastName.trim();
       const derived = [f, l].filter(Boolean).join(" ") || null;
-      const updated = await updateProfile({
+      await updateProfile({
         first_name: f || null,
         last_name: l || null,
         gender: gender || null,
@@ -130,7 +145,6 @@ export default function ProfileScreen() {
         preferred_categories: Array.from(categoriesSel),
         sizes: Array.from(sizesSel),
       });
-      setProfile(updated);
       setDirty(false);
       Alert.alert("Profile updated", "Your preferences now shape recommendations.");
     } catch (e) {
