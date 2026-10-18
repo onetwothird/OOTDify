@@ -11,6 +11,10 @@
 // the documents in /privacy/* while deciding). The backend independently
 // rejects AI processing without that record (403 consent_required) — this gate
 // just makes the requirement visible instead of surfacing it as a random error.
+//
+// Public routes: the landing page's Terms of Service / Privacy Policy links
+// open /privacy/terms and /privacy/policy for signed-out visitors, so those two
+// documents are exempt from the signed-out redirect.
 import { Session } from "@supabase/supabase-js";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -89,8 +93,14 @@ export default function RootLayout() {
   useEffect(() => {
     if (!initialized) return;
     const inAuthGroup = segments[0] === "(auth)";
-    const atConsentGate = segments[0] === "consent" || segments[0] === "privacy";
-    if (!session && !inAuthGroup) {
+    // Terms and Privacy are public reading material: the landing page links to
+    // them before anyone has an account. "privacy/data" is NOT public — it
+    // reads the signed-in user's own data.
+    const isLegalDoc =
+      segments[0] === "privacy" &&
+      (segments[1] === "terms" || segments[1] === "policy");
+    const atConsentGate = segments[0] === "consent" || isLegalDoc;
+    if (!session && !inAuthGroup && !isLegalDoc) {
       router.push("/(auth)");
     } else if (session && inAuthGroup) {
       // Consent check also runs here so email sign-up (which records the
