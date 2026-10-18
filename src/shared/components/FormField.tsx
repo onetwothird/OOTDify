@@ -79,7 +79,8 @@ const styles = StyleSheet.create({
     height: 56,
     paddingHorizontal: 14,
     borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.surface,
+    // Inset fill: reads as an input on the white auth card.
+    backgroundColor: theme.colors.background,
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
