@@ -10,6 +10,8 @@ import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
+  Animated,
+  Easing,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -28,6 +30,7 @@ import {
 import { CatalogItem, OCCASIONS } from "../../features/clothing/types";
 import { TodayLookCard } from "../../features/outfit/components/TodayLookCard";
 import { fetchOutfitPlans, OutfitPlan, toISODate } from "../../features/outfit/planner";
+import { ProfileAvatar } from "../../features/profile/ProfileAvatar";
 import { useWardrobeStore } from "../../features/wardrobe/store";
 import { AppButton } from "../../shared/components/AppButton";
 import { Chip } from "../../shared/components/Chip";
@@ -38,6 +41,7 @@ import { SectionHeader } from "../../shared/components/SectionHeader";
 import { Skeleton } from "../../shared/components/Skeleton";
 import { theme } from "../../shared/config/theme";
 import { useResponsiveColumns } from "../../shared/hooks/useResponsiveColumns";
+import { useCurrentPlace } from "../../shared/lib/location";
 import { resolveMediaUrl } from "../../shared/lib/storageUrl";
 import { ApiError, getProfile, recommendCatalog } from "../../services/aiApi";
 
@@ -72,9 +76,11 @@ export default function HomeScreen() {
   const [planLoading, setPlanLoading] = useState(true);
   const [planError, setPlanError] = useState<string | null>(null);
 
-  // ---- Greeting (profile first name; generic fallback when backend is down) --
-  const [firstName, setFirstName] = useState<string | null>(null);
+  // ---- Greeting (real profile nickname + avatar; fallbacks are honest) ------
+  const [nickname, setNickname] = useState<string | null>(null);
+  const [avatarRef, setAvatarRef] = useState<string | null>(null);
   const [greetingLoading, setGreetingLoading] = useState(true);
+  const place = useCurrentPlace();
 
   // ---------------------------------------------------------------------------
   // Loaders (real endpoints only)
@@ -151,15 +157,17 @@ export default function HomeScreen() {
   const loadGreeting = useCallback(async () => {
     setGreetingLoading(true);
     try {
-      const { profile } = await getProfile();
+      const { profile, email } = await getProfile();
       const name =
         profile.first_name?.trim() ||
         profile.display_name?.trim() ||
+        email?.split("@")[0]?.trim() ||
         null;
-      setFirstName(name);
+      setNickname(name);
+      setAvatarRef(profile.avatar_url ?? null);
     } catch {
       // AI service down / not signed in: fall back to a generic greeting.
-      setFirstName(null);
+      setNickname(null);
     } finally {
       setGreetingLoading(false);
     }
@@ -217,9 +225,14 @@ export default function HomeScreen() {
       >
         {/* ------------------------------------------------ Greeting header */}
         <GreetingHeader
-          firstName={firstName}
+          nickname={nickname}
+          avatarRef={avatarRef}
           loading={greetingLoading}
+          place={place.label}
+          placeStatus={place.status}
+          onRequestPlace={place.request}
           onProfile={() => router.push("/(tabs)/profile")}
+          onAvatarChanged={setAvatarRef}
         />
 
         {/* ------------------------------------------------ Hero */}
@@ -432,54 +445,219 @@ export default function HomeScreen() {
 }
 
 // ---------------------------------------------------------------------------
-// Greeting header (time-based greeting + first name + avatar → Profile)
+// Greeting header — time-aware greeting, animated mascot, avatar → Profile,
+// and a tappable style tip. Visual only; the greeting name comes from the real
+// profile fetched by the screen.
 // ---------------------------------------------------------------------------
+const GREETING_TIPS = [
+  "Tag every piece — sharper recommendations start with a full closet.",
+  "Plan tomorrow's look from the Outfits calendar.",
+  "Try a look on virtually before you commit to it.",
+  "Save the looks you love and they'll surface right here.",
+] as const;
+
+function greetingFor(hour: number): string {
+  if (hour < 12) return "Good Morning";
+  if (hour < 17) return "Good Afternoon";
+  return "Good Evening";
+}
+
 function GreetingHeader({
-  firstName,
+  nickname,
+  avatarRef,
   loading,
+  place,
+  placeStatus,
+  onRequestPlace,
   onProfile,
+  onAvatarChanged,
 }: {
-  firstName: string | null;
+  nickname: string | null;
+  avatarRef: string | null;
   loading: boolean;
+  place: string | null;
+  placeStatus: "loading" | "ready" | "blocked";
+  onRequestPlace: () => void;
   onProfile: () => void;
+  onAvatarChanged: (ref: string) => void;
 }) {
-  const hour = new Date().getHours();
-  const greeting =
-    hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : hour < 21 ? "Good evening" : "Good night";
-  const initial = (firstName?.[0] ?? "").toUpperCase();
+  // Recompute the greeting as real time passes so "Good morning" never sticks
+  // into the afternoon while the app stays open.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  const greeting = greetingFor(now.getHours());
+  const initial = (nickname?.[0] ?? "").toUpperCase();
+
+  // Typewriter tips: type out a tip, hold it, then advance to the next one.
+  const [tipIndex, setTipIndex] = useState(0);
+  const [typed, setTyped] = useState(0);
+  const tip = GREETING_TIPS[tipIndex];
+
+  useEffect(() => {
+    const done = typed >= tip.length;
+    const id = setTimeout(
+      () => {
+        if (done) {
+          setTyped(0);
+          setTipIndex((i) => (i + 1) % GREETING_TIPS.length);
+        } else {
+          setTyped((n) => n + 1);
+        }
+      },
+      done ? 3000 : 38,
+    );
+    return () => clearTimeout(id);
+  }, [tip, typed]);
+
+  // Entrance (fade + rise), a gentle mascot bob, and a blinking caret.
+  const [enter] = useState(() => new Animated.Value(0));
+  const [bob] = useState(() => new Animated.Value(0));
+  const [caret] = useState(() => new Animated.Value(1));
+
+  useEffect(() => {
+    const entrance = Animated.timing(enter, {
+      toValue: 1,
+      duration: 420,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    });
+    const bobLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(bob, {
+          toValue: 1,
+          duration: 1700,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(bob, {
+          toValue: 0,
+          duration: 1700,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    const caretLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(caret, { toValue: 0, duration: 520, useNativeDriver: true }),
+        Animated.timing(caret, { toValue: 1, duration: 520, useNativeDriver: true }),
+      ]),
+    );
+    entrance.start();
+    bobLoop.start();
+    caretLoop.start();
+    return () => {
+      entrance.stop();
+      bobLoop.stop();
+      caretLoop.stop();
+    };
+  }, [enter, bob, caret]);
 
   return (
-    <View style={styles.greetingRow}>
-      <View style={styles.mascotWrap}>
-        <Mascot size={46} />
+    <Animated.View
+      style={[
+        styles.greetCard,
+        {
+          opacity: enter,
+          transform: [
+            {
+              translateY: enter.interpolate({
+                inputRange: [0, 1],
+                outputRange: [14, 0],
+              }),
+            },
+          ],
+        },
+      ]}
+    >
+      <View style={[styles.greetBlob, styles.greetBlobA]} pointerEvents="none" />
+
+      <View style={styles.greetTop}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open profile"
+          onPress={onProfile}
+          hitSlop={6}
+          style={({ pressed }) => pressed && { opacity: 0.85 }}
+        >
+          <Animated.View
+            style={[
+              styles.mascotWrap,
+              {
+                transform: [
+                  {
+                    translateY: bob.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, -3],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <Mascot size={44} />
+          </Animated.View>
+        </Pressable>
+
+        <View style={styles.greetingBody}>
+          <View style={styles.greetEyebrowRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={place ? "Refresh location" : "Set your location"}
+              onPress={onRequestPlace}
+              hitSlop={6}
+              style={styles.locChip}
+            >
+              <Ionicons name="location-outline" size={11} color={theme.colors.textMuted} />
+              <Text style={styles.locText} numberOfLines={1}>
+                {placeStatus === "loading" ? "Locating…" : place ?? "Set location"}
+              </Text>
+            </Pressable>
+          </View>
+          <Text style={styles.greetingTitle} numberOfLines={2}>
+            {nickname
+              ? `${greeting}, ${nickname}!`
+              : loading
+                ? "One moment…"
+                : `${greeting}!`}
+          </Text>
+          <Text style={styles.greetingSub} numberOfLines={1}>
+            {nickname
+              ? "Here's what works today."
+              : loading
+                ? "Checking your account…"
+                : "Style your wardrobe with AI."}
+          </Text>
+        </View>
+
+        <ProfileAvatar
+          size={44}
+          initial={initial}
+          avatarRef={avatarRef}
+          onChanged={onAvatarChanged}
+        />
       </View>
-      <View style={styles.greetingBody}>
-        <Text style={styles.greetingTitle} numberOfLines={1}>
-          {greeting}
-          {firstName ? `, ${firstName}` : ""}
-        </Text>
-        <Text style={styles.greetingSub} numberOfLines={1}>
-          {firstName
-            ? "Here's what works today."
-            : loading
-              ? "Checking your account…"
-              : "Welcome — Style your wardrobe."}
-        </Text>
-      </View>
+
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Open profile"
-        onPress={onProfile}
-        hitSlop={8}
-        style={({ pressed }) => [styles.avatarBtn, pressed && { opacity: 0.8 }]}
+        accessibilityLabel="Show another tip"
+        onPress={() => {
+          setTyped(0);
+          setTipIndex((i) => (i + 1) % GREETING_TIPS.length);
+        }}
+        style={({ pressed }) => [styles.tipPill, pressed && { opacity: 0.7 }]}
       >
-        {initial ? (
-          <Text style={styles.avatarText}>{initial}</Text>
-        ) : (
-          <Ionicons name="person-outline" size={22} color={theme.colors.onPrimary} />
-        )}
+        <Ionicons name="bulb-outline" size={15} color={theme.colors.text} />
+        <Text style={styles.tipText} numberOfLines={2}>
+          {tip.slice(0, typed)}
+          <Animated.Text style={[styles.tipCaret, { opacity: caret }]}>▍</Animated.Text>
+        </Text>
+        <Ionicons name="refresh" size={14} color={theme.colors.textMuted} />
       </Pressable>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -611,40 +789,71 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: theme.spacing.page, paddingBottom: 40 },
 
   // Greeting header
-  greetingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
+  greetCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+    padding: 16,
     marginTop: theme.spacing.sm,
-    marginBottom: 4,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.06,
+    shadowRadius: 18,
+    elevation: 3,
   },
+  greetBlob: {
+    position: "absolute",
+    borderRadius: 999,
+    backgroundColor: "rgba(17,17,17,0.035)",
+  },
+  greetBlobA: { width: 180, height: 180, top: -80, right: -50 },
+  greetTop: { flexDirection: "row", alignItems: "center", gap: 10 },
+  greetMain: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1, minWidth: 0 },
   mascotWrap: {
-    width: 48,
-    height: 48,
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: theme.colors.surfaceAlt,
     alignItems: "center",
     justifyContent: "center",
   },
   greetingBody: { flex: 1, minWidth: 0 },
+  greetEyebrowRow: { flexDirection: "row", alignItems: "center", gap: 5, flexWrap: "wrap" },
+  locChip: { flexDirection: "row", alignItems: "center", gap: 2, flexShrink: 1, minWidth: 0 },
+  locText: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.6,
+    color: theme.colors.textMuted,
+    flexShrink: 1,
+  },
   greetingTitle: {
-    fontSize: 22,
+    fontSize: 19,
+    lineHeight: 24,
     fontWeight: "800",
     letterSpacing: -0.4,
     color: theme.colors.text,
+    marginTop: 3,
   },
   greetingSub: {
     fontSize: 12.5,
     color: theme.colors.textMuted,
-    marginTop: 3,
+    marginTop: 2,
   },
-  avatarBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: theme.colors.primary,
+  tipPill: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    gap: 8,
+    backgroundColor: theme.colors.surfaceAlt,
+    borderRadius: theme.borderRadius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 14,
   },
-  avatarText: { color: theme.colors.onPrimary, fontSize: 16, fontWeight: "800" },
+  tipText: { flex: 1, fontSize: 12, color: theme.colors.text, lineHeight: 17, minHeight: 34 },
+  tipCaret: { color: theme.colors.textMuted, fontWeight: "700" },
 
   // Hero
   hero: {
