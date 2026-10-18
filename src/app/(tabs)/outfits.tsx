@@ -16,7 +16,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { OCCASIONS } from "../../features/clothing/types";
+import { CatalogItem, OCCASIONS } from "../../features/clothing/types";
 import {
   deleteSavedOutfit,
   fetchSavedOutfits,
@@ -25,7 +25,6 @@ import {
 } from "../../features/clothing/service";
 import { generateOutfit } from "../../features/outfit/generator";
 import { Outfit } from "../../features/outfit/types";
-import { CatalogItem } from "../../features/clothing/types";
 import { OutfitCalendar } from "../../features/outfit/components/OutfitCalendar";
 import { AppButton } from "../../shared/components/AppButton";
 import { Chip } from "../../shared/components/Chip";
@@ -63,9 +62,8 @@ export default function OutfitsScreen() {
   const [outfit, setOutfit] = useState<Outfit | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const loadSaved = useCallback(async () => {
-    setSavedLoading(true);
-    setSavedError(null);
+  // Core loader — effect-safe (no synchronous setState); state starts as loading.
+  const fetchSavedRows = useCallback(async () => {
     try {
       setSaved(await fetchSavedOutfits());
     } catch (e) {
@@ -75,9 +73,20 @@ export default function OutfitsScreen() {
     }
   }, []);
 
+  // Handler-facing wrapper: show the spinner and clear the previous error.
+  const loadSaved = useCallback(async () => {
+    setSavedLoading(true);
+    setSavedError(null);
+    await fetchSavedRows();
+  }, [fetchSavedRows]);
+
   useEffect(() => {
-    void loadSaved();
-  }, [loadSaved]);
+    // Microtask kick-off: no setState runs synchronously within the effect
+    // body; the loader only sets state after its awaits.
+    Promise.resolve()
+      .then(() => fetchSavedRows())
+      .catch(() => {});
+  }, [fetchSavedRows]);
 
   const build = async () => {
     setBuilding(true);
@@ -370,8 +379,8 @@ export default function OutfitsScreen() {
 
             {pool.length > 0 ? (
               <Text style={styles.poolHint}>
-                Pooled from {pool.length} real catalog recommendations for "
-                {occasion}".
+                Pooled from {pool.length} real catalog recommendations for
+                &ldquo;{occasion}&rdquo;.
               </Text>
             ) : null}
           </View>
