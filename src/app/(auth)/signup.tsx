@@ -1,41 +1,53 @@
 // C:\OOTDify\src\app\(auth)\signup.tsx
-// Signup screen for new user registration.
+// Signup screen — account creation with email/password or Google / Facebook.
+// The terms checkbox gates every path (including OAuth), and the accepted
+// version + timestamp are recorded in auth metadata at sign-up; the backend
+// independently rejects AI processing without that record (403 consent_required).
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { AppButton } from "../../shared/components/AppButton";
+import { FormField } from "../../shared/components/FormField";
+import { OAuthButtons } from "../../shared/components/OAuthButtons";
+import { PRIVACY_ROUTE, TERMS_ROUTE, TERMS_VERSION } from "../../shared/config/legal";
 import { theme } from "../../shared/config/theme";
-import { signInWithGoogle } from "../../shared/lib/googleAuth";
+import { signInWithFacebook, signInWithGoogle } from "../../shared/lib/oauth";
 import { supabase } from "../../shared/lib/supabase";
+
+const CONSENT_MESSAGE =
+  "Please agree to the Terms of Service and Privacy Policy to create an account.";
 
 export default function SignupScreen() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [facebookLoading, setFacebookLoading] = useState(false);
+
+  // One in-flight action at a time: taps during any auth attempt are no-ops.
+  const busy = loading || googleLoading || facebookLoading;
 
   const handleSignup = async () => {
+    if (busy) return;
     if (!fullName || !email || !password) {
-      Alert.alert("Error", "Please fill in all fields");
+      Alert.alert("Missing details", "Please fill in your name, email and password.");
       return;
     }
     if (!agreed) {
-      Alert.alert("Terms", "Please agree to the Terms and Conditions");
+      Alert.alert("Terms required", CONSENT_MESSAGE);
       return;
     }
 
@@ -44,15 +56,19 @@ export default function SignupScreen() {
       email,
       password,
       options: {
-        data: { full_name: fullName },
+        data: {
+          full_name: fullName,
+          terms_version: TERMS_VERSION,
+          terms_accepted_at: new Date().toISOString(),
+        },
       },
     });
 
     if (error) {
-      Alert.alert("Signup Failed", error.message);
+      Alert.alert("Signup failed", error.message);
     } else {
       await supabase.auth.signOut();
-      Alert.alert("Success!", "Your account has been created.", [
+      Alert.alert("Account created", "You can now log in with your new account.", [
         { text: "OK", onPress: () => router.replace("/(auth)") },
       ]);
     }
@@ -60,20 +76,50 @@ export default function SignupScreen() {
   };
 
   const handleGoogleAuth = async () => {
-    if (googleLoading) return;
+    if (busy) return;
+    if (!agreed) {
+      Alert.alert("Terms required", CONSENT_MESSAGE);
+      return;
+    }
     setGoogleLoading(true);
     try {
       await signInWithGoogle();
-      // The root layout navigates away automatically once the session is set;
-      // navigating here too keeps behavior identical to email sign-up.
+      // The root layout routes OAuth accounts with no recorded version to the
+      // consent screen, so navigating here is safe either way.
       const {
         data: { session },
       } = await supabase.auth.getSession();
       if (session) router.replace("/(tabs)/home");
-    } catch (error: any) {
-      Alert.alert("Google Auth Error", error.message);
+    } catch (error: unknown) {
+      Alert.alert(
+        "Google sign-in failed",
+        error instanceof Error ? error.message : "Please try again.",
+      );
     } finally {
       setGoogleLoading(false);
+    }
+  };
+
+  const handleFacebookAuth = async () => {
+    if (busy) return;
+    if (!agreed) {
+      Alert.alert("Terms required", CONSENT_MESSAGE);
+      return;
+    }
+    setFacebookLoading(true);
+    try {
+      await signInWithFacebook();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session) router.replace("/(tabs)/home");
+    } catch (error: unknown) {
+      Alert.alert(
+        "Facebook sign-in failed",
+        error instanceof Error ? error.message : "Please try again.",
+      );
+    } finally {
+      setFacebookLoading(false);
     }
   };
 
@@ -84,12 +130,15 @@ export default function SignupScreen() {
         style={styles.container}
       >
         <View style={styles.header}>
-          <TouchableOpacity
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
             onPress={() => router.back()}
-            style={styles.backButton}
+            hitSlop={8}
+            style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
           >
-            <Ionicons name="arrow-back" size={24} color="#18181B" />
-          </TouchableOpacity>
+            <Ionicons name="arrow-back" size={22} color={theme.colors.text} />
+          </Pressable>
         </View>
 
         <ScrollView
@@ -97,141 +146,122 @@ export default function SignupScreen() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.title}>Create Your Account</Text>
-          <Text style={styles.subtitle}>
-            Best Way to Manage{"\n"}Your Fits.
-          </Text>
+          <Text style={styles.title}>Create your account</Text>
+          <Text style={styles.subtitle}>Your wardrobe, organised in minutes.</Text>
 
           <View style={styles.form}>
-            <Text style={styles.label}>Full Name*</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons
-                name="person-outline"
-                size={20}
-                color="#A1A1AA"
-                style={styles.inputIcon}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Enter Full Name"
-                placeholderTextColor="#A1A1AA"
-                value={fullName}
-                onChangeText={setFullName}
-              />
-            </View>
+            <FormField
+              label="Full name"
+              icon="person-outline"
+              value={fullName}
+              onChangeText={setFullName}
+              placeholder="Your name"
+              autoCapitalize="words"
+              autoComplete="name"
+              textContentType="name"
+              returnKeyType="next"
+              editable={!busy}
+            />
 
-            <Text style={styles.label}>Email Address*</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons
-                name="mail-outline"
-                size={20}
-                color="#A1A1AA"
-                style={styles.inputIcon}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Enter Your Email"
-                placeholderTextColor="#A1A1AA"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                value={email}
-                onChangeText={setEmail}
-              />
-            </View>
+            <FormField
+              label="Email address"
+              icon="mail-outline"
+              value={email}
+              onChangeText={setEmail}
+              placeholder="you@example.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="email"
+              textContentType="emailAddress"
+              returnKeyType="next"
+              editable={!busy}
+            />
 
-            <Text style={styles.label}>Password*</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons
-                name="lock-closed-outline"
-                size={20}
-                color="#A1A1AA"
-                style={styles.inputIcon}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Enter Your Password"
-                placeholderTextColor="#A1A1AA"
-                secureTextEntry={!showPassword}
-                value={password}
-                onChangeText={setPassword}
-              />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+            <FormField
+              label="Password"
+              icon="lock-closed-outline"
+              secure
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Create a password"
+              autoCapitalize="none"
+              autoComplete="new-password"
+              textContentType="newPassword"
+              returnKeyType="done"
+              onSubmitEditing={handleSignup}
+              editable={!busy}
+            />
+
+            <View style={styles.consentCard}>
+              <Pressable
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: agreed }}
+                accessibilityLabel="I agree to the Terms of Service and Privacy Policy"
+                onPress={() => setAgreed((value) => !value)}
+                hitSlop={6}
+                style={styles.checkboxHit}
+              >
                 <Ionicons
-                  name={showPassword ? "eye-off-outline" : "eye-outline"}
-                  size={20}
-                  color="#A1A1AA"
+                  name={agreed ? "checkbox" : "square-outline"}
+                  size={22}
+                  color={agreed ? theme.colors.primary : theme.colors.textMuted}
                 />
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              style={styles.termsRow}
-              onPress={() => setAgreed(!agreed)}
-              activeOpacity={0.8}
-            >
-              <Ionicons
-                name={agreed ? "radio-button-on" : "radio-button-off"}
-                size={20}
-                color={agreed ? theme.colors.primary : "#A1A1AA"}
-              />
-              <Text style={styles.termsText}>
-                I agree with the{" "}
-                <Text style={styles.termsLink}>Terms and Conditions</Text>
+              </Pressable>
+              <Text style={styles.consentText}>
+                I agree to the{" "}
+                <Text
+                  accessibilityRole="link"
+                  style={styles.consentLink}
+                  onPress={() => router.push(TERMS_ROUTE)}
+                >
+                  Terms of Service
+                </Text>{" "}
+                and{" "}
+                <Text
+                  accessibilityRole="link"
+                  style={styles.consentLink}
+                  onPress={() => router.push(PRIVACY_ROUTE)}
+                >
+                  Privacy Policy
+                </Text>
+                .
               </Text>
-            </TouchableOpacity>
+            </View>
 
-            <TouchableOpacity
-              style={styles.primaryButton}
+            <AppButton
+              label="Create account"
               onPress={handleSignup}
+              loading={loading}
+              disabled={busy}
+              style={styles.pill}
+            />
+
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or continue with</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <OAuthButtons
+              onGoogle={handleGoogleAuth}
+              onFacebook={handleFacebookAuth}
+              googleLoading={googleLoading}
+              facebookLoading={facebookLoading}
               disabled={loading}
-              activeOpacity={0.8}
-            >
-              {loading ? (
-                <ActivityIndicator color="#FFF" />
-              ) : (
-                <Text style={styles.primaryButtonText}>Sign Up</Text>
-              )}
-            </TouchableOpacity>
-
-            <View style={styles.dividerContainer}>
-              <View style={styles.divider} />
-              <Text style={styles.dividerText}>Or Continue With</Text>
-              <View style={styles.divider} />
-            </View>
-
-            <View style={styles.socialRow}>
-              <TouchableOpacity
-                style={styles.socialButton}
-                onPress={handleGoogleAuth}
-                disabled={googleLoading}
-                activeOpacity={0.7}
-              >
-                {googleLoading ? (
-                  <ActivityIndicator size="small" color="#18181B" />
-                ) : (
-                  <>
-                    <Ionicons name="logo-google" size={20} color="#18181B" />
-                    <Text style={styles.socialButtonText}>Google</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.socialButton, { opacity: 0.4 }]}
-                activeOpacity={0.7}
-                disabled
-              >
-                <Ionicons name="logo-apple" size={20} color="#18181B" />
-                <Text style={styles.socialButtonText}>Apple</Text>
-              </TouchableOpacity>
-            </View>
+            />
           </View>
         </ScrollView>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Have an account? </Text>
-          <TouchableOpacity onPress={() => router.push("/login")}>
-            <Text style={styles.footerLink}>Log In</Text>
-          </TouchableOpacity>
+          <Text style={styles.footerText}>Already have an account? </Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push("/login")}
+            hitSlop={8}
+          >
+            <Text style={styles.footerLink}>Log in</Text>
+          </Pressable>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -239,118 +269,96 @@ export default function SignupScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#FFFFFF" },
+  safeArea: { flex: 1, backgroundColor: theme.colors.background },
   container: { flex: 1 },
-  header: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 10 },
+  header: {
+    paddingHorizontal: theme.spacing.page,
+    paddingTop: theme.spacing.sm,
+    paddingBottom: theme.spacing.sm,
+  },
   backButton: {
     width: 40,
     height: 40,
-    backgroundColor: "#F4F4F5",
     borderRadius: 20,
-    justifyContent: "center",
     alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.surfaceAlt,
   },
+  pressed: { opacity: 0.7 },
   scrollContent: {
     flexGrow: 1,
     width: "100%",
     maxWidth: 480,
     alignSelf: "center",
-    paddingHorizontal: 24,
-    paddingBottom: 20,
+    paddingHorizontal: theme.spacing.lg,
+    paddingBottom: theme.spacing.lg,
   },
   title: {
-    fontSize: 28,
+    fontSize: 30,
+    lineHeight: 36,
     fontWeight: "800",
-    color: "#18181B",
-    textAlign: "center",
-    marginBottom: 8,
+    letterSpacing: -0.8,
+    color: theme.colors.text,
+    marginTop: theme.spacing.sm,
   },
   subtitle: {
-    fontSize: 14,
-    color: "#A1A1AA",
-    textAlign: "center",
-    marginBottom: 32,
-    fontWeight: "500",
+    fontSize: 14.5,
+    lineHeight: 21,
+    color: theme.colors.textMuted,
+    marginTop: 6,
+    marginBottom: theme.spacing.xl,
   },
   form: { width: "100%" },
-  label: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#18181B",
-    marginBottom: 8,
-    marginLeft: 4,
-  },
-  inputContainer: {
+  consentCard: {
     flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F4F4F5",
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    height: 56,
+    alignItems: "flex-start",
+    gap: 10,
+    padding: 14,
+    marginBottom: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.surface,
     borderWidth: 1,
-    borderColor: "#E4E4E7",
-    marginBottom: 16,
+    borderColor: theme.colors.border,
   },
-  inputIcon: { marginRight: 12 },
-  input: { flex: 1, fontSize: 15, color: "#18181B", fontWeight: "500" },
-  termsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 24,
-    gap: 8,
+  checkboxHit: { paddingTop: 1 },
+  consentText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: "500",
+    color: theme.colors.textMuted,
   },
-  termsText: { fontSize: 13, color: "#71717A", fontWeight: "500" },
-  termsLink: {
-    color: theme.colors.primary,
+  consentLink: {
+    color: theme.colors.text,
     fontWeight: "700",
     textDecorationLine: "underline",
   },
-  primaryButton: {
-    backgroundColor: "#18181B",
-    height: 56,
-    borderRadius: 100,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#18181B",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  primaryButtonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
-  dividerContainer: {
+  pill: { borderRadius: theme.borderRadius.pill },
+  dividerRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginVertical: 24,
+    marginVertical: theme.spacing.lg,
   },
-  divider: { flex: 1, height: 1, backgroundColor: "#E4E4E7" },
+  dividerLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: theme.colors.border,
+  },
   dividerText: {
-    marginHorizontal: 16,
-    color: "#A1A1AA",
+    marginHorizontal: 12,
     fontSize: 12,
     fontWeight: "600",
+    color: theme.colors.textMuted,
   },
-  socialRow: { flexDirection: "row", gap: 16 },
-  socialButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    height: 52,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 100,
-    borderWidth: 1,
-    borderColor: "#E4E4E7",
-    gap: 8,
-  },
-  socialButtonText: { fontSize: 14, fontWeight: "600", color: "#18181B" },
   footer: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 16,
-    backgroundColor: "#FFFFFF",
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.page,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: theme.colors.border,
   },
-  footerText: { fontSize: 14, color: "#71717A", fontWeight: "500" },
-  footerLink: { fontSize: 14, color: theme.colors.primary, fontWeight: "700" },
+  footerText: { fontSize: 14, fontWeight: "500", color: theme.colors.textMuted },
+  footerLink: { fontSize: 14, fontWeight: "800", color: theme.colors.text },
 });
