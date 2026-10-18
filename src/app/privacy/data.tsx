@@ -39,11 +39,11 @@ export default function PrivacyDataScreen() {
 
   const [deleting, setDeleting] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  // Core loader — effect-safe (no synchronous setState); state starts as loading.
+  const fetchSummary = useCallback(async () => {
     try {
-      setSummary(await getPrivacySummary());
+      const summary = await getPrivacySummary();
+      setSummary(summary);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load your data summary.");
     } finally {
@@ -51,9 +51,23 @@ export default function PrivacyDataScreen() {
     }
   }, []);
 
+  // Handler-facing wrapper: show the spinner and clear the previous error.
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    await fetchSummary();
+  }, [fetchSummary]);
+
   useEffect(() => {
-    void load();
-  }, [load]);
+    // Kick off through a microtask: the loader only setState after its awaits,
+    // and deferring keeps setState from running synchronously inside the effect
+    // body (which is what causes cascading renders).
+    Promise.resolve()
+      .then(() => fetchSummary())
+      .catch(() => {
+        // fetchSummary handles its own errors; this guards the indirection.
+      });
+  }, [fetchSummary]);
 
   const downloadData = async () => {
     setExporting(true);
