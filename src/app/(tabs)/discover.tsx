@@ -217,28 +217,24 @@ export default function WardrobeScreen() {
             onAction={() => void loadCloset()}
           />
         ) : closet.length === 0 ? (
-          <View style={styles.emptyWrap}>
-            <EmptyState
-              icon="shirt-outline"
-              title="Your wardrobe is empty"
-              message="Capture photos of your pieces to build a private, searchable closet."
-              actionLabel="Add clothes"
-              onAction={openCapture}
-            />
-          </View>
+          <EmptyState
+            compact
+            icon="shirt-outline"
+            title="Your wardrobe is empty"
+            message="Tap Add above to capture photos of your pieces and build a private, searchable closet."
+          />
         ) : filteredCloset.length === 0 ? (
-          <View style={styles.emptyWrap}>
-            <EmptyState
-              icon="filter-outline"
-              title="Nothing matches"
-              message="Try a different search or clear the category filter."
-              actionLabel="Clear filters"
-              onAction={() => {
-                setQuery("");
-                setFilter(null);
-              }}
-            />
-          </View>
+          <EmptyState
+            compact
+            icon="filter-outline"
+            title="Nothing matches"
+            message="Try a different search or clear the category filter."
+            actionLabel="Clear filters"
+            onAction={() => {
+              setQuery("");
+              setFilter(null);
+            }}
+          />
         ) : (
           <>
             <View style={styles.grid} onLayout={onLayout}>
@@ -264,21 +260,6 @@ export default function WardrobeScreen() {
             ) : null}
           </>
         )}
-
-        {/* ------------------------- Shopping import (honest roadmap) -------- */}
-        <View style={styles.importCard}>
-          <View style={styles.importIcon}>
-            <Ionicons name="bag-handle-outline" size={20} color={theme.colors.onPrimary} />
-          </View>
-          <View style={styles.importBody}>
-            <Text style={styles.importTitle}>Import from shopping platforms</Text>
-            <Text style={styles.importText}>
-              Shopee & TikTok Shop imports are on the roadmap. When a provider is
-              added, you&apos;ll be able to bring products in by official link or
-              product photo — no scraping, ever.
-            </Text>
-          </View>
-        </View>
 
         {/* ------------------------- Browse the catalog ---------------------- */}
         <SectionHeader
@@ -339,6 +320,21 @@ export default function WardrobeScreen() {
             ) : null}
           </>
         )}
+
+        {/* ------------------------- Shopping import (honest roadmap) -------- */}
+        <View style={styles.importCard}>
+          <View style={styles.importIcon}>
+            <Ionicons name="bag-handle-outline" size={20} color={theme.colors.onPrimary} />
+          </View>
+          <View style={styles.importBody}>
+            <Text style={styles.importTitle}>Import from shopping platforms</Text>
+            <Text style={styles.importText}>
+              Shopee & TikTok Shop imports are on the roadmap. When a provider is
+              added, you&apos;ll be able to bring products in by official link or
+              product photo — no scraping, ever.
+            </Text>
+          </View>
+        </View>
       </ScrollView>
     </View>
   );
@@ -485,8 +481,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  emptyWrap: { paddingVertical: 24 },
-
   importCard: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -494,7 +488,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surfaceAlt,
     borderRadius: theme.borderRadius.md,
     padding: 14,
-    marginTop: theme.spacing.section - 8,
+    marginTop: theme.spacing.section,
   },
   importIcon: {
     width: 38,
