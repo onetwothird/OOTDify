@@ -12,7 +12,6 @@ import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -30,6 +29,7 @@ import { EmptyState, ErrorState } from "../shared/components/StateViews";
 import { SectionHeader } from "../shared/components/SectionHeader";
 import { Skeleton } from "../shared/components/Skeleton";
 import { theme } from "../shared/config/theme";
+import { toast } from "../shared/lib/toast";
 import {
   ApiError,
   ComposedOutfit,
@@ -126,7 +126,7 @@ export default function AiPickerScreen() {
     async (outfit: ComposedOutfit) => {
       const clothingIds = outfit.items.map((i) => i.id);
       if (!clothingIds.length) {
-        Alert.alert("Nothing to save", "This look has no catalog items to save.");
+        toast.info("Nothing to save", "This look has no catalog items to save.");
         return;
       }
       setSavingId(outfit.id);
@@ -137,12 +137,12 @@ export default function AiPickerScreen() {
           clothing_ids: clothingIds,
           try_on_id: null,
         });
-        Alert.alert("Look saved", "Added to your saved outfits.", [
-          { text: "View", onPress: () => router.push(`/outfit/${saved.id}`) },
-          { text: "OK" },
-        ]);
+        toast.success("Look saved", "Added to your saved outfits.", {
+          label: "View",
+          onPress: () => router.push(`/outfit/${saved.id}`),
+        });
       } catch (e) {
-        Alert.alert(
+        toast.error(
           "Could not save",
           e instanceof Error ? e.message : "Something went wrong while saving.",
         );
