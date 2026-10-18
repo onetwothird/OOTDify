@@ -1,91 +1,101 @@
 // C:\OOTDify\src\shared\components\Mascot.tsx
-// "Hangers" — the OOTDify mascot: a friendly hanger-hook character built from
-// plain Views (no extra dependencies), drawn at any size via the `size` prop.
+// "Penny" — the OOTDify penguin mascot. Built from plain Views so it scales
+// cleanly at any `size`, matches the editorial monochrome palette, and needs
+// no image assets or extra dependencies.
 import { StyleSheet, View } from "react-native";
 
 import { theme } from "../config/theme";
 
 export function Mascot({ size = 44 }: { size?: number }) {
-  const head = Math.round(size * 0.72);
-  const eye = Math.round(size * 0.14);
-  const pupil = Math.round(eye * 0.5);
-  const mouthW = Math.round(size * 0.3);
-  const blushW = Math.round(size * 0.09);
+  // Proportional sizing so it looks sharp at any scale.
+  const bodyW = Math.round(size * 0.66);
+  const bodyH = Math.round(size * 0.7);
+  const headR = Math.round(bodyW * 0.45);
+  const eye = Math.round(headR * 0.18);
+  const pupil = Math.round(eye * 0.45);
+  const beakW = Math.round(headR * 0.3);
+  const foot = Math.round(size * 0.1);
+  const wingW = Math.round(bodyW * 0.18);
+  const bellyW = Math.round(bodyW * 0.35);
+  const bellyH = Math.round(bodyH * 0.45);
 
   return (
     <View style={[styles.frame, { width: size, height: size }]}>
-      {/* Hanger hook */}
+      {/* Feet (two little orange-ish ovals) */}
+      <View style={styles.feetRow}>
+        <View style={[styles.foot, { width: foot, height: Math.round(foot * 0.6) }]} />
+        <View style={[styles.foot, { width: foot, height: Math.round(foot * 0.6) }]} />
+      </View>
+
+      {/* Body (black rounded rectangle) */}
       <View
         style={[
-          styles.hook,
-          {
-            width: Math.round(size * 0.18),
-            height: Math.round(size * 0.16),
-            borderTopLeftRadius: Math.round(size * 0.09),
-            borderTopRightRadius: Math.round(size * 0.09),
-          },
-        ]}
-      />
-      {/* Face */}
-      <View
-        style={[
-          styles.head,
-          {
-            top: Math.round(size * 0.1),
-            width: head,
-            height: head,
-            borderRadius: head / 2,
-          },
+          styles.body,
+          { width: bodyW, height: bodyH, borderRadius: Math.round(bodyW * 0.45) },
         ]}
       >
+        {/* White belly */}
         <View
           style={[
-            styles.eyes,
-            { gap: Math.round(size * 0.16), marginTop: Math.round(size * 0.24) },
-          ]}
-        >
-          {[0, 1].map((i) => (
-            <View key={i} style={[styles.eye, { width: eye, height: eye, borderRadius: eye / 2 }]}>
-              <View
-                style={{
-                  width: pupil,
-                  height: pupil,
-                  borderRadius: pupil / 2,
-                  backgroundColor: theme.colors.text,
-                }}
-              />
-            </View>
-          ))}
-        </View>
-        {/* Smile */}
-        <View
-          style={[
-            styles.smile,
+            styles.belly,
             {
-              width: mouthW,
-              height: Math.round(size * 0.1),
-              marginTop: Math.round(size * 0.08),
-              borderBottomWidth: Math.round(size * 0.045),
-              borderBottomLeftRadius: mouthW / 2,
-              borderBottomRightRadius: mouthW / 2,
+              width: bellyW,
+              height: bellyH,
+              borderRadius: Math.round(bellyW * 0.5),
+              bottom: Math.round(bodyH * 0.08),
             },
           ]}
         />
-        {/* Blush */}
+
+        {/* Left wing (flap) */}
         <View
           style={[
-            styles.blush,
-            styles.blushL,
-            { left: Math.round(size * 0.12), bottom: Math.round(size * 0.12), width: blushW, height: Math.round(blushW * 0.6), borderRadius: blushW },
+            styles.wing,
+            styles.wingL,
+            { width: wingW, height: Math.round(bodyH * 0.55), borderRadius: wingW },
           ]}
         />
+
+        {/* Right wing (flap) */}
         <View
           style={[
-            styles.blush,
-            styles.blushR,
-            { right: Math.round(size * 0.12), bottom: Math.round(size * 0.12), width: blushW, height: Math.round(blushW * 0.6), borderRadius: blushW },
+            styles.wing,
+            styles.wingR,
+            { width: wingW, height: Math.round(bodyH * 0.55), borderRadius: wingW },
           ]}
         />
+
+        {/* Head circle */}
+        <View
+          style={[
+            styles.head,
+            { width: headR * 2, height: headR * 2, borderRadius: headR, top: -headR * 0.4 },
+          ]}
+        >
+          {/* Eyes */}
+          <View
+            style={[
+              styles.eyes,
+              { gap: Math.round(headR * 0.55), marginTop: Math.round(headR * 0.25) },
+            ]}
+          >
+            {[0, 1].map((i) => (
+              <View key={i} style={[styles.eye, { width: eye, height: eye, borderRadius: eye / 2 }]}>
+                <View
+                  style={{
+                    width: pupil,
+                    height: pupil,
+                    borderRadius: pupil / 2,
+                    backgroundColor: theme.colors.text,
+                  }}
+                />
+              </View>
+            ))}
+          </View>
+
+          {/* Beak (tiny triangle via border trick) */}
+          <View style={styles.beak} />
+        </View>
       </View>
     </View>
   );
@@ -94,17 +104,49 @@ export function Mascot({ size = 44 }: { size?: number }) {
 const styles = StyleSheet.create({
   frame: {
     alignItems: "center",
+    justifyContent: "flex-end",
+  },
+  feetRow: {
+    position: "absolute",
+    bottom: 0,
+    flexDirection: "row",
+    gap: Math.round(44 * 0.09), // scales at base 44
+  },
+  foot: {
+    backgroundColor: theme.colors.warning, // warm amber for feet/beak
+    borderRadius: 999,
+    alignSelf: "center",
+  },
+  body: {
+    position: "absolute",
+    backgroundColor: theme.colors.primary, // near-black
+    alignItems: "center",
     justifyContent: "flex-start",
   },
-  hook: {
+  belly: {
     position: "absolute",
-    top: 0,
+    backgroundColor: theme.colors.surface, // white
+    alignSelf: "center",
+  },
+  wing: {
+    position: "absolute",
     backgroundColor: theme.colors.primary,
+    top: Math.round(44 * 0.12),
+  },
+  wingL: {
+    left: -Math.round(44 * 0.06),
+    transform: [{ rotate: "-12deg" }],
+  },
+  wingR: {
+    right: -Math.round(44 * 0.06),
+    transform: [{ rotate: "12deg" }],
   },
   head: {
     position: "absolute",
     backgroundColor: theme.colors.primary,
     alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1,
   },
   eyes: {
     flexDirection: "row",
@@ -114,13 +156,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  smile: {
-    borderBottomColor: theme.colors.surface,
+  beak: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 5,
+    borderRightWidth: 5,
+    borderBottomWidth: 7,
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+    borderBottomColor: theme.colors.warning,
+    marginTop: 2,
   },
-  blush: {
-    position: "absolute",
-    backgroundColor: "rgba(255,255,255,0.28)",
-  },
-  blushL: {},
-  blushR: {},
 });
