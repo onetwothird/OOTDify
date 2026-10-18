@@ -125,8 +125,10 @@ create table if not exists public.saved_outfits (
   clothing_ids jsonb not null default '[]',
   try_on_id uuid references public.try_on_jobs (id) on delete set null,
   result_url text,
+  scheduled_date date,
   created_at timestamptz not null default now()
 );
+alter table public.saved_outfits add column if not exists scheduled_date date;
 
 create index if not exists saved_outfits_user_idx on public.saved_outfits (user_id, created_at desc);
 
@@ -291,9 +293,17 @@ end $$;
 
 drop function if exists public._ensure_policy(text, regclass, text, text, text);
 
-insert into public.clothing
-  (name, description, category, subcategory, gender, color, sizes, style, brand, occasion, price, currency, image_url, thumbnail_url, metadata)
-values
+-- Seed catalog. Guarded so re-running this file never duplicates seed rows:
+-- `on conflict do nothing` alone cannot help because each row gets a random
+-- generated id, so there is no key to conflict on. Skip the whole block when
+-- seed rows already exist (HF-ingested rows carry metadata.source='huggingface'
+-- and are unaffected).
+do $$
+begin
+  if not exists (select 1 from public.clothing where metadata->>'source' = 'seed') then
+    insert into public.clothing
+      (name, description, category, subcategory, gender, color, sizes, style, brand, occasion, price, currency, image_url, thumbnail_url, metadata)
+    values
   ('Classic White T-Shirt', 'Essential crew-neck tee in heavyweight cotton.', 'Tops', 'T-Shirts', 'unisex',
    array['white'], array['S','M','L','XL'], 'Minimalist', 'Essentials', array['Casual','School','Beach'], 19.99, 'USD',
    'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=800&q=80',
@@ -344,4 +354,6 @@ values
    'https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=800&q=80',
    'https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=400&q=60',
    jsonb_build_object('source','seed'))
-on conflict do nothing;
+    on conflict do nothing;
+  end if;
+end $$;
