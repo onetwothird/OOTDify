@@ -72,9 +72,9 @@ def analyze():
             result = {"personDetected": False, "detections": det.detections}
     except ValueError as exc:
         return jsonify(success=False, error=str(exc)), 400
-    except Exception as exc:
+    except Exception:
         logger.exception("Analyze failed (kind=%s)", kind)
-        return jsonify(success=False, error=f"Analysis failed: {exc}"), 500
+        return jsonify(success=False, error="Analysis failed. Please try again."), 500
     finally:
         if temp_path is not None:
             image_service.cleanup(temp_path)
