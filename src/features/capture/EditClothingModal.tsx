@@ -3,7 +3,7 @@
 // brand, style, season, occasion, tags. Saves through the wardrobe store
 // (which persists via RLS-guarded Supabase update). No photos change here.
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -20,8 +20,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { OCCASIONS, SEASONS, WARDROBE_CATEGORIES } from "../clothing/types";
-import { ClothingItem } from "../clothing/types";
+import { ClothingItem, OCCASIONS, SEASONS, WARDROBE_CATEGORIES } from "../clothing/types";
 import { useWardrobeStore } from "../wardrobe/store";
 import { theme } from "../../shared/config/theme";
 
@@ -34,34 +33,22 @@ export default function EditClothingModal({ item, onClose }: Props) {
   const insets = useSafeAreaInsets();
   const updateItem = useWardrobeStore((s) => s.updateItem);
 
-  const [name, setName] = useState("");
-  const [category, setCategory] = useState<string | null>(null);
-  const [color, setColor] = useState("");
-  const [size, setSize] = useState("");
-  const [brand, setBrand] = useState("");
-  const [style, setStyle] = useState("");
-  const [season, setSeason] = useState<string | null>(null);
-  const [occasions, setOccasions] = useState<Set<string>>(new Set());
-  const [tags, setTags] = useState("");
+  // Fields initialize from `item` once, via lazy initializers. The parent only
+  // mounts this modal while the user is editing, so every open starts fresh and
+  // unsaved edits are never clobbered by background store updates.
+  const [name, setName] = useState(item?.name ?? "");
+  const [category, setCategory] = useState<string | null>(item?.category ?? null);
+  const [color, setColor] = useState(item?.color ?? "");
+  const [size, setSize] = useState(item?.size ?? "");
+  const [brand, setBrand] = useState(item?.brand ?? "");
+  const [style, setStyle] = useState(item?.style ?? "");
+  const [season, setSeason] = useState<string | null>(item?.season ?? null);
+  const [occasions, setOccasions] = useState<Set<string>>(new Set(item?.occasion ?? []));
+  const [tags, setTags] = useState((item?.tags ?? []).join(", "));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!item) return;
-    setName(item.name ?? "");
-    setCategory(item.category ?? null);
-    setColor(item.color ?? "");
-    setSize(item.size ?? "");
-    setBrand(item.brand ?? "");
-    setStyle(item.style ?? "");
-    setSeason(item.season ?? null);
-    setOccasions(new Set(item.occasion ?? []));
-    setTags((item.tags ?? []).join(", "));
-    setError(null);
-  }, [item]);
-
   if (!item) return null;
-
   const toggleOccasion = (occ: string) => {
     setOccasions((prev) => {
       const next = new Set(prev);
