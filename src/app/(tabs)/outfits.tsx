@@ -3,7 +3,7 @@
 // asks the server for real catalog recommendations, composes a deterministic
 // outfit, and persists it. No mock looks, no hardcoded content.
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -47,6 +47,10 @@ export default function OutfitsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
+  // Deep link support: Home's "Today's look" card opens the calendar directly.
+  const { view: viewParam } = useLocalSearchParams<{ view?: string }>();
+  const requestedView = typeof viewParam === "string" ? viewParam : undefined;
+
   const [saved, setSaved] = useState<SavedOutfit[]>([]);
   const [savedLoading, setSavedLoading] = useState(true);
   const [savedError, setSavedError] = useState<string | null>(null);
@@ -54,6 +58,15 @@ export default function OutfitsScreen() {
   // Builder state
   const [builderMode, setBuilderMode] = useState(false);
   const [view, setView] = useState<"looks" | "calendar">("looks");
+
+  // Honour a `view=calendar` deep link without a setState-in-effect: adjust
+  // state during render when the param changes (React's documented pattern,
+  // used elsewhere in this codebase).
+  const [prevViewParam, setPrevViewParam] = useState(requestedView);
+  if (requestedView !== prevViewParam) {
+    setPrevViewParam(requestedView);
+    if (requestedView === "calendar") setView("calendar");
+  }
   const [occasion, setOccasion] = useState<string>("Casual");
   const [condition, setCondition] = useState<(typeof CONDITIONS)[number]>(CONDITIONS[0]);
   const [pool, setPool] = useState<CatalogItem[]>([]);
