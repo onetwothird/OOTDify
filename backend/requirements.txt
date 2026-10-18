@@ -1,6 +1,6 @@
 # ---- Web framework ----
 flask>=3.0,<4
-flask-cors>=4.0,<5
+flask-cors>=6.0,<7
 
 # ---- Computer vision ----
 # Installs torch, opencv-python, numpy and the YOLO inference stack automatically.
