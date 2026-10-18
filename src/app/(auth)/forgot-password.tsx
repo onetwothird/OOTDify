@@ -1,20 +1,20 @@
 // C:\OOTDify\src\app\(auth)\forgot-password.tsx
-// Password reset request — shares the auth design system (FormField/AppButton).
-import { Ionicons } from "@expo/vector-icons";
+// Password reset request — shares the auth shell (AuthHero/AuthCard) so the
+// hero, card and field styling match login and signup exactly.
 import { router } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { AppButton } from "../../shared/components/AppButton";
+import { AuthCard, AuthHero } from "../../shared/components/AuthShell";
 import { FormField } from "../../shared/components/FormField";
 import { theme } from "../../shared/config/theme";
 import { supabase } from "../../shared/lib/supabase";
@@ -44,101 +44,75 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.screen}>
+      <StatusBar style="light" />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.container}
+        style={styles.flex}
       >
-        <View style={styles.header}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
-            onPress={() => router.back()}
-            hitSlop={8}
-            style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
-          >
-            <Ionicons name="arrow-back" size={22} color={theme.colors.text} />
-          </Pressable>
-        </View>
-
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.title}>Reset password</Text>
-          <Text style={styles.subtitle}>
-            Enter your email and we&apos;ll send you a link to set a new password.
+          <AuthHero
+            title="Reset password"
+            subtitle="We'll email you a secure link to set a new one."
+            onBack={() => router.back()}
+          />
+
+          <AuthCard>
+            <FormField
+              label="Email address"
+              icon="mail-outline"
+              value={email}
+              onChangeText={setEmail}
+              placeholder="you@example.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="email"
+              textContentType="emailAddress"
+              returnKeyType="send"
+              onSubmitEditing={handleReset}
+              editable={!loading}
+            />
+
+            <AppButton
+              label="Send reset link"
+              onPress={handleReset}
+              loading={loading}
+              disabled={loading}
+              style={styles.pill}
+            />
+          </AuthCard>
+
+          <Text style={styles.note}>
+            The link expires shortly. If it doesn&apos;t arrive, check your spam
+            folder before requesting another.
           </Text>
-
-          <FormField
-            label="Email address"
-            icon="mail-outline"
-            value={email}
-            onChangeText={setEmail}
-            placeholder="you@example.com"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            autoComplete="email"
-            textContentType="emailAddress"
-            returnKeyType="send"
-            onSubmitEditing={handleReset}
-            editable={!loading}
-          />
-
-          <AppButton
-            label="Send reset link"
-            onPress={handleReset}
-            loading={loading}
-            disabled={loading}
-            style={styles.pill}
-          />
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: theme.colors.background },
-  container: { flex: 1 },
-  header: {
-    paddingHorizontal: theme.spacing.page,
-    paddingTop: theme.spacing.sm,
-    paddingBottom: theme.spacing.sm,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: theme.colors.surfaceAlt,
-  },
-  pressed: { opacity: 0.7 },
-  scrollContent: {
-    flexGrow: 1,
+  screen: { flex: 1, backgroundColor: theme.colors.background },
+  flex: { flex: 1 },
+  scroll: {
     width: "100%",
     maxWidth: 480,
     alignSelf: "center",
-    paddingHorizontal: theme.spacing.lg,
     paddingBottom: theme.spacing.lg,
   },
-  title: {
-    fontSize: 30,
-    lineHeight: 36,
-    fontWeight: "800",
-    letterSpacing: -0.8,
-    color: theme.colors.text,
-    marginTop: theme.spacing.sm,
-  },
-  subtitle: {
-    fontSize: 14.5,
-    lineHeight: 21,
-    color: theme.colors.textMuted,
-    marginTop: 6,
-    marginBottom: theme.spacing.xl,
-  },
   pill: { borderRadius: theme.borderRadius.pill },
+  note: {
+    marginTop: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: "center",
+    color: theme.colors.textMuted,
+  },
 });
