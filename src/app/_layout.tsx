@@ -8,19 +8,23 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { theme } from "../shared/config/theme";
 import { supabase } from "../shared/lib/supabase";
 
+// Auth availability is fixed at module load (env doesn't change at runtime),
+// so the "initialized" default can be computed during render instead of via a
+// synchronous setState inside an effect.
+const AUTH_CONFIGURED = Boolean(
+  supabase && supabase.auth && typeof supabase.auth.getSession === "function",
+);
+
 export default function RootLayout() {
   const [session, setSession] = useState<Session | null>(null);
-  const [initialized, setInitialized] = useState(false);
+  const [initialized, setInitialized] = useState(!AUTH_CONFIGURED);
 
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
     let mounted = true;
-    if (!supabase || !supabase.auth || typeof supabase.auth.getSession !== "function") {
-      setInitialized(true);
-      return;
-    }
+    if (!AUTH_CONFIGURED) return;
 
     supabase.auth
       .getSession()
@@ -57,7 +61,7 @@ export default function RootLayout() {
     } else if (session && inAuthGroup) {
       router.replace("/(tabs)/home");
     }
-  }, [session, initialized, segments]);
+  }, [session, initialized, segments, router]);
 
   if (!initialized) return null;
 
