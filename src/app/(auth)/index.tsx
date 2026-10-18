@@ -243,6 +243,5 @@ const styles = StyleSheet.create({
   legalLink: {
     color: theme.colors.text,
     fontWeight: "800",
-    textDecorationLine: "underline",
   },
 });
