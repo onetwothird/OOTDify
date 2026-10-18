@@ -1,83 +1,116 @@
+// C:\OOTDify\src\app\(auth)\index.tsx
+// Get Started / landing screen: brand mark, honest feature highlights and the
+// two entry points. No placeholder imagery and no fake carousel — the mark is a
+// local asset and every line below describes a feature that actually exists.
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import {
-    Image,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    useWindowDimensions,
-    View,
-} from "react-native";
+import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { AppButton } from "../../shared/components/AppButton";
+import { PRIVACY_ROUTE, TERMS_ROUTE } from "../../shared/config/legal";
+import { theme } from "../../shared/config/theme";
 
-const ILLUSTRATION_MAX = 300;
+const FEATURES: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  body: string;
+}[] = [
+  {
+    icon: "shirt-outline",
+    title: "Your wardrobe, catalogued",
+    body: "Add each piece once and find it instantly.",
+  },
+  {
+    icon: "body-outline",
+    title: "AI body analysis",
+    body: "Pose and segmentation from your own scans.",
+  },
+  {
+    icon: "calendar-outline",
+    title: "Plan by date",
+    body: "Save and schedule outfits on a real calendar.",
+  },
+];
 
 export default function LandingScreen() {
-  const { width, height } = useWindowDimensions();
-
-  // Scale the illustration to the viewport so it never overflows small
-  // screens, while capping it on large ones.
-  const illustrationSize = Math.min(
-    Math.min(width, height) * 0.55,
-    ILLUSTRATION_MAX
-  );
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
-        {/* Top Header Section */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Get Started!</Text>
-          <Text style={styles.subtitle}>
-            Best Way to Manage{"\n"}Your Fits.
-          </Text>
+        <View style={styles.top}>
+          <View style={styles.brandRow}>
+            <Image
+              source={require("../../../assets/images/ootdify-icon.png")}
+              style={styles.brandMark}
+              resizeMode="contain"
+              accessibilityIgnoresInvertColors
+            />
+            <Text style={styles.brandName}>OOTDify</Text>
+          </View>
+
+          <View style={styles.hero}>
+            <Text style={styles.kicker}>WARDROBE · AI STYLING</Text>
+            <Text style={styles.display}>
+              Dress well,{"\n"}effortlessly.
+            </Text>
+            <Text style={styles.lede}>
+              Understand your body with AI, organise every piece you own, and
+              plan real outfits for the days ahead.
+            </Text>
+          </View>
         </View>
 
-        {/* 3D Illustration Section */}
-        <View style={styles.imageContainer}>
-          {/* TODO: Replace this URI with your actual local 3D asset, e.g., require('../../../assets/images/3d-wallet.png') */}
-          <Image
-            source={{
-              uri: "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=800&q=80",
-            }}
-            style={[
-              styles.illustration,
-              { width: illustrationSize, height: illustrationSize },
-            ]}
-          />
+        <View style={styles.featureCard}>
+          {FEATURES.map((feature, index) => (
+            <View
+              key={feature.title}
+              style={[styles.featureRow, index > 0 && styles.featureDivider]}
+            >
+              <View style={styles.featureIcon}>
+                <Ionicons name={feature.icon} size={20} color={theme.colors.text} />
+              </View>
+              <View style={styles.featureText}>
+                <Text style={styles.featureTitle}>{feature.title}</Text>
+                <Text style={styles.featureBody}>{feature.body}</Text>
+              </View>
+            </View>
+          ))}
         </View>
 
-        {/* Pagination Dots */}
-        <View style={styles.pagination}>
-          <View style={[styles.dot, styles.activeDot]} />
-          <View style={styles.dot} />
-          <View style={styles.dot} />
-          <View style={styles.dot} />
-        </View>
-
-        {/* Bottom Actions Section */}
-        <View style={styles.footer}>
-          <TouchableOpacity
-            style={styles.primaryButton}
+        <View style={styles.actions}>
+          <AppButton
+            label="Create an account"
             onPress={() => router.push("/signup")}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.primaryButtonText}>Sign Up</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.secondaryButton}
+            style={styles.pill}
+          />
+          <AppButton
+            label="Log in"
+            variant="secondary"
             onPress={() => router.push("/login")}
-            activeOpacity={0.5}
-          >
-            <Text style={styles.secondaryButtonText}>Log In</Text>
-          </TouchableOpacity>
+            style={styles.pill}
+          />
+          <Text style={styles.legal}>
+            By continuing you agree to our{" "}
+            <Text
+              accessibilityRole="link"
+              style={styles.legalLink}
+              onPress={() => router.push(TERMS_ROUTE)}
+            >
+              Terms of Service
+            </Text>{" "}
+            and{" "}
+            <Text
+              accessibilityRole="link"
+              style={styles.legalLink}
+              onPress={() => router.push(PRIVACY_ROUTE)}
+            >
+              Privacy Policy
+            </Text>
+            .
+          </Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -85,101 +118,86 @@ export default function LandingScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
+  safeArea: { flex: 1, backgroundColor: theme.colors.background },
+  content: {
     flexGrow: 1,
     width: "100%",
     maxWidth: 480,
     alignSelf: "center",
-    paddingHorizontal: 24,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.md,
+    paddingBottom: theme.spacing.lg,
     justifyContent: "space-between",
-    paddingTop: Platform.OS === "android" ? 40 : 20,
-    paddingBottom: 20,
   },
-  header: {
-    alignItems: "center",
-    marginTop: 40,
-  },
-  title: {
-    fontSize: 36,
+  top: { gap: theme.spacing.xl },
+  brandRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  brandMark: { width: 34, height: 34 },
+  brandName: {
+    fontSize: 20,
     fontWeight: "800",
-    color: "#18181B",
-    marginBottom: 12,
-    textAlign: "center",
+    letterSpacing: -0.4,
+    color: theme.colors.text,
   },
-  subtitle: {
-    fontSize: 16,
-    color: "#A1A1AA",
-    textAlign: "center",
-    fontWeight: "500",
-    lineHeight: 24,
+  hero: { gap: 12 },
+  kicker: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 2,
+    color: theme.colors.textMuted,
   },
-  imageContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    minHeight: 160,
+  display: {
+    fontSize: 40,
+    lineHeight: 44,
+    fontWeight: "800",
+    letterSpacing: -1.5,
+    color: theme.colors.text,
   },
-  illustration: {
-    resizeMode: "contain",
-    borderRadius: 20, // Only needed for the Unsplash placeholder
+  lede: {
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: "400",
+    color: theme.colors.textMuted,
+    maxWidth: 340,
   },
-  pagination: {
+  featureCard: {
+    marginTop: theme.spacing.xl,
+    marginBottom: theme.spacing.xl,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.lg,
+    backgroundColor: theme.colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+  },
+  featureRow: {
     flexDirection: "row",
-    justifyContent: "center",
     alignItems: "center",
-    marginBottom: 40,
+    gap: theme.spacing.md,
+    paddingVertical: 14,
   },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#F4F4F5",
-    marginHorizontal: 4,
+  featureDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: theme.colors.border,
   },
-  activeDot: {
-    width: 24,
-    backgroundColor: "#18181B",
-  },
-  footer: {
-    paddingBottom: 10,
-  },
-  primaryButton: {
-    backgroundColor: "#18181B",
-    height: 60,
-    borderRadius: 100,
-    justifyContent: "center",
+  featureIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: theme.borderRadius.sm,
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  primaryButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  secondaryButton: {
-    backgroundColor: "#FFFFFF",
-    height: 60,
-    borderRadius: 100,
     justifyContent: "center",
-    alignItems: "center",
-    marginTop: 12,
-    borderWidth: 1.5,
-    borderColor: "#18181B",
+    backgroundColor: theme.colors.surfaceAlt,
   },
-  secondaryButtonText: {
-    color: "#18181B",
-    fontSize: 16,
-    fontWeight: "700",
+  featureText: { flex: 1, gap: 2 },
+  featureTitle: { fontSize: 14.5, fontWeight: "700", color: theme.colors.text },
+  featureBody: { fontSize: 13, lineHeight: 18, color: theme.colors.textMuted },
+  actions: { gap: 12 },
+  pill: { borderRadius: theme.borderRadius.pill },
+  legal: {
+    marginTop: 6,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: "center",
+    color: theme.colors.textMuted,
+    paddingHorizontal: theme.spacing.sm,
   },
+  legalLink: { color: theme.colors.text, fontWeight: "700" },
 });
