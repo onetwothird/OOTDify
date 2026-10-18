@@ -20,10 +20,7 @@ import { API_AI_TIMEOUT_MS, API_TIMEOUT_MS, API_BASE_URL } from "../shared/confi
 import {
   ApiError,
   apiRequest,
-  checkBackendHealth,
   getAccessToken,
-  healthCheck,
-  isAuthError,
 } from "./apiClient";
 
 export {
@@ -53,7 +50,7 @@ export interface Detection {
 export interface PoseAnalysis {
   success: boolean;
   personDetected: boolean;
-  keypoints: Array<{ name: string; x: number; y: number; confidence: number }>;
+  keypoints: { name: string; x: number; y: number; confidence: number }[];
   inference_ms: number | null;
   model: string | null;
   error: string | null;
