@@ -26,21 +26,33 @@ interface WardrobeState {
 
 // Real data only: items are loaded from public.clothing_items (RLS owner-only)
 // via loadFromServer(), or added by the capture flow. There is NO demo seed.
+
+// Single-flight: concurrent callers (tab focus refresh + screen mount) share
+// one in-flight request instead of stacking duplicate fetches. Cleared when
+// the request settles so later calls still refetch.
+let closetLoad: Promise<void> | null = null;
+
 const useWardrobeStoreImpl = create<WardrobeState>((set) => ({
   items: [],
   loading: false,
   error: null,
-  loadFromServer: async () => {
+  loadFromServer: () => {
+    if (closetLoad) return closetLoad;
     set({ loading: true, error: null });
-    try {
-      const items = await fetchMyCloset();
-      set({ items, loading: false });
-    } catch (e) {
-      set({
-        loading: false,
-        error: e instanceof Error ? e.message : "Could not load your closet.",
-      });
-    }
+    closetLoad = (async () => {
+      try {
+        const items = await fetchMyCloset();
+        set({ items, loading: false });
+      } catch (e) {
+        set({
+          loading: false,
+          error: e instanceof Error ? e.message : "Could not load your closet.",
+        });
+      } finally {
+        closetLoad = null;
+      }
+    })();
+    return closetLoad;
   },
   addItem: (item) => set((state) => ({ items: [item, ...state.items] })),
   addItems: (items) =>
