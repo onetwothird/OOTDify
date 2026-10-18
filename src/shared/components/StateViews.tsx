@@ -10,15 +10,18 @@ export function EmptyState({
   message,
   actionLabel,
   onAction,
+  compact = false,
 }: {
   icon?: keyof typeof Ionicons.glyphMap;
   title: string;
   message?: string;
   actionLabel?: string;
   onAction?: () => void;
+  /** Tighter vertical padding, for empty states followed by more content. */
+  compact?: boolean;
 }) {
   return (
-    <View style={styles.box} testID="empty-state">
+    <View style={[styles.box, compact && styles.boxCompact]} testID="empty-state">
       <Ionicons name={icon} size={40} color={theme.colors.textMuted} />
       <Text style={styles.title}>{title}</Text>
       {message ? <Text style={styles.message}>{message}</Text> : null}
@@ -68,6 +71,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     gap: theme.spacing.sm,
   },
+  boxCompact: { paddingVertical: 18 },
   title: {
     fontSize: 16,
     fontWeight: "700",
