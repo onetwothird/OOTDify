@@ -34,6 +34,7 @@ import { LoadingState } from "../../shared/components/LoadingState";
 import { ScreenHeader } from "../../shared/components/ScreenHeader";
 import { SectionHeader } from "../../shared/components/SectionHeader";
 import { theme } from "../../shared/config/theme";
+import { toast } from "../../shared/lib/toast";
 import { recommendCatalog } from "../../services/aiApi";
 
 const CONDITIONS = [
@@ -139,7 +140,7 @@ export default function OutfitsScreen() {
         .filter((e) => e.source === "catalog")
         .map((e) => e.id);
       if (!clothingIds.length) {
-        Alert.alert("Nothing to save", "This outfit has no catalog items to save.");
+        toast.info("Nothing to save", "This outfit has no catalog items to save.");
         setSaving(false);
         return;
       }
@@ -154,15 +155,12 @@ export default function OutfitsScreen() {
       setOutfit(null);
       setBuilderMode(false);
       await loadSaved();
-      Alert.alert("Outfit saved", "Added to your saved outfits.", [
-        {
-          text: "View",
-          onPress: () => router.push(`/outfit/${saved.id}`),
-        },
-        { text: "OK" },
-      ]);
+      toast.success("Outfit saved", "Added to your saved outfits.", {
+        label: "View",
+        onPress: () => router.push(`/outfit/${saved.id}`),
+      });
     } catch (e) {
-      Alert.alert(
+      toast.error(
         "Could not save",
         e instanceof Error ? e.message : "Something went wrong while saving.",
       );
@@ -201,8 +199,21 @@ export default function OutfitsScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {builderMode ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Back to saved outfits"
+            onPress={() => setBuilderMode(false)}
+            hitSlop={8}
+            style={({ pressed }) => [styles.builderBack, pressed && { opacity: 0.6 }]}
+          >
+            <Ionicons name="chevron-back" size={18} color={theme.colors.primary} />
+            <Text style={styles.builderBackText}>Saved outfits</Text>
+          </Pressable>
+        ) : null}
+
         <ScreenHeader
-          title="Outfits"
+          title={builderMode ? "Build an outfit" : "Outfits"}
           subtitle={
             builderMode
               ? "Compose a new look from real catalog picks."
@@ -248,45 +259,49 @@ export default function OutfitsScreen() {
               />
             ) : (
               <>
-                <AppButton
-                  label="Build a new outfit"
-                  icon="add-circle-outline"
-                  onPress={() => setBuilderMode(true)}
-                  style={styles.buildCta}
-                />
-                <AppButton
-                  label="AI Outfit Picker"
-                  icon="sparkles-outline"
-                  variant="secondary"
-                  onPress={() => router.push("/ai-picker")}
-                />
+                <View style={styles.ctaRow}>
+                  <AppButton
+                    label="Build outfit"
+                    icon="add-circle-outline"
+                    onPress={() => setBuilderMode(true)}
+                    style={styles.ctaFlex}
+                  />
+                  <AppButton
+                    label="AI Picker"
+                    icon="sparkles-outline"
+                    variant="secondary"
+                    onPress={() => router.push("/ai-picker")}
+                    style={styles.ctaFlex}
+                  />
+                </View>
+
                 <SectionHeader
                   title="Saved looks"
                   subtitle="Outfits you've built and kept."
                 />
 
-            {savedLoading ? (
-              <LoadingState label="Loading outfits" />
-            ) : savedError ? (
-              <ErrorState message={savedError} onRetry={loadSaved} />
-            ) : saved.length === 0 ? (
-              <EmptyState
-                icon="shirt-outline"
-                title="No saved outfits yet"
-                message="Build an outfit from the catalog and it will appear here."
-                actionLabel="Build outfit"
-                onAction={() => setBuilderMode(true)}
-              />
-            ) : (
-              saved.map((o) => (
-                <SavedOutfitRow
-                  key={o.id}
-                  outfit={o}
-                  onPress={() => router.push(`/outfit/${o.id}`)}
-                  onDelete={() => removeOutfit(o.id)}
-                />
-              ))
-            )}
+                {savedLoading ? (
+                  <LoadingState label="Loading outfits" />
+                ) : savedError ? (
+                  <ErrorState message={savedError} onRetry={loadSaved} />
+                ) : saved.length === 0 ? (
+                  <EmptyState
+                    icon="shirt-outline"
+                    title="No saved outfits yet"
+                    message="Build an outfit from the catalog and it will appear here."
+                    actionLabel="Build outfit"
+                    onAction={() => setBuilderMode(true)}
+                  />
+                ) : (
+                  saved.map((o) => (
+                    <SavedOutfitRow
+                      key={o.id}
+                      outfit={o}
+                      onPress={() => router.push(`/outfit/${o.id}`)}
+                      onDelete={() => removeOutfit(o.id)}
+                    />
+                  ))
+                )}
               </>
             )}
           </>
@@ -329,7 +344,7 @@ export default function OutfitsScreen() {
               icon="sparkles-outline"
               loading={building}
               onPress={build}
-              style={[styles.buildBtn, building && styles.btnDisabled]}
+              style={building ? styles.btnDisabled : undefined}
             />
             {buildError ? <Text style={styles.errorText}>{buildError}</Text> : null}
 
@@ -380,15 +395,6 @@ export default function OutfitsScreen() {
                 </View>
               </View>
             ) : null}
-
-            <Pressable
-              accessibilityRole="button"
-              style={styles.backLink}
-              onPress={() => setBuilderMode(false)}
-            >
-              <Ionicons name="arrow-back" size={16} color={theme.colors.primary} />
-              <Text style={styles.backLinkText}>Back to saved outfits</Text>
-            </Pressable>
 
             {pool.length > 0 ? (
               <Text style={styles.poolHint}>
@@ -441,16 +447,8 @@ function SavedOutfitRow({
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   content: { paddingHorizontal: 16, paddingBottom: 40, gap: 12 },
-  buildCta: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.borderRadius.md,
-    paddingVertical: 14,
-  },
-  buildCtaText: { color: "#FFF", fontWeight: "700", fontSize: 14 },
+  ctaRow: { flexDirection: "row", gap: 10 },
+  ctaFlex: { flex: 1 },
   sectionLabel: {
     fontSize: 11,
     fontWeight: "800",
@@ -476,28 +474,8 @@ const styles = StyleSheet.create({
   segmentText: { fontSize: 13, fontWeight: "700", color: theme.colors.textMuted },
   segmentTextActive: { color: theme.colors.onPrimary },
   chips: { gap: 8, paddingRight: 16 },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: theme.colors.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.colors.border,
-  },
-  chipActive: { backgroundColor: theme.colors.primary },
-  chipText: { fontSize: 13, fontWeight: "600", color: theme.colors.text },
-  chipTextActive: { color: "#FFFFFF" },
 
   builder: { gap: 12 },
-  buildBtn: {
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.borderRadius.md,
-    paddingVertical: 14,
-    alignItems: "center",
-    minHeight: 48,
-    justifyContent: "center",
-  },
-  buildBtnText: { color: "#FFF", fontWeight: "700", fontSize: 15 },
   btnDisabled: { opacity: 0.4 },
   errorText: { color: theme.colors.warning, fontSize: 12.5 },
   outfitPreview: {
@@ -532,8 +510,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
   },
   ghostBtnText: { color: theme.colors.text, fontWeight: "700", fontSize: 14 },
-  backLink: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start" },
-  backLinkText: { color: theme.colors.primary, fontWeight: "700", fontSize: 13 },
+  builderBack: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    alignSelf: "flex-start",
+    marginTop: 2,
+    marginLeft: -4,
+    paddingVertical: 6,
+    paddingRight: 12,
+  },
+  builderBackText: { color: theme.colors.primary, fontWeight: "700", fontSize: 14 },
   poolHint: { fontSize: 11, color: theme.colors.textMuted, lineHeight: 16 },
 
   savedRow: {
