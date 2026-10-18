@@ -29,11 +29,11 @@ function hashKey(seed: number, id: string): number {
   return h >>> 0;
 }
 
-function byCategory(items: Array<CatalogItem | ClothingItem>, keyword: string) {
+function byCategory(items: (CatalogItem | ClothingItem)[], keyword: string) {
   return items.filter((it) => (it.category ?? "").toLowerCase().includes(keyword));
 }
 
-function pick(items: Array<CatalogItem | ClothingItem>, seed: number): OutfitEntry | null {
+function pick(items: (CatalogItem | ClothingItem)[], seed: number): OutfitEntry | null {
   if (!items.length) return null;
   const sorted = [...items].sort(
     (a, b) => hashKey(seed, a.id) - hashKey(seed, b.id),
@@ -51,7 +51,7 @@ function pick(items: Array<CatalogItem | ClothingItem>, seed: number): OutfitEnt
  * Returns null when fewer than one useable item is provided.
  */
 export function generateOutfit(
-  pool: Array<CatalogItem | ClothingItem>,
+  pool: (CatalogItem | ClothingItem)[],
   opts: GeneratorOptions = {},
 ): Outfit | null {
   if (!pool.length) return null;
@@ -111,7 +111,7 @@ export function generateOutfit(
 
 /** Keep the previous async-friendly name used by tests/screens. */
 export async function generateOutfits(
-  pool: Array<CatalogItem | ClothingItem>,
+  pool: (CatalogItem | ClothingItem)[],
   opts: GeneratorOptions = {},
 ): Promise<Outfit[]> {
   const outfit = generateOutfit(pool, opts);
