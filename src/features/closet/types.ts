@@ -7,6 +7,6 @@ export type { ClothingItem, FavoriteRow } from "../clothing/types";
 
 export interface ScanPreview {
   personDetected: boolean;
-  detections: Array<{ class: string; confidence: number }>;
+  detections: { class: string; confidence: number }[];
   message?: string;
 }
