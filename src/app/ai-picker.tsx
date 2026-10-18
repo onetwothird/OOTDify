@@ -68,10 +68,10 @@ export default function AiPickerScreen() {
   const [error, setError] = useState<ApiError | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
 
-  const generate = useCallback(
+  // Core composer — effect-safe (no synchronous setState); state starts as loading.
+  // Re-compose whenever the user changes occasion / weather / gender.
+  const runGenerate = useCallback(
     async (seed?: number) => {
-      setLoading(true);
-      setError(null);
       try {
         const res = await composeOutfits({
           occasion,
@@ -94,10 +94,33 @@ export default function AiPickerScreen() {
     [occasion, condition, gender],
   );
 
-  // Re-compose whenever the user changes occasion / weather / gender.
+  // Handler-facing wrapper (shuffle / retry): show the spinner first.
+  const generate = useCallback(
+    async (seed?: number) => {
+      setLoading(true);
+      setError(null);
+      await runGenerate(seed);
+    },
+    [runGenerate],
+  );
+
+  // Reset loading/error during render when the inputs change — React's
+  // documented alternative to a synchronous setState inside an effect.
+  const genKey = `${occasion}|${condition.label}|${gender}`;
+  const [prevGenKey, setPrevGenKey] = useState(genKey);
+  if (prevGenKey !== genKey) {
+    setPrevGenKey(genKey);
+    setLoading(true);
+    setError(null);
+  }
+
   useEffect(() => {
-    void generate();
-  }, [generate]);
+    // Microtask kick-off: no setState runs synchronously within the effect
+    // body; the composer only sets state after its await.
+    Promise.resolve()
+      .then(() => runGenerate())
+      .catch(() => {});
+  }, [runGenerate]);
 
   const saveLook = useCallback(
     async (outfit: ComposedOutfit) => {
