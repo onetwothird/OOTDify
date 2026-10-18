@@ -231,99 +231,99 @@ Do not use fake data or suppress errors to conceal broken functionality.
 
 # Phase 3 — Clothing Catalog and Image Delivery Reliability
 
-**Status:** Not started
+**Status:** Complete (verified — see results below)
 
 ## 3.1 Catalog Data Integrity
 
-- [ ] Verify `public.clothing` has 10 seeded rows with valid `image_url` / `thumbnail_url`
-- [ ] Confirm all URLs are HTTPS and accessible (public bucket)
-- [ ] Check for missing images, duplicate records, orphaned storage objects
-- [ ] Verify `clothing_items` RLS: users see only their own items
-- [ ] Verify `saved_outfits.clothing_ids` references exist in `clothing` or `clothing_items`
+- [x] Verify `public.clothing` has seeded rows with valid `image_url` / `thumbnail_url` — **250 rows live (10 seed + 240 ingested), all URLs valid** (`backend/scripts/verify_catalog.py`)
+- [x] Confirm all URLs are HTTPS and accessible (public bucket) — **all `image_url`/`thumbnail_url` are HTTPS; public `clothing` bucket confirmed via storage API**
+- [x] Check for missing images, duplicate records, orphaned storage objects — **found + repaired: re-running the old seed insert had duplicated all 10 seed rows (270 rows total). Root cause: `on conflict do nothing` is a no-op on a table whose only key is a random generated id. 20 duplicate rows deleted (backed up to `backend/data/seed_dedupe_backup_*.json` first), 0 user references needed repointing. New scripts: `verify_catalog.py`, `cleanup_seed_duplicates.py`**
+- [x] Verify `clothing_items` RLS: users see only their own items — **empirically probed with the anon key: 0 rows readable, 0 inserts possible on all 8 user tables**
+- [x] Verify `saved_outfits.clothing_ids` references exist in `clothing` or `clothing_items` — **2 outfits, all references resolve, 0 dangling**
 
 ## 3.2 Image Rendering
 
-- [ ] Identify every component rendering clothing images (ClothingCard, WardrobeTile, SavedLookRow, catalog/item/outfit detail screens)
-- [ ] Verify `expo-image` usage: `contentFit="cover"`, `transition={150}`, proper aspect ratios
-- [ ] Fix broken image sources, invalid URL construction
-- [ ] Correct aspect ratios, sizing, cropping, alignment
-- [ ] Prevent layout shifts while images load (fixed aspectRatio on containers)
-- [ ] Provide loading placeholders (Skeleton) and error fallbacks (placeholder icon)
-- [ ] Handle expired signed URLs — re-sign on retry, don't show broken image indefinitely
-- [ ] Avoid duplicate downloads (memoization in `useResolvedImage` hook)
+- [x] Identify every component rendering clothing images — ClothingCard, catalog/item/outfit detail, home tiles, discover closet, scan results, capture modal (grep-verified)
+- [x] Verify `expo-image` usage: `contentFit="cover"`, `transition={150}`, proper aspect ratios — **fixed 4 React Native `Image` usages in `scan.tsx` + 1 in `CaptureClothesModal.tsx` → `expo-image` with `contentFit="cover"` + `transition={150}`; `resizeMode` props replaced**
+- [x] Fix broken image sources, invalid URL construction — none found; `resolveMediaUrl()` handles http(s) vs bucket refs correctly
+- [x] Correct aspect ratios, sizing, cropping, alignment — fixed `aspectRatio: 0.8` on cards/placeholder (no layout shift)
+- [x] Prevent layout shifts while images load (fixed aspectRatio on containers) — placeholders share exact dimensions with loaded images
+- [x] Provide loading placeholders (Skeleton) and error fallbacks (placeholder icon) — placeholder views render while unsigned/failed; `resolveMediaUrl` returns `null` honestly instead of a broken image
+- [x] Handle expired signed URLs — re-sign on retry, don't show broken image indefinitely — **added a signed-URL cache in `storageUrl.ts`: TTL = expiry − 60 s (a cached URL can never outlive validity), failures return `null` → placeholder, cache wiped on `SIGNED_OUT` so one account's URLs never serve the next**
+- [x] Avoid duplicate downloads — **module-level cache keyed by `bucket/path@expiry` dedupes signing across components; catalog images pass through untouched (no signing)**
 
 ## 3.3 Wardrobe Upload Pipeline (Add to Closet)
 
-- [ ] Trace: camera/gallery → `CaptureClothesModal` → upload → `clothing_items` insert → signed URL
-- [ ] Verify image validation (type, size, magic bytes) on backend
-- [ ] Confirm private bucket storage (`wardrobe/<uid>/<uuid>.ext`)
-- [ ] Test cross-device sync (RLS ensures isolation)
+- [x] Trace: camera/gallery → `CaptureClothesModal` → upload → `clothing_items` insert → signed URL — verified end-to-end by code review: client uploads to `wardrobe/<uid>/<uuid>-<sanitized-name>`, inserts a real row, renders via signed URL only
+- [x] Verify image validation (type, size, magic bytes) on backend — `image_service.ingest_upload` = extension allowlist + 10 MB cap + Pillow `verify()`+`load()` (real decode, not just magic bytes)
+- [x] Confirm private bucket storage (`wardrobe/<uid>/<uuid>.ext`) — enforced by storage RLS `auth.uid()::text = owner_id`; anon cannot list private objects (probe-verified)
+- [x] Test cross-device sync (RLS ensures isolation) — **policy verified empirically (anon = 0 rows / 0 inserts); a live two-user probe still requires a second account (documented blocker carried from Phase 2)**
 
 ## 3.4 Schema / Seed Idempotency
 
-- [ ] Verify `supabase/schema.sql` is idempotent (safe to re-run)
-- [ ] Confirm seed catalog insert uses `ON CONFLICT DO NOTHING`
-- [ ] Add `scheduled_date` column to `saved_outfits` if calendar feature needs it (see Phase 6)
+- [x] Verify `supabase/schema.sql` is idempotent (safe to re-run) — **fixed: seed insert now wrapped in a `do $$` guard that only inserts when no `metadata.source='seed'` rows exist; all other statements were already `if not exists`**
+- [x] Confirm seed catalog insert uses `ON CONFLICT DO NOTHING` — **it did, but ineffectively (random PK → never conflicts); replaced by the existence guard above — the root cause of the duplication incident**
+- [x] Add `scheduled_date` column to `saved_outfits` if calendar feature needs it — **added idempotently (`add column if not exists`) in `schema.sql`** *(pending: apply to live DB when the calendar ships)*
 
 ---
 
 # Phase 4 — Security Audit and Hardening
 
-**Status:** Not started
+**Status:** Complete (verified — see results below)
 
 ## Authentication and Authorization
 
-- [ ] Review session management, token validation, account recovery
-- [ ] Verify server-side authorization on all protected endpoints
-- [ ] Prevent unauthorized access to wardrobe images and records (RLS + backend token validation)
-- [ ] Verify row-level security policies on all user tables
-- [ ] Ensure role-based permissions enforced on server (backend derives user_id from token)
-- [ ] Review OAuth callbacks and redirect URLs
-- [ ] Protect auth/sensitive endpoints against abuse (rate limiting)
+- [x] Review session management, token validation, account recovery — Supabase Auth sessions; backend validates the Bearer token against Supabase on **every** request (`auth_service.require_user`), caches per-request on `fl.g`
+- [x] Verify server-side authorization on all protected endpoints — **all 16 user-facing routes carry `@require_auth`; `/health` is the only unauthenticated route (liveness probe, returns no data)**
+- [x] Prevent unauthorized access to wardrobe images and records (RLS + backend token validation) — anon-key probes: 0 reads / 0 writes on every user table; private buckets not listable
+- [x] Verify row-level security policies on all user tables — `auth.uid() = user_id` on all 9 tables + owner-scoped storage policies, all created via idempotent `_ensure_policy`
+- [x] Ensure role-based permissions enforced on server (backend derives user_id from token) — every route uses `user["id"]` from the validated token; no client-supplied `user_id` accepted anywhere
+- [x] Review OAuth callbacks and redirect URLs — `googleAuth.ts` uses `makeRedirectUri()` (scheme-based `ootdify://`, no hardcoded production URL); PKCE + implicit both handled; no client secret in the bundle
+- [x] Protect auth/sensitive endpoints against abuse (rate limiting) — sliding-window limits on every route (`upload_limits` on the 7 write/upload routes incl. try-on create/retry, `default_limits` on reads, strict `account_delete` 10/hr); identity = user id (IP only pre-auth)
 
 ## Backend and Database
 
-- [ ] Validate all untrusted input on server (file uploads, JSON payloads)
-- [ ] Use safe database query mechanisms (Supabase client, parameterized)
-- [ ] Review SQL injection, XSS, CSRF, broken access control
-- [ ] Configure CORS appropriately (LAN IP + localhost)
-- [ ] Apply suitable rate limits (try-on, analyze, upload)
-- [ ] Protect file uploads with type, size, content validation
-- [ ] Ensure API errors don't expose internal details (ApiError mapping in apiClient.ts)
+- [x] Validate all untrusted input on server (file uploads, JSON payloads) — extension allowlist + real image decode + size cap; JSON fields validated (`kind` enum, occasion/gender enums, `_validate_clothing_ids` ownership check on try-on)
+- [x] Use safe database query mechanisms (Supabase client, parameterized) — PostgREST only; no string-built SQL anywhere in the backend
+- [x] Review SQL injection, XSS, CSRF, broken access control — no SQLi surface (PostgREST); XSS irrelevant (native, no HTML rendering); CSRF not applicable (Bearer-token API, no cookies); access control probe-verified above
+- [x] Configure CORS appropriately (LAN IP + localhost) — `CORS_ORIGINS` env-driven, scoped to `/api/*`; preflight verified 200 in Phase 2
+- [x] Apply suitable rate limits (try-on, analyze, upload) — see above; all 7 upload/compute routes at 15/hr per user
+- [x] Protect file uploads with type, size, content validation — extension + size + Pillow full-decode; stored under server-generated UUID names (`secure_filename` + UUID prefix)
+- [x] Ensure API errors don't expose internal details (ApiError mapping in apiClient.ts) — **fixed 5 leaking 500 responses in `detection.py`/`users.py` (`error=f"...{exc}"` leaked internal exception text to clients); now generic copy + `logger.exception` server-side. `ValueError` → 400 paths keep their intentional user-facing validation messages**
 
 ## Supabase Security
 
-- [ ] Review project configuration and storage access policies
-- [ ] Ensure public catalog assets and private wardrobe assets use correct access model
-- [ ] Verify users cannot read/overwrite/delete another user's private images
-- [ ] Review database permissions and RLS
-- [ ] Keep service-role keys server-side only (`backend/.env`, git-ignored)
-- [ ] Verify signed URL expiration and access restrictions
-- [ ] Ensure no client-side code imports service-role key
+- [x] Review project configuration and storage access policies — public `clothing` + 4 private owner-scoped buckets, all confirmed by live storage-API probe
+- [x] Ensure public catalog assets and private wardrobe assets use correct access model — catalog: direct HTTPS; wardrobe/try-ons/avatars: 15-min signed URLs only
+- [x] Verify users cannot read/overwrite/delete another user's private images — anon cannot list; RLS `auth.uid() = owner_id` on select/insert/update/delete; backend signs only after token validation
+- [x] Review database permissions and RLS — RLS enabled on all 9 user tables (verified via anon probes returning empty, not errors-with-data)
+- [x] Keep service-role keys server-side only (`backend/.env`, git-ignored) — grep of `src/` finds zero service-role references; `git check-ignore` confirms `backend/.env` + root `.env` ignored; only `EXPO_PUBLIC_*` in the bundle
+- [x] Verify signed URL expiration and access restrictions — 900 s default, cache TTL ≤ expiry − 60 s, wiped on sign-out
+- [x] Ensure no client-side code imports service-role key — grep-verified (no `sb_secret`/`SERVICE_ROLE` in `src/`)
 
 ## Secrets and Dependencies
 
-- [ ] Inspect configuration and repository files for exposed credentials
-- [ ] Verify frontend env vars contain only `EXPO_PUBLIC_*` values
-- [ ] Review dependency vulnerabilities (`npm audit`, `pip-audit`)
-- [ ] Apply safe, compatible dependency updates where needed
-- [ ] Rotate any exposed credentials through authorized processes
-- [ ] Keep production and development configurations separate
+- [x] Inspect configuration and repository files for exposed credentials — secret-pattern grep across tracked files: **no matches**; no `.env` tracked by git
+- [x] Verify frontend env vars contain only `EXPO_PUBLIC_*` values — root `.env` holds only `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (+ `.env.local` API URL/weather key)
+- [x] Review dependency vulnerabilities (`npm audit`, `pip-audit`) — **npm: 66 → 61 via `npm audit fix` (2 criticals eliminated; remainder are moderate/high in Expo's transitive `@expo/config-plugins` chain — only fixable with `audit fix --force` breaking changes, deliberately not applied). pip: flask-cors 4.0.2 → 6.0.0 (PYSEC-2026-1383/1384/1385), `requirements.txt` constraint updated, `pip-audit` now returns 0 findings; pytest 41/41 still green**
+- [x] Apply safe, compatible dependency updates where needed — as above
+- [x] Rotate any exposed credentials through authorized processes — no leaked credentials found (nothing to rotate). *Note: the Cloudinary API secret pasted in chat is stored only in git-ignored `backend/.env`; treat chat history as sensitive and consider rotating it if the transcript is shared*
+- [x] Keep production and development configurations separate — `FLASK_DEBUG` **default flipped 1 → 0** in `config.py` (Werkzeug debugger = RCE risk on a reachable host); `backend/.env` + `.env.example` updated to `FLASK_DEBUG=0` with guidance comment; `SECRET_KEY` unused for sessions (Bearer auth) — flagged for rotation if ever used
 
 ## Data Protection
 
-- [ ] Minimize unnecessary collection of personal information
-- [ ] Avoid sensitive information in logs
-- [ ] Review data retention and deletion behavior (export/delete account)
-- [ ] Protect data in transit (HTTPS everywhere)
-- [ ] Review privacy implications of any third-party integrations
-- [ ] Ensure wardrobe photos never exposed through public catalog features
+- [x] Minimize unnecessary collection of personal information — profile stores display prefs only; body photos + analysis JSON owned by user, deletable; weather API key unused in code
+- [x] Avoid sensitive information in logs — server logs user **ids** and counts, never photo bytes or tokens; client raw backend detail only in `__DEV__`; the new 500-handler fix removed exception text from client responses
+- [x] Review data retention and deletion behavior (export/delete account) — `/api/account/export` returns the full JSON dump; `/api/account/delete` removes storage objects → all rows → auth user. **Fixed: deletion loop is now genuinely best-effort per table (a missing/locked table no longer aborts deletion and strands the account) and includes `outfit_plans`**
+- [x] Protect data in transit (HTTPS everywhere) — Supabase + catalog images are HTTPS; local LAN dev uses plain HTTP to the dev machine only (documented in `api.ts`); production must terminate TLS in front of Flask
+- [x] Review privacy implications of any third-party integrations — Google OAuth (sign-in only), Unsplash seed images (public CDN), optional Cloudinary (server-side only, keys in `backend/.env`), Hugging Face/Kaggle for catalog ingestion (server-side script)
+- [x] Ensure wardrobe photos never exposed through public catalog features — wardrobe rows live only in `clothing_items` (private RLS) and render via signed URLs; catalog table is separate and holds only public-bucket images (probe-verified)
 
 ---
 
 # Phase 5 — Performance Optimization
 
-**Status:** Not started
+**Status:** Complete for everything performable in this environment; three profiler/device measurement tasks are environment-blocked (documented at the end).
 
 ## Objectives
 
@@ -331,31 +331,48 @@ Improve responsiveness without sacrificing correctness or security.
 
 ## Tasks
 
-- [ ] Measure baseline performance (React DevTools, Flipper, Xcode/Android Studio profiler)
-- [ ] Identify slow requests, components, database queries, image-loading operations
-- [ ] Reduce unnecessary component re-renders (React.memo, useMemo, useCallback where measured)
-- [ ] Prevent redundant API calls (single-flight patterns, Zustand selectors)
-- [ ] Optimize image rendering and loading (proper sizing, lazy loading, priority)
-- [ ] Use pagination/incremental loading for large catalogs (already limited to 6-8 items)
-- [ ] Implement caching only where appropriate (React Query not used; Zustand + manual)
-- [ ] Avoid caching expired signed URLs indefinitely
-- [ ] Prevent private image data from leaking through shared caches
-- [ ] Optimize database queries and indexes (existing indexes on user_id + created_at)
-- [ ] Reduce unnecessary bundle size (expo-router tree-shaking, dynamic imports)
-- [ ] Clean up event listeners and subscriptions (useEffect cleanup)
-- [ ] Optimize animations and transitions (reanimated worklets)
-- [ ] Keep primary interactions responsive during network requests
-- [ ] Test on supported devices and realistic network conditions
+- [ ] Measure baseline performance (React DevTools, Flipper, Xcode/Android Studio profiler) — **environment-blocked (no device/profiler in this workspace); measurable substitutes taken instead: lint problems 109 → 0, bundle size measured via `expo export` (4.4 MB Android Hermes), request-pattern review below**
+- [x] Identify slow requests, components, database queries, image-loading operations — **found and fixed real issues: `outfit/[id]` downloaded up to 500 catalog rows to resolve a handful of ids → server-side `in (id, …)` filter; stacked closet refetches (tab focus + screen mount) → single-flight; `profile` state was written but never read (two pointless re-renders per load/save) → removed; image retry cap tightened to spec (2 → 1)**
+- [x] Reduce unnecessary component re-renders (React.memo, useMemo, useCallback where measured) — **all 18 `set-state-in-effect` render cascades and ~30 render-phase `ref` reads eliminated (lint 109 → 0); React-Compiler `preserve-manual-memoization` errors fixed via declaration-order corrections; `memo()` on `ClothingCard`, `ClosetCard`, `SmartImage`; dead `profile` state removed**
+- [x] Prevent redundant API calls (single-flight patterns, Zustand selectors) — **`loadFromServer` single-flight (concurrent focus + mount callers share one request, cleared when it settles); scan initial loads single-flight (`initialLoadsStarted` guard, also set by `acceptConsent`); every Zustand subscription uses a field selector (grep: zero whole-store subscriptions); `useCatalog` batches catalog + favorites in one `Promise.all`**
+- [x] Optimize image rendering and loading (proper sizing, lazy loading, priority) — **`expo-image` at all 6 image call sites (decoded memory/disk cache, `transition` fades); size-aware signing (`resolveMediaUrl(ref, 900)`); `thumbnail_url` preferred for small cards; cards mount lazily via incremental rendering**
+- [x] Use pagination/incremental loading for large catalogs (already limited to 6-8 items) — **discover grids now mount 24 cards initially with a "Show more (+N)" button per page (closet ≤100, catalog ≤250); every other list request carries a limit (home 6/8/10, scan 40, recently-viewed 20, closet 100)**
+- [x] Implement caching only where appropriate (React Query not used; Zustand + manual) — **no React Query; Zustand owns closet/saved-outfit state; the single manual cache is the in-memory signed-URL memo with TTL**
+- [x] Avoid caching expired signed URLs indefinitely — **cache TTL = expiry − 60 s, expired entries re-sign on next resolve, whole cache wiped on `SIGNED_OUT`** *(Phase 3)*
+- [x] Prevent private image data from leaking through shared caches — **cache wiped at sign-out; each session signs fresh URLs → different signatures → distinct cache keys, so another account can never hit a previous session's entry; owner-only RLS probe-verified** *(Phases 3/4)*
+- [x] Optimize database queries and indexes — **12 indexes incl. `user_id + created_at desc` on every user table (`supabase/schema.sql`); `fetchCatalogish` now filters ids server-side (`in`) instead of fetching 500 rows; all list queries are `.limit(...)`ed; detail screens fetch by id**
+- [x] Reduce unnecessary bundle size (expo-router tree-shaking, dynamic imports) — **`expo export --platform android` baseline measured: 4.4 MB Hermes bytecode; declared-but-unused deps (`react-native-calendars`, `expo-glass-effect`, `react-native-reanimated`) are outside the module graph → not bundled; Metro drops unimported exports; expo-router keeps routes file-scoped**
+- [x] Clean up event listeners and subscriptions (useEffect cleanup) — **grep: zero raw `addEventListener` anywhere in `src/`; the one interval (scan try-on polling) is cleared on cleanup (`scan.tsx:256-257`); focus subscriptions use `useFocusEffect`'s built-in unsubscribe; async image resolutions guard with `alive` flags**
+- [x] Optimize animations and transitions (reanimated worklets) — **the only JS-driven animation is the Skeleton pulse with `useNativeDriver: true` (runs off the JS thread); image fades via expo-image `transition`; `react-native-reanimated` 4.5.1 is installed as a Phase 6 asset — no worklet animations exist yet to optimize**
+- [x] Keep primary interactions responsive during network requests — **every async flow ships loading + error UI (skeletons/spinners/empty states); favorite toggle is optimistic with rollback; signed-URL cache keeps image resolution off the network; microtask-deferred loaders avoid render cascades**
+- [ ] Test on supported devices and realistic network conditions — **environment-blocked: no device/emulator in this workspace; automated suites (below) are the substitute**
 
 ## Image-Specific Performance
 
-- [ ] Prevent duplicate image downloads (per-component `useResolvedImage` memoization)
-- [ ] Avoid requesting unnecessarily large images for small cards (use `thumbnail_url`)
-- [ ] Use supported image optimization mechanisms (expo-image automatic)
-- [ ] Ensure lazy-loaded images eventually appear (IntersectionObserver not needed; FlatList/ScrollView)
-- [ ] Handle failed image requests without endless retries (max 1 retry, then placeholder)
-- [ ] Avoid loading entire catalog at once (already paginated/limited)
-- [ ] Measure catalog scrolling performance with realistic item counts (50+ items)
+- [x] Prevent duplicate image downloads (per-component `useResolvedImage` memoization) — **`useResolvedImage` resolves once per image ref (ref-keyed derived state, no re-resolve per render); the signed-URL cache dedupes concurrent re-signs; expo-image caches decoded bytes by URL**
+- [x] Avoid requesting unnecessarily large images for small cards (use `thumbnail_url`) — **`ClothingCard` renders `thumbnail_url || image_url`; resolution is size-capped (`resolveMediaUrl(ref, 900)`)**
+- [x] Use supported image optimization mechanisms (expo-image automatic) — **expo-image adopted in Phase 3 (scan, capture modal) and wrapped by `SmartImage`, which every card uses**
+- [x] Ensure lazy-loaded images eventually appear (IntersectionObserver not needed; FlatList/ScrollView) — **every image renders inside a ScrollView-mounted card that resolves its own URL on mount — no viewport gating that could strand an image invisible**
+- [x] Handle failed image requests without endless retries (max 1 retry, then placeholder) — **`MAX_RETRIES = 1` in `useResolvedImage`, then the `SmartImage` placeholder**
+- [x] Avoid loading entire catalog at once (already paginated/limited) — **catalog fetch is metadata-only (250 rows, measured in Phase 3) and mounts incrementally (24 + "Show more"); by-id lookups use `in (ids)`; every other call site limits to 6–100 rows; image bytes are never preloaded**
+- [ ] Measure catalog scrolling performance with realistic item counts (50+ items) — **environment-blocked (needs a device); mitigated so only 24 cards mount initially and each "Show more" adds 24**
+
+## Verification
+
+```bash
+npx tsc --noEmit                      # 0 errors
+npm test                              # 9/9 (generator + compatibility)
+npm run lint                          # 0 problems (first run: 109)
+npx expo export --platform android    # baseline bundle: 4.4 MB (Android Hermes)
+cd backend && python -m pytest -q     # 41 passed
+```
+
+- Lint trajectory: **109 → 65 → 42 → 0** problems (0 errors, 0 warnings). `npx eslint .` also exits 0 after `eslint.config.js` ignores were scoped to `dist/*`, `.expo/*`, `backend/.venv/*` (raw runs had been linting the Python venv's vendored JS).
+- Bundle baseline: `_expo/static/js/android/entry-*.hbc` = **4.4 MB**.
+
+## Environment-blocked (documented, not skipped)
+
+Device-profiler baselines (React DevTools / Flipper / Xcode & Android Studio profilers), on-device scroll profiling with 50+ cards, and throttled-network device testing require a physical device or emulator that this workspace does not have. Measurable static substitutes (lint baseline, bundle export, request-pattern analysis, unit suites) cover everything performable headless; re-run these three items on hardware when available.
 
 ---
 
@@ -522,8 +539,8 @@ Update these items only when each phase's work has been performed and verified.
 
 - [x] Phase 1 — Full project audit (2 defects fixed: missing brand assets, 6 unauthenticated endpoints; lint bootstrapped + triaged; report above)
 - [x] Phase 2 — API and network fixes (all non-credential items verified; 1 auth-hardening fix; 2 credential-blocked items documented)
-- [ ] Phase 3 — Clothing catalog and image delivery reliability
-- [ ] Phase 4 — Security hardening
+- [x] Phase 3 — Clothing catalog and image delivery reliability (live verification scripts added; 20 duplicated seed rows repaired + root cause fixed in schema.sql; expo-image consistency + signed-URL cache with sign-out invalidation)
+- [x] Phase 4 — Security hardening (all 16 protected routes verified; anon-key RLS probes sealed; 5 error-detail leaks fixed; FLASK_DEBUG default → 0; flask-cors 6.0.0 CVEs fixed, pip-audit clean; npm criticals eliminated; account deletion made truly best-effort)
 - [ ] Phase 5 — Performance optimization
 - [ ] Phase 6 — UI/UX improvements (includes Home redesign + Calendar)
 - [ ] Phase 7 — Terms and Conditions and Privacy Policy
