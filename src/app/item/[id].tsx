@@ -2,7 +2,6 @@
 // Wardrobe item detail: full metadata, favorite, edit, delete, and hand-off to
 // the virtual try-on (Create) tab. Real row from clothing_items — owner only.
 import { Ionicons } from "@expo/vector-icons";
-import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -28,8 +27,8 @@ import { useWardrobeStore } from "../../features/wardrobe/store";
 import { AppButton } from "../../shared/components/AppButton";
 import { EmptyState, ErrorState } from "../../shared/components/StateViews";
 import { LoadingState } from "../../shared/components/LoadingState";
+import { SmartImage } from "../../shared/components/SmartImage";
 import { theme } from "../../shared/config/theme";
-import { resolveMediaUrl } from "../../shared/lib/storageUrl";
 
 export default function ItemDetailScreen() {
   const insets = useSafeAreaInsets();
@@ -43,12 +42,19 @@ export default function ItemDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [fav, setFav] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [uri, setUri] = useState<string | null>(null);
+
+  // Reset to the loading state during render when the route param changes —
+  // React's documented alternative to a synchronous setState inside an effect.
+  const [prevId, setPrevId] = useState(id);
+  if (prevId !== id) {
+    setPrevId(id);
+    setLoading(true);
+    setError(null);
+  }
 
   useEffect(() => {
     if (!id) return;
     let alive = true;
-    setLoading(true);
     (async () => {
       try {
         // Prefer the in-memory store; fall back to a server fetch when stale.
@@ -64,8 +70,6 @@ export default function ItemDetailScreen() {
           setItem(found);
           const favs = await fetchItemFavoriteIds().catch(() => new Set<string>());
           if (alive) setFav(favs.has(found.id));
-          const u = await resolveMediaUrl(found.image_url, 900);
-          if (alive) setUri(u);
         }
       } catch (e) {
         if (alive) setError(e instanceof Error ? e.message : "Could not load this item.");
@@ -119,8 +123,8 @@ export default function ItemDetailScreen() {
   }, [item, router]);
 
   const meta = useMemo(() => {
-    if (!item) return [] as Array<{ k: string; v: string }>;
-    const out: Array<{ k: string; v: string }> = [];
+    if (!item) return [] as { k: string; v: string }[];
+    const out: { k: string; v: string }[] = [];
     if (item.category) out.push({ k: "Category", v: item.category });
     if (item.color) out.push({ k: "Color", v: item.color });
     if (item.size) out.push({ k: "Size", v: item.size });
@@ -177,13 +181,12 @@ export default function ItemDetailScreen() {
 
         {/* Image */}
         <View style={styles.heroWrap}>
-          {uri ? (
-            <Image source={{ uri }} style={styles.hero} contentFit="cover" transition={150} />
-          ) : (
-            <View style={[styles.hero, styles.heroPlaceholder]}>
-              <Ionicons name="shirt-outline" size={40} color={theme.colors.textMuted} />
-            </View>
-          )}
+          <SmartImage
+            source={item.image_url}
+            style={styles.hero}
+            fallbackIcon="shirt-outline"
+            accessibilityLabel={item.name ?? undefined}
+          />
         </View>
 
         {/* Title */}
@@ -241,7 +244,11 @@ export default function ItemDetailScreen() {
         </Text>
       </ScrollView>
 
-      <EditClothingModal item={item} onClose={() => setEditOpen(false)} />
+      {/* Mounted only while open: the modal's `visible` is true on mount, and
+          unmounting on close resets the form for the next edit. */}
+      {editOpen ? (
+        <EditClothingModal item={item} onClose={() => setEditOpen(false)} />
+      ) : null}
     </View>
   );
 }
@@ -272,7 +279,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   hero: { width: "100%", aspectRatio: 0.85 },
-  heroPlaceholder: { alignItems: "center", justifyContent: "center" },
   name: {
     fontSize: 24,
     fontWeight: "800",
