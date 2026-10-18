@@ -5,7 +5,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -21,12 +20,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCaptureModalStore } from "../../features/capture/captureModalStore";
 import { CATALOG_CATEGORIES, OCCASIONS } from "../../features/clothing/types";
+import { ProfileAvatar } from "../../features/profile/ProfileAvatar";
 import { AppButton } from "../../shared/components/AppButton";
 import { ErrorState } from "../../shared/components/StateViews";
 import { LoadingState } from "../../shared/components/LoadingState";
 import { ScreenHeader } from "../../shared/components/ScreenHeader";
 import { theme } from "../../shared/config/theme";
 import { supabase } from "../../shared/lib/supabase";
+import { toast } from "../../shared/lib/toast";
 import {
   checkBackendHealth,
   getProfile,
@@ -52,6 +53,7 @@ export default function ProfileScreen() {
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [avatarRef, setAvatarRef] = useState<string | null>(null);
   const [gender, setGender] = useState("");
   const [stylesSel, setStylesSel] = useState<Set<string>>(new Set());
   const [colorsSel, setColorsSel] = useState<Set<string>>(new Set());
@@ -91,6 +93,7 @@ export default function ProfileScreen() {
       setEmail(mail);
       setFirstName(p.first_name ?? "");
       setLastName(p.last_name ?? "");
+      setAvatarRef(p.avatar_url ?? null);
       setGender(p.gender ?? "");
       setStylesSel(new Set(p.preferred_styles ?? []));
       setColorsSel(new Set(p.preferred_colors ?? []));
@@ -146,12 +149,9 @@ export default function ProfileScreen() {
         sizes: Array.from(sizesSel),
       });
       setDirty(false);
-      Alert.alert("Profile updated", "Your preferences now shape recommendations.");
+      toast.success("Profile updated", "Your preferences now shape recommendations.");
     } catch (e) {
-      Alert.alert(
-        "Could not save",
-        e instanceof Error ? e.message : "Try again in a moment.",
-      );
+      toast.error("Could not save", e instanceof Error ? e.message : "Try again in a moment.");
     } finally {
       setSaving(false);
     }
@@ -160,6 +160,15 @@ export default function ProfileScreen() {
   const signOut = () => {
     void supabase.auth.signOut();
   };
+
+  const avatarInitial = (
+    firstName.trim()[0] ||
+    lastName.trim()[0] ||
+    email?.[0] ||
+    "?"
+  ).toUpperCase();
+  const displayName =
+    [firstName.trim(), lastName.trim()].filter(Boolean).join(" ") || "Your profile";
 
   return (
     <KeyboardAvoidingView
@@ -182,26 +191,35 @@ export default function ProfileScreen() {
           <ErrorState message={error} onRetry={load} />
         ) : (
           <>
-            {/* Identity */}
-            <View style={styles.card}>
-              <View style={styles.avatarRow}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>
-                    {(
-                      firstName.trim()[0] ||
-                      lastName.trim()[0] ||
-                      email?.[0] ||
-                      "?"
-                    ).toUpperCase()}
+            {/* Identity hero */}
+            <View style={styles.heroCard}>
+              <View style={[styles.heroBlob, styles.heroBlobA]} pointerEvents="none" />
+              <View style={[styles.heroBlob, styles.heroBlobB]} pointerEvents="none" />
+              <View style={styles.heroRow}>
+                <ProfileAvatar
+                  size={58}
+                  initial={avatarInitial}
+                  avatarRef={avatarRef}
+                  onChanged={setAvatarRef}
+                  background={theme.colors.surface}
+                  color={theme.colors.text}
+                  badgeRing={theme.colors.primary}
+                  badgeBackground={theme.colors.surface}
+                  badgeColor={theme.colors.text}
+                />
+                <View style={styles.heroBody}>
+                  <Text style={styles.heroName} numberOfLines={1}>
+                    {displayName}
                   </Text>
-                </View>
-                <View style={styles.identity}>
-                  <Text style={styles.email} numberOfLines={1}>
+                  <Text style={styles.heroEmail} numberOfLines={1}>
                     {email ?? "Signed in"}
                   </Text>
                 </View>
               </View>
+            </View>
 
+            <SectionLabel text="PERSONAL DETAILS" />
+            <View style={styles.card}>
               <View style={[styles.nameRow, condensed && styles.nameRowStacked]}>
                 <View style={styles.nameField}>
                   <Text style={styles.fieldLabel}>FIRST NAME</Text>
@@ -263,7 +281,7 @@ export default function ProfileScreen() {
             </View>
 
             {/* Preferences */}
-            <Text style={styles.sectionLabel}>YOUR STYLE</Text>
+            <SectionLabel text="YOUR STYLE" />
             <View style={styles.card}>
               <PrefGroup
                 label="Styles"
@@ -320,7 +338,7 @@ export default function ProfileScreen() {
             />
 
             {/* AI service status (real /health probe) */}
-            <Text style={styles.sectionLabel}>AI SERVICE</Text>
+            <SectionLabel text="AI SERVICE" />
             <View style={styles.card}>
               {checking ? (
                 <View style={styles.serviceRow}>
@@ -364,7 +382,7 @@ export default function ProfileScreen() {
             </View>
 
             {/* Privacy & legal */}
-            <Text style={styles.sectionLabel}>PRIVACY & DATA</Text>
+            <SectionLabel text="PRIVACY & DATA" />
             <View style={styles.card}>
               <LinkRow
                 icon="shield-checkmark-outline"
@@ -385,6 +403,7 @@ export default function ProfileScreen() {
             </View>
 
             {/* Closet shortcut */}
+            <SectionLabel text="QUICK ACTIONS" />
             <View style={styles.card}>
               <LinkRow
                 icon="shirt-outline"
@@ -405,6 +424,15 @@ export default function ProfileScreen() {
         )}
       </ScrollView>
     </KeyboardAvoidingView>
+  );
+}
+
+function SectionLabel({ text }: { text: string }) {
+  return (
+    <View style={styles.sectionLabelRow}>
+      <View style={styles.sectionBar} />
+      <Text style={styles.sectionLabelText}>{text}</Text>
+    </View>
   );
 }
 
@@ -473,12 +501,23 @@ function LinkRow({
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   content: { paddingHorizontal: 16, paddingBottom: 40, gap: 12 },
-  sectionLabel: {
+  sectionLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 10,
+  },
+  sectionBar: {
+    width: 14,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: theme.colors.primary,
+  },
+  sectionLabelText: {
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 1,
     color: theme.colors.textMuted,
-    marginTop: 8,
   },
   card: {
     backgroundColor: theme.colors.surface,
@@ -488,17 +527,38 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 14,
   },
-  avatarRow: { flexDirection: "row", alignItems: "center", gap: 14 },
-  avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  heroCard: {
     backgroundColor: theme.colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
+    borderRadius: theme.borderRadius.lg,
+    padding: 18,
+    overflow: "hidden",
   },
-  avatarText: { color: "#FFF", fontSize: 18, fontWeight: "800" },
-  identity: { flex: 1, minWidth: 0 },
+  heroBlob: {
+    position: "absolute",
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.06)",
+  },
+  heroBlobA: { width: 200, height: 200, top: -90, right: -60 },
+  heroBlobB: {
+    width: 130,
+    height: 130,
+    bottom: -70,
+    left: -40,
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
+  heroRow: { flexDirection: "row", alignItems: "center", gap: 14 },
+  heroBody: { flex: 1, minWidth: 0 },
+  heroName: {
+    color: theme.colors.onPrimary,
+    fontSize: 19,
+    fontWeight: "800",
+    letterSpacing: -0.3,
+  },
+  heroEmail: {
+    color: "rgba(255,255,255,0.7)",
+    fontSize: 12.5,
+    marginTop: 3,
+  },
   nameRow: { flexDirection: "row", gap: 12 },
   nameRowStacked: { flexDirection: "column", gap: 12 },
   nameField: { flex: 1, minWidth: 0 },
@@ -521,7 +581,6 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.sm,
     backgroundColor: theme.colors.surfaceAlt,
   },
-  email: { fontSize: 12.5, color: theme.colors.textMuted, marginTop: 2 },
   prefGroup: { gap: 8 },
   prefLabel: { fontSize: 12, fontWeight: "700", color: theme.colors.textMuted },
   prefChips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
