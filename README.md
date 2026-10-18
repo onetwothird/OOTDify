@@ -193,23 +193,29 @@ Notes:
 - `uploads/`, `outputs/`, `data/`, and `models/` are volume-mounted so model
   weights (auto-downloaded on first boot) and job data persist across restarts.
 
-## 🔐 Google Sign-In Setup
+## 🔐 Social Sign-In Setup (Google & Facebook)
 
-The Google button (`src/shared/lib/googleAuth.ts`) uses browser-based OAuth
-through Supabase — no native Google SDK config (Info.plist / SHA-1 fingerprints)
-is required. For it to complete, the **server side** must be set up:
+The Google and Facebook buttons (`src/shared/lib/oauth.ts`) both use
+browser-based OAuth through Supabase — no native SDK config (Info.plist /
+SHA-1 fingerprints) is required. For either provider to complete, the
+**server side** must be set up:
 
-1. **Supabase Dashboard → Authentication → Providers → Google**: enable the
-   provider and paste the OAuth Client ID(s) and Client Secret from the
-   [Google Cloud Console](https://console.cloud.google.com/apis/credentials).
+1. **Supabase Dashboard → Authentication → Providers**: enable **Google**
+   (paste the OAuth Client ID + Secret from the
+   [Google Cloud Console](https://console.cloud.google.com/apis/credentials))
+   and/or **Facebook** (Client ID + Secret from the
+   [Meta for Developers](https://developers.facebook.com/apps) app).
 2. **Supabase Dashboard → Authentication → URL Configuration → Redirect URLs**:
    add `ootdify://` (the redirect URI this app produces natively; the exact
    value is logged during development).
-3. **Google Cloud Console → Credentials**: create an OAuth client; under
-   *Authorized redirect URIs* add your Supabase project's callback URL.
+3. **Provider console → authorized redirect URIs**: register the Supabase
+   callback URL `https://<project-ref>.supabase.co/auth/v1/callback`
+   (Google: *Authorized redirect URIs*; Facebook: *Valid OAuth Redirect URIs*).
 
 The flow handles implicit tokens and PKCE (`code` → `exchangeCodeForSession`),
-then the root layout routes to the app once `onAuthStateChange` reports a session.
+then the root layout routes to the app once `onAuthStateChange` reports a
+session. If a provider isn't enabled, sign-in fails with Supabase's own message
+(e.g. "provider is not enabled") rather than a fabricated success.
 
 ## 🧪 Verification
 
