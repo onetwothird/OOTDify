@@ -1,46 +1,46 @@
 // C:\OOTDify\src\app\(auth)\login.tsx
-// Login screen for existing user authentication.
+// Login screen — email/password plus Google and Facebook sign-in.
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { AppButton } from "../../shared/components/AppButton";
+import { FormField } from "../../shared/components/FormField";
+import { OAuthButtons } from "../../shared/components/OAuthButtons";
 import { theme } from "../../shared/config/theme";
-import { signInWithGoogle } from "../../shared/lib/googleAuth";
+import { signInWithFacebook, signInWithGoogle } from "../../shared/lib/oauth";
 import { supabase } from "../../shared/lib/supabase";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [facebookLoading, setFacebookLoading] = useState(false);
+
+  // One in-flight action at a time: taps during any auth attempt are no-ops.
+  const busy = loading || googleLoading || facebookLoading;
 
   const handleLogin = async () => {
+    if (busy) return;
     if (!email || !password) {
-      Alert.alert("Error", "Please fill in all fields");
+      Alert.alert("Missing details", "Please enter both your email and password.");
       return;
     }
-
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      Alert.alert("Login Failed", error.message);
+      Alert.alert("Login failed", error.message);
     } else {
       router.replace("/(tabs)/home");
     }
@@ -48,20 +48,42 @@ export default function LoginScreen() {
   };
 
   const handleGoogleAuth = async () => {
-    if (googleLoading) return;
+    if (busy) return;
     setGoogleLoading(true);
     try {
       await signInWithGoogle();
-      // The root layout navigates away automatically once the session is set;
-      // navigating here too keeps behavior identical to email sign-in.
+      // The root layout routes away once onAuthStateChange reports a session;
+      // navigating here keeps the flow identical to email sign-in.
       const {
         data: { session },
       } = await supabase.auth.getSession();
       if (session) router.replace("/(tabs)/home");
-    } catch (error: any) {
-      Alert.alert("Google Auth Error", error.message);
+    } catch (error: unknown) {
+      Alert.alert(
+        "Google sign-in failed",
+        error instanceof Error ? error.message : "Please try again.",
+      );
     } finally {
       setGoogleLoading(false);
+    }
+  };
+
+  const handleFacebookAuth = async () => {
+    if (busy) return;
+    setFacebookLoading(true);
+    try {
+      await signInWithFacebook();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session) router.replace("/(tabs)/home");
+    } catch (error: unknown) {
+      Alert.alert(
+        "Facebook sign-in failed",
+        error instanceof Error ? error.message : "Please try again.",
+      );
+    } finally {
+      setFacebookLoading(false);
     }
   };
 
@@ -72,12 +94,15 @@ export default function LoginScreen() {
         style={styles.container}
       >
         <View style={styles.header}>
-          <TouchableOpacity
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
             onPress={() => router.back()}
-            style={styles.backButton}
+            hitSlop={8}
+            style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
           >
-            <Ionicons name="arrow-back" size={24} color="#18181B" />
-          </TouchableOpacity>
+            <Ionicons name="arrow-back" size={22} color={theme.colors.text} />
+          </Pressable>
         </View>
 
         <ScrollView
@@ -85,121 +110,82 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.title}>Welcome Back!</Text>
-          <Text style={styles.subtitle}>
-            Best Way to Manage{"\n"}Your Fits.
-          </Text>
+          <Text style={styles.title}>Welcome back</Text>
+          <Text style={styles.subtitle}>Log in to pick up where you left off.</Text>
 
           <View style={styles.form}>
-            <Text style={styles.label}>Email Address</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons
-                name="mail-outline"
-                size={20}
-                color="#A1A1AA"
-                style={styles.inputIcon}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Enter Your Email"
-                placeholderTextColor="#A1A1AA"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                value={email}
-                onChangeText={setEmail}
-              />
-            </View>
+            <FormField
+              label="Email address"
+              icon="mail-outline"
+              value={email}
+              onChangeText={setEmail}
+              placeholder="you@example.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="email"
+              textContentType="emailAddress"
+              returnKeyType="next"
+              editable={!busy}
+            />
 
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons
-                name="lock-closed-outline"
-                size={20}
-                color="#A1A1AA"
-                style={styles.inputIcon}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Enter Your Password"
-                placeholderTextColor="#A1A1AA"
-                secureTextEntry={!showPassword}
-                value={password}
-                onChangeText={setPassword}
-              />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                <Ionicons
-                  name={showPassword ? "eye-off-outline" : "eye-outline"}
-                  size={20}
-                  color="#A1A1AA"
-                />
-              </TouchableOpacity>
-            </View>
+            <FormField
+              label="Password"
+              icon="lock-closed-outline"
+              secure
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Your password"
+              autoCapitalize="none"
+              autoComplete="current-password"
+              textContentType="password"
+              returnKeyType="done"
+              onSubmitEditing={handleLogin}
+              editable={!busy}
+            />
 
-            <View style={styles.optionsRow}>
-              <TouchableOpacity style={styles.rememberMe} activeOpacity={0.7}>
-                <Ionicons name="radio-button-off" size={20} color="#A1A1AA" />
-                <Text style={styles.rememberText}>Remember me</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => router.push("/forgot-password")}>
-                <Text style={styles.forgotText}>Forget Password?</Text>
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              style={styles.primaryButton}
-              onPress={handleLogin}
-              disabled={loading}
-              activeOpacity={0.8}
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push("/forgot-password")}
+              hitSlop={8}
+              style={styles.forgotWrap}
             >
-              {loading ? (
-                <ActivityIndicator color="#FFF" />
-              ) : (
-                <Text style={styles.primaryButtonText}>Log In</Text>
-              )}
-            </TouchableOpacity>
+              <Text style={styles.forgotText}>Forgot password?</Text>
+            </Pressable>
 
-            <View style={styles.dividerContainer}>
-              <View style={styles.divider} />
-              <Text style={styles.dividerText}>Or Continue With</Text>
-              <View style={styles.divider} />
+            <AppButton
+              label="Log in"
+              onPress={handleLogin}
+              loading={loading}
+              disabled={busy}
+              style={styles.pill}
+            />
+
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or continue with</Text>
+              <View style={styles.dividerLine} />
             </View>
 
-            <View style={styles.socialRow}>
-              <TouchableOpacity
-                style={styles.socialButton}
-                onPress={handleGoogleAuth}
-                disabled={googleLoading}
-                activeOpacity={0.7}
-              >
-                {googleLoading ? (
-                  <ActivityIndicator size="small" color="#18181B" />
-                ) : (
-                  <>
-                    <Ionicons name="logo-google" size={20} color="#18181B" />
-                    <Text style={styles.socialButtonText}>Google</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.socialButton,
-                  { opacity: 0.4 },
-                ]}
-                activeOpacity={0.7}
-                disabled
-              >
-                <Ionicons name="logo-apple" size={20} color="#18181B" />
-                <Text style={styles.socialButtonText}>Apple</Text>
-              </TouchableOpacity>
-            </View>
+            <OAuthButtons
+              onGoogle={handleGoogleAuth}
+              onFacebook={handleFacebookAuth}
+              googleLoading={googleLoading}
+              facebookLoading={facebookLoading}
+              disabled={loading}
+            />
           </View>
         </ScrollView>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Don&apos;t have an account? </Text>
-          <TouchableOpacity onPress={() => router.push("/signup")}>
-            <Text style={styles.footerLink}>Sign up</Text>
-          </TouchableOpacity>
+          <Text style={styles.footerText}>New to OOTDify? </Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push("/signup")}
+            hitSlop={8}
+          >
+            <Text style={styles.footerLink}>Create an account</Text>
+          </Pressable>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -207,115 +193,74 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#FFFFFF" },
+  safeArea: { flex: 1, backgroundColor: theme.colors.background },
   container: { flex: 1 },
-  header: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 10 },
+  header: {
+    paddingHorizontal: theme.spacing.page,
+    paddingTop: theme.spacing.sm,
+    paddingBottom: theme.spacing.sm,
+  },
   backButton: {
     width: 40,
     height: 40,
-    backgroundColor: "#F4F4F5",
     borderRadius: 20,
-    justifyContent: "center",
     alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.surfaceAlt,
   },
+  pressed: { opacity: 0.7 },
   scrollContent: {
     flexGrow: 1,
     width: "100%",
     maxWidth: 480,
     alignSelf: "center",
-    paddingHorizontal: 24,
-    paddingBottom: 20,
+    paddingHorizontal: theme.spacing.lg,
+    paddingBottom: theme.spacing.lg,
   },
   title: {
-    fontSize: 28,
+    fontSize: 30,
+    lineHeight: 36,
     fontWeight: "800",
-    color: "#18181B",
-    textAlign: "center",
-    marginBottom: 8,
+    letterSpacing: -0.8,
+    color: theme.colors.text,
+    marginTop: theme.spacing.sm,
   },
   subtitle: {
-    fontSize: 14,
-    color: "#A1A1AA",
-    textAlign: "center",
-    marginBottom: 32,
-    fontWeight: "500",
+    fontSize: 14.5,
+    lineHeight: 21,
+    color: theme.colors.textMuted,
+    marginTop: 6,
+    marginBottom: theme.spacing.xl,
   },
   form: { width: "100%" },
-  label: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#18181B",
-    marginBottom: 8,
-    marginLeft: 4,
-  },
-  inputContainer: {
+  forgotWrap: { alignSelf: "flex-end", marginBottom: theme.spacing.lg, marginTop: -4 },
+  forgotText: { fontSize: 13.5, fontWeight: "700", color: theme.colors.text },
+  pill: { borderRadius: theme.borderRadius.pill },
+  dividerRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F4F4F5",
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    height: 56,
-    borderWidth: 1,
-    borderColor: "#E4E4E7",
-    marginBottom: 16,
+    marginVertical: theme.spacing.lg,
   },
-  inputIcon: { marginRight: 12 },
-  input: { flex: 1, fontSize: 15, color: "#18181B", fontWeight: "500" },
-  optionsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 24,
+  dividerLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: theme.colors.border,
   },
-  rememberMe: { flexDirection: "row", alignItems: "center", gap: 6 },
-  rememberText: { fontSize: 13, color: "#71717A", fontWeight: "500" },
-  forgotText: { fontSize: 13, color: theme.colors.primary, fontWeight: "700" },
-  primaryButton: {
-    backgroundColor: "#18181B",
-    height: 56,
-    borderRadius: 100,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#18181B",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  primaryButtonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
-  dividerContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 24,
-  },
-  divider: { flex: 1, height: 1, backgroundColor: "#E4E4E7" },
   dividerText: {
-    marginHorizontal: 16,
-    color: "#A1A1AA",
+    marginHorizontal: 12,
     fontSize: 12,
     fontWeight: "600",
+    color: theme.colors.textMuted,
   },
-  socialRow: { flexDirection: "row", gap: 16 },
-  socialButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    height: 52,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 100,
-    borderWidth: 1,
-    borderColor: "#E4E4E7",
-    gap: 8,
-  },
-  socialButtonText: { fontSize: 14, fontWeight: "600", color: "#18181B" },
   footer: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 16,
-    backgroundColor: "#FFFFFF",
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.page,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: theme.colors.border,
   },
-  footerText: { fontSize: 14, color: "#71717A", fontWeight: "500" },
-  footerLink: { fontSize: 14, color: theme.colors.primary, fontWeight: "700" },
+  footerText: { fontSize: 14, fontWeight: "500", color: theme.colors.textMuted },
+  footerLink: { fontSize: 14, fontWeight: "800", color: theme.colors.text },
 });
