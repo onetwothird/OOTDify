@@ -1,7 +1,7 @@
 // C:\OOTDify\src\shared\components\Skeleton.tsx
 // Pulsing placeholder used for image blocks and text lines while real data
 // loads. Pure RN Animated — no extra deps, works on every platform.
-import { useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 import {
   Animated,
   StyleProp,
@@ -19,7 +19,8 @@ interface SkeletonProps {
 }
 
 export function Skeleton({ width = "100%", height, radius = theme.borderRadius.sm, style }: SkeletonProps) {
-  const pulse = useRef(new Animated.Value(0.45)).current;
+  // Lazy-initialized in useState (not useRef().current) so no ref is read during render.
+  const [pulse] = useState(() => new Animated.Value(0.45));
 
   useEffect(() => {
     const loop = Animated.loop(
