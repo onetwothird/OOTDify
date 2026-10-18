@@ -16,6 +16,7 @@ from flask import Blueprint, jsonify, request
 
 from services.auth_service import require_auth, require_user
 from services.catalog_service import load_candidates
+from services.consent import require_consent
 from services.ratelimit import default_limits
 from services.recommender_service import recommend
 from routes.users import ensure_profile
@@ -33,6 +34,7 @@ _VALID_OCCASIONS = {
 @recommend_bp.post("/api/recommend")
 @require_auth
 @default_limits("recommend")
+@require_consent
 def recommend_endpoint():
     user = require_user()
     payload = request.get_json(silent=True) or {}
