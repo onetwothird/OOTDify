@@ -8,7 +8,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -26,6 +26,8 @@ import {
   SavedOutfit,
 } from "../../features/clothing/service";
 import { CatalogItem, OCCASIONS } from "../../features/clothing/types";
+import { TodayLookCard } from "../../features/outfit/components/TodayLookCard";
+import { fetchOutfitPlans, OutfitPlan, toISODate } from "../../features/outfit/planner";
 import { useWardrobeStore } from "../../features/wardrobe/store";
 import { AppButton } from "../../shared/components/AppButton";
 import { Chip } from "../../shared/components/Chip";
@@ -65,11 +67,14 @@ export default function HomeScreen() {
   const [recent, setRecent] = useState<CatalogItem[]>([]);
   const [recentLoading, setRecentLoading] = useState(true);
 
+  // ---- Today's planned look (public.outfit_plans, owner-only via RLS) ------
+  const [todayPlan, setTodayPlan] = useState<OutfitPlan | null>(null);
+  const [planLoading, setPlanLoading] = useState(true);
+  const [planError, setPlanError] = useState<string | null>(null);
+
   // ---- Greeting (profile first name; generic fallback when backend is down) --
   const [firstName, setFirstName] = useState<string | null>(null);
   const [greetingLoading, setGreetingLoading] = useState(true);
-
-  const firstFocus = useRef(true);
 
   // ---------------------------------------------------------------------------
   // Loaders (real endpoints only)
@@ -128,6 +133,21 @@ export default function HomeScreen() {
     void useWardrobeStore.getState().loadFromServer().catch(() => {});
   }, []);
 
+  // Today's planned look. Kept separate from loadStatic so a failure here is
+  // reported honestly instead of looking like an empty day.
+  const loadTodayPlan = useCallback(async () => {
+    const todayISO = toISODate(new Date());
+    try {
+      const rows = await fetchOutfitPlans(todayISO, todayISO);
+      setTodayPlan(rows[0] ?? null);
+      setPlanError(null);
+    } catch (e) {
+      setPlanError(e instanceof Error ? e.message : "Could not load today's plan.");
+    } finally {
+      setPlanLoading(false);
+    }
+  }, []);
+
   const loadGreeting = useCallback(async () => {
     setGreetingLoading(true);
     try {
@@ -170,17 +190,11 @@ export default function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      // Refresh lightweight lists on every focus so cross-tab changes appear;
-      // avoid replacing visible content on the very first mount.
-      if (firstFocus.current) {
-        firstFocus.current = false;
-        void loadStatic();
-        void loadGreeting();
-        return;
-      }
+      // Refresh lightweight lists on every focus so cross-tab changes appear.
       void loadStatic();
+      void loadTodayPlan();
       void loadGreeting();
-    }, [loadStatic, loadGreeting]),
+    }, [loadStatic, loadTodayPlan, loadGreeting]),
   );
 
   // ---------------------------------------------------------------------------
@@ -210,6 +224,18 @@ export default function HomeScreen() {
 
         {/* ------------------------------------------------ Hero */}
         <Hero />
+
+        {/* ------------------------------------------------ Today's planned look */}
+        <TodayLookCard
+          plan={todayPlan}
+          outfit={saved.find((o) => o.id === todayPlan?.outfit_id)}
+          loading={planLoading}
+          error={planError}
+          onOpenOutfit={(id) => router.push(`/outfit/${id}`)}
+          onPlanLook={() =>
+            router.push({ pathname: "/(tabs)/outfits", params: { view: "calendar" } })
+          }
+        />
 
         {/* ------------------------------------------------ Recommended looks */}
         <SectionHeader
@@ -625,7 +651,9 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primary,
     borderRadius: theme.borderRadius.lg,
     padding: 22,
-    paddingBottom: 18,
+    // Extra room at the bottom so the "Today's look" card can overlap the dark
+    // panel without covering the "My wardrobe" link.
+    paddingBottom: 44,
     marginTop: theme.spacing.sm,
   },
   heroEyebrow: {
