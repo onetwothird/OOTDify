@@ -2,9 +2,8 @@
 // Catalog item detail: real row from public.clothing, favorite toggle, and a
 // "Try it on" action that hands the garment to the Scan tab.
 import { Ionicons } from "@expo/vector-icons";
-import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -19,8 +18,8 @@ import {
 import { useTryOnSelection } from "../../features/tryon/selectionStore";
 import { ErrorState } from "../../shared/components/StateViews";
 import { LoadingState } from "../../shared/components/LoadingState";
+import { SmartImage } from "../../shared/components/SmartImage";
 import { theme } from "../../shared/config/theme";
-import { resolveMediaUrl } from "../../shared/lib/storageUrl";
 
 export default function CatalogDetailScreen() {
   const insets = useSafeAreaInsets();
@@ -32,13 +31,19 @@ export default function CatalogDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [fav, setFav] = useState(false);
-  const [imageUri, setImageUri] = useState<string | null>(null);
+
+  // Reset to the loading state during render when the route param changes —
+  // React's documented alternative to a synchronous setState inside an effect.
+  const [prevId, setPrevId] = useState(id);
+  if (prevId !== id) {
+    setPrevId(id);
+    setLoading(true);
+    setError(null);
+  }
 
   useEffect(() => {
     if (!id) return;
     let alive = true;
-    setLoading(true);
-    setError(null);
     (async () => {
       try {
         const [row, favs] = await Promise.all([
@@ -63,17 +68,6 @@ export default function CatalogDetailScreen() {
       alive = false;
     };
   }, [id]);
-
-  useEffect(() => {
-    if (!item) return;
-    let alive = true;
-    resolveMediaUrl(item.image_url, 900).then((u) => {
-      if (alive) setImageUri(u);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [item]);
 
   const toggleFav = async () => {
     if (!item) return;
@@ -117,16 +111,7 @@ export default function CatalogDetailScreen() {
       ) : item ? (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.hero}>
-            {imageUri ? (
-              <Image
-                source={{ uri: imageUri }}
-                style={styles.heroImage}
-                contentFit="cover"
-                transition={150}
-              />
-            ) : (
-              <View style={[styles.heroImage, styles.heroPlaceholder]} />
-            )}
+            <SmartImage source={item.image_url} style={styles.heroImage} accessibilityLabel={item.name ?? undefined} />
             </View>
 
           <View style={styles.body}>
@@ -186,7 +171,6 @@ const styles = StyleSheet.create({
   content: { paddingBottom: 40 },
   hero: { position: "relative" },
   heroImage: { width: "100%", aspectRatio: 0.8, backgroundColor: theme.colors.primaryMuted },
-  heroPlaceholder: { backgroundColor: theme.colors.border },
   body: { padding: 16, gap: 14 },
   name: { fontSize: 22, fontWeight: "800", color: theme.colors.text, letterSpacing: -0.3 },
   brand: { fontSize: 13, color: theme.colors.textMuted, marginTop: -8 },
