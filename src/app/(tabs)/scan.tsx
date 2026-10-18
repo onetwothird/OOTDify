@@ -50,6 +50,7 @@ import { ScreenHeader } from "../../shared/components/ScreenHeader";
 import { SkeletonBlock } from "../../shared/components/Skeleton";
 import { theme } from "../../shared/config/theme";
 import { resolveMediaUrl } from "../../shared/lib/storageUrl";
+import { toast } from "../../shared/lib/toast";
 import { useResponsiveColumns } from "../../shared/hooks/useResponsiveColumns";
 
 const CONSENT_KEY = "ootdify.tryon.consent.v1";
@@ -422,15 +423,12 @@ export default function ScanScreen() {
         try_on_id: job.id,
         result_url: job.result_url ?? null,
       });
-      Alert.alert("Outfit saved", "Saved to your Outfits tab.", [
-        {
-          text: "OK",
-          onPress: () => router.push(`/outfit/${saved.id}`),
-        },
-        { text: "View outfits", onPress: () => router.push("/(tabs)/outfits") },
-      ]);
+      toast.success("Outfit saved", "Saved to your Outfits tab.", {
+        label: "View",
+        onPress: () => router.push(`/outfit/${saved.id}`),
+      });
     } catch (e) {
-      Alert.alert(
+      toast.error(
         "Could not save",
         e instanceof Error ? e.message : "Something went wrong while saving.",
       );
