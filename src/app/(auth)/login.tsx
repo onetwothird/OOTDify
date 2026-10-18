@@ -1,7 +1,7 @@
 // C:\OOTDify\src\app\(auth)\login.tsx
 // Login screen — email/password plus Google and Facebook sign-in.
-import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
   Alert,
@@ -13,8 +13,9 @@ import {
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppButton } from "../../shared/components/AppButton";
+import { AuthCard, AuthHero } from "../../shared/components/AuthShell";
 import { FormField } from "../../shared/components/FormField";
 import { OAuthButtons } from "../../shared/components/OAuthButtons";
 import { theme } from "../../shared/config/theme";
@@ -22,6 +23,7 @@ import { signInWithFacebook, signInWithGoogle } from "../../shared/lib/oauth";
 import { supabase } from "../../shared/lib/supabase";
 
 export default function LoginScreen() {
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -88,32 +90,24 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.screen}>
+      <StatusBar style="light" />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.container}
+        style={styles.flex}
       >
-        <View style={styles.header}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
-            onPress={() => router.back()}
-            hitSlop={8}
-            style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
-          >
-            <Ionicons name="arrow-back" size={22} color={theme.colors.text} />
-          </Pressable>
-        </View>
-
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.title}>Welcome back</Text>
-          <Text style={styles.subtitle}>Log in to pick up where you left off.</Text>
+          <AuthHero
+            title="Welcome back"
+            subtitle="Log in to pick up right where you left off."
+            onBack={() => router.back()}
+          />
 
-          <View style={styles.form}>
+          <AuthCard>
             <FormField
               label="Email address"
               icon="mail-outline"
@@ -174,10 +168,14 @@ export default function LoginScreen() {
               facebookLoading={facebookLoading}
               disabled={loading}
             />
-          </View>
+          </AuthCard>
+
+          <Text style={styles.note}>
+            Your wardrobe, photos and outfits stay in your own private account.
+          </Text>
         </ScrollView>
 
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: insets.bottom + theme.spacing.md }]}>
           <Text style={styles.footerText}>New to OOTDify? </Text>
           <Pressable
             accessibilityRole="button"
@@ -188,52 +186,20 @@ export default function LoginScreen() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: theme.colors.background },
-  container: { flex: 1 },
-  header: {
-    paddingHorizontal: theme.spacing.page,
-    paddingTop: theme.spacing.sm,
-    paddingBottom: theme.spacing.sm,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: theme.colors.surfaceAlt,
-  },
-  pressed: { opacity: 0.7 },
-  scrollContent: {
-    flexGrow: 1,
+  screen: { flex: 1, backgroundColor: theme.colors.background },
+  flex: { flex: 1 },
+  scroll: {
     width: "100%",
     maxWidth: 480,
     alignSelf: "center",
-    paddingHorizontal: theme.spacing.lg,
     paddingBottom: theme.spacing.lg,
   },
-  title: {
-    fontSize: 30,
-    lineHeight: 36,
-    fontWeight: "800",
-    letterSpacing: -0.8,
-    color: theme.colors.text,
-    marginTop: theme.spacing.sm,
-  },
-  subtitle: {
-    fontSize: 14.5,
-    lineHeight: 21,
-    color: theme.colors.textMuted,
-    marginTop: 6,
-    marginBottom: theme.spacing.xl,
-  },
-  form: { width: "100%" },
-  forgotWrap: { alignSelf: "flex-end", marginBottom: theme.spacing.lg, marginTop: -4 },
+  forgotWrap: { alignSelf: "flex-end", marginTop: -2, marginBottom: theme.spacing.lg },
   forgotText: { fontSize: 13.5, fontWeight: "700", color: theme.colors.text },
   pill: { borderRadius: theme.borderRadius.pill },
   dividerRow: {
@@ -252,14 +218,20 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: theme.colors.textMuted,
   },
+  note: {
+    marginTop: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: "center",
+    color: theme.colors.textMuted,
+  },
   footer: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: theme.spacing.md,
+    paddingTop: theme.spacing.md,
     paddingHorizontal: theme.spacing.page,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: theme.colors.border,
   },
   footerText: { fontSize: 14, fontWeight: "500", color: theme.colors.textMuted },
   footerLink: { fontSize: 14, fontWeight: "800", color: theme.colors.text },
