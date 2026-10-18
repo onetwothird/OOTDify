@@ -40,6 +40,19 @@
         {
           "cameraPermission": "OOTDify uses the camera only when you tap Scan Me, to take a full-body photo for AI body analysis and virtual try-on."
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "OOTDify uses your location only to show your current city in the app header."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "OOTDify accesses your photos only for the profile picture you choose.",
+          "cameraPermission": "OOTDify uses the camera only for the profile picture you choose to take."
+        }
       ]
     ],
     "experiments": {
