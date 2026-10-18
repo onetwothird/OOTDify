@@ -96,11 +96,11 @@ export async function fetchClothingImageRefs(ids: string[]): Promise<Record<stri
     .in("id", unique);
   if (error) throw error;
   const map: Record<string, string> = {};
-  for (const row of (data ?? []) as Array<{
+  for (const row of (data ?? []) as {
     id: string;
     thumbnail_url: string | null;
     image_url: string | null;
-  }>) {
+  }[]) {
     const ref = row.thumbnail_url || row.image_url;
     if (ref) map[row.id] = ref;
   }
