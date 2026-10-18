@@ -3,11 +3,10 @@
 // NOTE: OOTDify is a styling advisor, not a store — prices are deliberately
 // never shown; the row's meta slot carries the garment category instead.
 import { Ionicons } from "@expo/vector-icons";
-import { Image } from "expo-image";
-import { memo, useEffect, useState } from "react";
+import { memo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { theme } from "../config/theme";
-import { resolveMediaUrl } from "../lib/storageUrl";
+import { SmartImage } from "./SmartImage";
 
 export interface ClothingCardItem {
   id: string;
@@ -28,25 +27,6 @@ interface Props {
   onToggleFavorite?: () => void;
 }
 
-/** Resolve a stored ref (or return http(s)) to a renderable URL once. */
-function useResolvedImage(ref: string): string | null {
-  const [uri, setUri] = useState<string | null>(null);
-  useEffect(() => {
-    let alive = true;
-    if (!ref) {
-      setUri(null);
-      return;
-    }
-    resolveMediaUrl(ref, 900).then((u) => {
-      if (alive) setUri(u);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [ref]);
-  return uri;
-}
-
 export const ClothingCard = memo(function ClothingCard({
   item,
   width,
@@ -55,7 +35,6 @@ export const ClothingCard = memo(function ClothingCard({
   onToggleFavorite,
 }: Props) {
   const imageRef = (item.thumbnail_url || item.image_url || "") as string;
-  const uri = useResolvedImage(imageRef);
 
   return (
     <Pressable
@@ -67,17 +46,7 @@ export const ClothingCard = memo(function ClothingCard({
         pressed && styles.cardPressed,
       ]}
     >
-      {uri ? (
-        <Image
-          source={{ uri }}
-          style={styles.image}
-          contentFit="cover"
-          transition={150}
-          accessibilityLabel=""
-        />
-      ) : (
-        <View style={styles.imagePlaceholder} />
-      )}
+      <SmartImage source={imageRef} style={styles.image} accessibilityLabel={item.name ?? undefined} />
       <View style={styles.body}>
         <Text style={styles.name} numberOfLines={2}>
           {item.name}
@@ -121,11 +90,6 @@ const styles = StyleSheet.create({
   },
   cardPressed: { opacity: 0.92 },
   image: {
-    width: "100%",
-    aspectRatio: 0.8,
-    backgroundColor: theme.colors.primaryMuted,
-  },
-  imagePlaceholder: {
     width: "100%",
     aspectRatio: 0.8,
     backgroundColor: theme.colors.primaryMuted,
