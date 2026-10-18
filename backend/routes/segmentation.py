@@ -12,6 +12,7 @@ from flask import Blueprint, current_app, jsonify, request, send_from_directory
 
 from services import image_service
 from services.auth_service import require_auth
+from services.consent import require_consent
 from services.ratelimit import upload_limits
 from services.segmentation_service import get_segmentation_service
 
@@ -23,6 +24,7 @@ segmentation_bp = Blueprint("segmentation", __name__)
 @segmentation_bp.post("/api/segment")
 @require_auth
 @upload_limits("segment_upload")
+@require_consent
 def segment():
     """Accept a multipart/form-data upload (`image=<file>`) and run instance
     segmentation.
