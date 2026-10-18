@@ -68,7 +68,14 @@ def require_user() -> dict:
     if user is None or not getattr(user, "id", None):
         raise AuthError("Invalid or expired session. Please sign in again.")
 
-    g.current_user = {"id": user.id, "email": getattr(user, "email", None)}
+    # user_metadata carries the recorded terms acceptance (see services/consent.py);
+    # it is read from the validated token so consent checks stay server-side.
+    metadata = getattr(user, "user_metadata", None)
+    g.current_user = {
+        "id": user.id,
+        "email": getattr(user, "email", None),
+        "user_metadata": metadata if isinstance(metadata, dict) else {},
+    }
     return g.current_user
 
 
