@@ -22,6 +22,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Image, StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { ToastHost } from "../shared/components/ToastHost";
 import { TERMS_VERSION } from "../shared/config/legal";
 import { theme } from "../shared/config/theme";
 import { supabase } from "../shared/lib/supabase";
@@ -149,6 +150,7 @@ export default function RootLayout() {
         <Stack.Screen name="privacy/terms" />
         <Stack.Screen name="+not-found" />
       </Stack>
+      <ToastHost />
     </SafeAreaProvider>
   );
 }
