@@ -3,9 +3,8 @@
 // search, category filters, favorites, and item details — plus the shared
 // catalog to browse below. "Capture" opens the photo-capture modal.
 import { Ionicons } from "@expo/vector-icons";
-import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useMemo, useRef, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -33,9 +32,12 @@ import { ClothingCard } from "../../shared/components/ClothingCard";
 import { SkeletonGrid } from "../../shared/components/LoadingState";
 import { EmptyState } from "../../shared/components/StateViews";
 import { SectionHeader } from "../../shared/components/SectionHeader";
+import { SmartImage } from "../../shared/components/SmartImage";
 import { theme } from "../../shared/config/theme";
 import { useResponsiveColumns } from "../../shared/hooks/useResponsiveColumns";
-import { resolveMediaUrl } from "../../shared/lib/storageUrl";
+
+// How many cards each discover grid mounts before the user taps "Show more".
+const GRID_PAGE = 24;
 
 export default function WardrobeScreen() {
   const insets = useSafeAreaInsets();
@@ -52,6 +54,13 @@ export default function WardrobeScreen() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<string | null>(null);
   const [catalogCategory, setCatalogCategory] = useState<string | null>(null);
+
+  // ---- Incremental grid rendering ------------------------------------------
+  // Each grid mounts at most GRID_PAGE cards and reveals the next page on
+  // "Show more", so a 250-row catalog never renders (and image-fetches) for
+  // every card at once.
+  const [closetShown, setClosetShown] = useState(GRID_PAGE);
+  const [catalogShown, setCatalogShown] = useState(GRID_PAGE);
 
   // ---- Item favorites (target_type = "item") --------------------------------
   const [favIds, setFavIds] = useState<Set<string>>(new Set());
@@ -231,18 +240,29 @@ export default function WardrobeScreen() {
             />
           </View>
         ) : (
-          <View style={styles.grid} onLayout={onLayout}>
-            {filteredCloset.map((item) => (
-              <ClosetCard
-                key={item.id}
-                item={item}
-                width={itemWidth}
-                favorited={favReady && favIds.has(item.id)}
-                onPress={() => router.push(`/item/${item.id}`)}
-                onToggleFavorite={() => toggleFavorite(item)}
-              />
-            ))}
-          </View>
+          <>
+            <View style={styles.grid} onLayout={onLayout}>
+              {filteredCloset.slice(0, closetShown).map((item) => (
+                <ClosetCard
+                  key={item.id}
+                  item={item}
+                  width={itemWidth}
+                  favorited={favReady && favIds.has(item.id)}
+                  onPress={() => router.push(`/item/${item.id}`)}
+                  onToggleFavorite={() => toggleFavorite(item)}
+                />
+              ))}
+            </View>
+            {filteredCloset.length > closetShown ? (
+              <View style={styles.moreWrap}>
+                <Chip
+                  label={`Show more (${filteredCloset.length - closetShown} more)`}
+                  icon="chevron-down"
+                  onPress={() => setClosetShown((n) => n + GRID_PAGE)}
+                />
+              </View>
+            ) : null}
+          </>
         )}
 
         {/* ------------------------- Shopping import (honest roadmap) -------- */}
@@ -254,7 +274,7 @@ export default function WardrobeScreen() {
             <Text style={styles.importTitle}>Import from shopping platforms</Text>
             <Text style={styles.importText}>
               Shopee & TikTok Shop imports are on the roadmap. When a provider is
-              added, you'll be able to bring products in by official link or
+              added, you&apos;ll be able to bring products in by official link or
               product photo — no scraping, ever.
             </Text>
           </View>
@@ -295,18 +315,29 @@ export default function WardrobeScreen() {
         ) : catalogs.items.length === 0 ? (
           <Text style={styles.smallNote}>No catalog items in this category yet.</Text>
         ) : (
-          <View style={styles.grid} onLayout={onLayout}>
-            {catalogs.items.map((item) => (
-              <ClothingCard
-                key={item.id}
-                item={item}
-                width={itemWidth}
-                favorited={catalogs.favoriteIds.has(item.id)}
-                onPress={() => openCatalogItem(item)}
-                onToggleFavorite={() => catalogs.toggleFavorite(item).catch(() => {})}
-              />
-            ))}
-          </View>
+          <>
+            <View style={styles.grid} onLayout={onLayout}>
+              {catalogs.items.slice(0, catalogShown).map((item) => (
+                <ClothingCard
+                  key={item.id}
+                  item={item}
+                  width={itemWidth}
+                  favorited={catalogs.favoriteIds.has(item.id)}
+                  onPress={() => openCatalogItem(item)}
+                  onToggleFavorite={() => catalogs.toggleFavorite(item).catch(() => {})}
+                />
+              ))}
+            </View>
+            {catalogs.items.length > catalogShown ? (
+              <View style={styles.moreWrap}>
+                <Chip
+                  label={`Show more (${catalogs.items.length - catalogShown} more)`}
+                  icon="chevron-down"
+                  onPress={() => setCatalogShown((n) => n + GRID_PAGE)}
+                />
+              </View>
+            ) : null}
+          </>
         )}
       </ScrollView>
     </View>
@@ -329,27 +360,10 @@ const ClosetCard = memo(function ClosetCard({
   onPress: () => void;
   onToggleFavorite: () => void;
 }) {
-  const [uri, setUri] = useState<string | null>(null);
-  useEffect(() => {
-    let alive = true;
-    resolveMediaUrl(item.image_url, 900).then((u) => {
-      if (alive) setUri(u);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [item.image_url]);
-
   return (
     <View style={[styles.closetCard, { width }]}>
       <Pressable accessibilityRole="button" onPress={onPress} style={styles.cardImageWrap}>
-        {uri ? (
-          <Image source={{ uri }} style={styles.closetImage} contentFit="cover" transition={120} />
-        ) : (
-          <View style={styles.closetImagePlaceholder}>
-            <Ionicons name="shirt-outline" size={22} color={theme.colors.textMuted} />
-          </View>
-        )}
+        <SmartImage source={item.image_url} style={styles.closetImage} accessibilityLabel={item.name ?? undefined} />
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={favorited ? "Remove from favorites" : "Add to favorites"}
@@ -447,12 +461,7 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   closetImage: { width: "100%", height: "100%" },
-  closetImagePlaceholder: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: theme.colors.surfaceAlt,
-  },
+  closetImagePlaceholder: undefined as any,
   heartButton: {
     position: "absolute",
     top: 8,
@@ -513,5 +522,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: theme.colors.textMuted,
     paddingVertical: 8,
+  },
+
+  moreWrap: {
+    alignItems: "center",
+    paddingVertical: theme.spacing.sm,
   },
 });
