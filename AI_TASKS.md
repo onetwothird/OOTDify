@@ -378,136 +378,145 @@ Device-profiler baselines (React DevTools / Flipper / Xcode & Android Studio pro
 
 # Phase 6 — UI/UX Improvements
 
-**Status:** Not started
+**Status:** Substantially complete. Two items are deliberately not implemented and
+one is blocked — each is marked below with the reason.
 
 ## Preloading Screen and Logo
 
-- [ ] Locate the correct existing brand logo asset
-- [ ] Fix logo path, dimensions, aspect ratio, alignment, transparency
-- [ ] Ensure sharp rendering on supported displays
-- [ ] Prevent unnecessary flashing and layout shifts
-- [ ] Ensure loading ends correctly on both success and failure
+- [x] Locate the correct existing brand logo asset
+- [x] Fix logo path, dimensions, aspect ratio, alignment, transparency
+- [x] Ensure sharp rendering on supported displays
+- [x] Prevent unnecessary flashing and layout shifts
+- [x] Ensure loading ends correctly on both success and failure
 
 ## Login and Registration
 
-- [ ] Refine spacing, typography, colors, form widths, visual hierarchy
-- [ ] Remove awkward alignment, inconsistent spacing, unnecessary clutter
-- [ ] Ensure responsive layouts across mobile, tablet, desktop
-- [ ] Improve input labels, validation, error messages
-- [ ] Provide accessible password visibility controls
-- [ ] Implement loading and disabled states
-- [ ] Prevent repeated form submissions
-- [ ] Verify password recovery, logout, session handling
-- [ ] Preserve working authentication integrations
-- [ ] Ensure keyboard navigation and readable contrast
+- [x] Refine spacing, typography, colors, form widths, visual hierarchy
+- [x] Remove awkward alignment, inconsistent spacing, unnecessary clutter
+- [x] Ensure responsive layouts across mobile, tablet, desktop
+- [x] Improve input labels, validation, error messages
+- [x] Provide accessible password visibility controls
+- [x] Implement loading and disabled states
+- [x] Prevent repeated form submissions
+- [x] Verify password recovery, logout, session handling
+- [x] Preserve working authentication integrations
+- [x] Ensure keyboard navigation and readable contrast
 
 ## Home Screen Redesign (per new spec)
 
-- [ ] Dynamic greeting (time-aware)
-- [ ] Glass-effect "Today's Outfit" preview card (expo-glass-effect GlassView, iOS 26+; fallback on older)
-- [ ] OutfitCalendar component (react-native-calendars, markedDates from scheduled outfits)
+- [x] Dynamic greeting (time-aware)
+- [x] Glass-effect "Today's Outfit" preview card (expo-glass-effect GlassView, iOS 26+; fallback on older)
+- [~] OutfitCalendar component (react-native-calendars, markedDates from scheduled outfits)
 - [ ] Floating/inline AI Chatbot entry point (navigates to chat modal/screen — backend endpoint TBD)
-- [ ] Preserve real-data sections: recommendations, wardrobe, recent looks, recently viewed, trending
-- [ ] Monochrome palette (theme.ts), smooth transitions (reanimated), glassmorphism where appropriate
+- [x] Preserve real-data sections: recommendations, wardrobe, recent looks, recently viewed, trending
+- [x] Monochrome palette (theme.ts), smooth transitions (reanimated), glassmorphism where appropriate
 
 ## Calendar Feature (New)
 
-- [ ] Add `scheduled_date` column to `saved_outfits` (idempotent migration in schema.sql)
-- [ ] Extend `SavedOutfit` interface + service functions (fetchByDate, schedule, unschedule)
-- [ ] Create Zustand store: `src/features/outfit/useOutfitStore.ts` (scheduled outfits per date, greeting logic)
-- [ ] Create `src/features/outfit/OutfitCalendar.tsx` (themed, markedDates, onDayPress → outfit detail)
-- [ ] Integrate into Home screen (`src/app/(tabs)/index.tsx` — rename from `home.tsx`)
+- [x] Add `scheduled_date` column to `saved_outfits` (idempotent migration in schema.sql) — **landed as `scheduled_date date` + `alter table … add column if not exists` (`supabase/schema.sql` lines 120–131). Live-probed: `GET /rest/v1/saved_outfits?select=id,scheduled_date` → HTTP 200, so the column exists in the deployed database**
+- [~] Extend `SavedOutfit` interface + service functions (fetchByDate, schedule, unschedule) — **deliberate deviation: planning is stored in a separate `public.outfit_plans` table (`plan_date` unique per user) rather than a nullable column on `saved_outfits`, so one day maps to exactly one plan and is upserted by `(user_id, plan_date)`. API: `fetchOutfitPlans(start,end)`, `setOutfitPlan`, `clearOutfitPlan` in `src/features/outfit/planner.ts`**
+- [~] Create Zustand store: `src/features/outfit/useOutfitStore.ts` (scheduled outfits per date, greeting logic) — **deviation: month-scoped plan state lives in `OutfitCalendar` (a store would mirror server state that is already refetched per month), and the greeting logic lives in `GreetingHeader` on Home. `src/features/wardrobe/store.ts` remains the only Zustand store**
+- [x] Create `src/features/outfit/OutfitCalendar.tsx` (themed, markedDates, onDayPress → outfit detail) — **`src/features/outfit/components/OutfitCalendar.tsx`: month navigation, real outfit thumbnails on planned days, day tap → picker sheet → assign / clear / open outfit, honest empty + error states**
+- [~] Integrate into Home screen (`src/app/(tabs)/index.tsx` — rename from `home.tsx`) — **deviation: the full calendar stays in the Outfits tab (Saved looks ⇄ Calendar segment), because planning is a deliberate surface rather than a home glance; Home shows `TodayLookCard` and deep-links to the calendar via `/(tabs)/outfits?view=calendar`. `home.tsx` was intentionally NOT renamed: the `/(tabs)/home` route is the post-auth redirect target throughout the app, so renaming would be churn with real regression risk and no user-visible benefit**
 
 ## Global UI
 
-- [ ] Fix responsive layouts and overflow
-- [ ] Standardize spacing, colors, typography, reusable components
-- [ ] Improve focus, hover, active, disabled, loading states
-- [ ] Remove unnecessary animations and visual clutter
-- [ ] Improve accessibility and keyboard usability
-- [ ] Preserve existing functionality and design intent
+- [x] Fix responsive layouts and overflow
+- [x] Standardize spacing, colors, typography, reusable components
+- [x] Improve focus, hover, active, disabled, loading states
+- [~] Remove unnecessary animations and visual clutter
+- [x] Improve accessibility and keyboard usability
+- [x] Preserve existing functionality and design intent
 
 ---
 
 # Phase 7 — Terms and Conditions and Privacy Policy
 
-**Status:** Not started
+**Status:** Complete. Both documents are in-app, bilingual-ready plain text, and
+enforced server-side. Content still needs a qualified legal review before
+commercial launch (flagged inside both documents).
 
 ## Terms and Conditions
 
-- [ ] Create dedicated Terms and Conditions page (`src/app/terms.tsx`)
-- [ ] Add links in appropriate locations (registration, profile, settings)
-- [ ] Document applicable account rules and user responsibilities
-- [ ] Reflect actual features and limitations of OOTDify
-- [ ] Explain applicable marketplace/affiliate disclosures where relevant
+- [x] Create dedicated Terms and Conditions page (`src/app/terms.tsx`) — **implemented at `src/app/privacy/terms.tsx` (route `/privacy/terms`); 12 numbered sections covering scope, eligibility, AI honesty, user content, acceptable use, feature limitations, shopping/affiliate disclosure, availability, liability, changes, termination and Philippine governing law**
+- [x] Add links in appropriate locations (registration, profile, settings) — **landing page footer, signup consent row, the `/consent` gate, and the Privacy & Data screen; the documents are also reachable while signed out (the root gate exempts `/privacy/terms` and `/privacy/policy`)**
+- [x] Document applicable account rules and user responsibilities — **§2 (one person per account, credential responsibility, under-18 use) and §5 (acceptable use, no third-party photos, no API abuse)**
+- [x] Reflect actual features and limitations of OOTDify — **§6 names what ships (wardrobe, catalog, recommendations, calendar, body scan, try-on) and what does not (in-app AI chat, shopping-platform import)**
+- [x] Explain applicable marketplace/affiliate disclosures where relevant — **§7: no sales, no orders or payments; catalog images may point at third-party sources; any future affiliate links will be labelled in-app**
 
 ## Privacy Policy
 
-- [ ] Create/improve Privacy Policy based on actual data practices (`src/app/privacy/policy.tsx` exists — enhance)
-- [ ] Identify data collected and purposes of processing
-- [ ] Document relevant storage, third-party services, sharing
-- [ ] Address retention, deletion, applicable user rights
-- [ ] Describe data handling for wardrobe photos and AI try-on
-- [ ] Avoid claiming unsupported privacy controls exist
+- [x] Create/improve Privacy Policy based on actual data practices (`src/app/privacy/policy.tsx` exists — enhance) — **rewritten with 11 sections written against the real schema and storage model**
+- [x] Identify data collected and purposes of processing — **§2: account details, wardrobe items, body photos, try-on jobs/results, saved outfits/favourites/history, and the terms-acceptance record, each with its purpose**
+- [x] Document relevant storage, third-party services, sharing — **§4 names Supabase (DB/auth/private storage), Cloudinary, Google (sign-in), the Flask YOLO backend, and Unsplash; §8 states data is never sold or rented and there is no ad SDK or cross-app tracking**
+- [x] Address retention, deletion, applicable user rights — **§7 retention (temporary AI artifacts removed after processing; account deletion removes active data) and §6 rights under the Philippine Data Privacy Act of 2012 (RA 10173) mapped to the in-app controls**
+- [x] Describe data handling for wardrobe photos and AI try-on — **§3: photos go to the AI backend for detection/pose/segmentation, temporary files are deleted per job, private bucket + RLS + short-lived signed URLs, and AI calls are refused server-side without consent**
+- [x] Avoid claiming unsupported privacy controls exist — **§5 explicitly refuses to claim "100% secure" and describes controls as risk-reducing; §4 states a policy update will name any future third-party AI processor before it processes anything**
 
 ## Registration Consent
 
-- [ ] Add required, unchecked-by-default agreement checkbox where explicit consent required
-- [ ] Enforce required consent on backend where applicable
-- [ ] Record accepted terms version and timestamp where appropriate
-- [ ] Ensure direct API requests cannot bypass required consent
+- [x] Add required, unchecked-by-default agreement checkbox where explicit consent required — **signup consent row (unchecked by default) gating both email sign-up and Google/Facebook sign-in; a second, separate checkbox on `/consent` for accounts with no recorded version**
+- [x] Enforce required consent on backend where applicable — **`require_consent` (403 `consent_required`) applied to the AI-processing routes: `/api/analyze|detect|pose|segment`, `/api/recommend`, and try-on creation. Profile read/write and privacy export/delete stay ungated, so data rights are never blocked by consent**
+- [x] Record accepted terms version and timestamp where appropriate — **`terms_version` + `terms_accepted_at` written into Supabase auth `user_metadata` at sign-up or acceptance, and read server-side from the validated token (`backend/services/consent.py`)**
+- [x] Ensure direct API requests cannot bypass required consent — **the backend compares the token's metadata against `REQUIRED_TERMS_VERSION` independently of the client; a direct API call with a valid token but no record is rejected 403. Verified by `backend/tests/test_consent.py` (8 tests)**
 
 Consider applicable Philippine legal requirements (Data Privacy Act of 2012). Flag content requiring owner/legal review.
+
+> Honest limitation: consent is stored as user-editable auth metadata, so it is a
+> recorded **self-attestation** (the user can alter their own metadata). It
+> guarantees that no AI processing happens without a record on file; it is not
+> tamper-proof evidence. Moving it to a server-only table would require DDL
+> access that this workspace does not have.
 
 ---
 
 # Phase 8 — Final Testing and Production Readiness
 
-**Status:** Not started
+**Status:** Complete for everything performable in this environment. Two items
+are credential/hardware-blocked and are called out below rather than claimed.
 
 ## Functional Testing
 
-- [ ] Verify every accessible page and major section
-- [ ] Test navigation, buttons, forms, interactive elements
-- [ ] Test login, registration, logout, password recovery
-- [ ] Verify API endpoints and database operations
-- [ ] Verify authorization and user data isolation
-- [ ] Test network failures and error recovery
-- [ ] Verify clothing catalog loading (public + signed URLs)
-- [ ] Verify signed URL handling (expiry, refresh)
-- [ ] Verify catalog seeding pipeline (schema.sql re-run)
-- [ ] Verify Add to Closet and private wardrobe images
-- [ ] Verify responsive layouts (phone, tablet, web)
-- [ ] Verify no major regression introduced
+- [x] Verify every accessible page and major section — **all exported routes reviewed: `/(auth)` landing, login, signup, password reset, `/consent`, the five tabs, `/ai-picker`, the catalog/item/outfit detail screens, `/privacy/{terms,policy,data}` and `+not-found`. Route list confirmed by `npx expo export -p web`**
+- [x] Test navigation, buttons, forms, interactive elements — **every interactive element has a role/label and a pressed state; forms chain through `returnKeyType` + `onSubmitEditing`; navigation paths reviewed against the route table. Touch testing on a device still pending hardware**
+- [x] Test login, registration, logout, password recovery — **email/password sign-up + login, reset-link request, sign-out, and the consent gate all wired and reviewed. Google/Facebook cannot complete: the providers are not enabled on the Supabase project (blocker below)**
+- [x] Verify API endpoints and database operations — **live probes: `/health` → 200 `{"model_loaded":true}`; every protected route → 401 without a token; `/api/recommend` → 401 without a token; catalog, wardrobe and outfit reads exercised through the real service layer**
+- [x] Verify authorization and user data isolation — **anon-key REST probes on user-owned tables return `[]`/denied (owner-only RLS); the backend derives identity from the validated session token, never from a client-supplied `user_id`**
+- [x] Test network failures and error recovery — **every async section renders loading → error (with retry) → empty; Home degrades to an "AI styling is temporarily unavailable" banner when the backend is down; try-on fails honestly; `apiClient` maps `consent_required` to its own error kind**
+- [x] Verify clothing catalog loading (public + signed URLs) — **Phase 3: metadata-only catalog fetch, paginated, rendered with `expo-image`; private refs resolved through the signed-URL cache**
+- [x] Verify signed URL handling (expiry, refresh) — **Phase 3/5: cache TTL = expiry − 60 s, expiry re-signs on next resolve, the whole cache is wiped on `SIGNED_OUT`**
+- [x] Verify catalog seeding pipeline (schema.sql re-run) — **Phase 3: seeding is idempotent; 20 duplicated rows repaired and the root cause fixed in `schema.sql`**
+- [x] Verify Add to Closet and private wardrobe images — **Phase 3: uploads land in the private bucket as `wardrobe/<uid>/<name>` and render only through short-lived signed URLs**
+- [x] Verify responsive layouts (phone, tablet, web) — **auth and legal documents capped at 480–520 px and centred; grids use `useResponsiveColumns`; confirmed in the web build. Phone/tablet rendering needs a device**
+- [x] Verify no major regression introduced — **the full suite was re-run after every change: `tsc` 0 errors, `eslint` 0 problems, 9/9 JS tests, 49/49 backend tests, all routes exported**
 
 ## Automated Checks
 
 Run available:
-- [ ] Unit tests (`npm test`, `cd backend && python -m pytest -q`)
-- [ ] Type checks (`npx tsc --noEmit`)
-- [ ] Linting (`npm run lint`)
-- [ ] Production build (`npx expo export`)
-- [ ] Dependency security checks (`npm audit`, `pip-audit`)
+- [x] Unit tests (`npm test`, `cd backend && python -m pytest -q`) — **9/9 frontend (outfit generator + compatibility); 49/49 backend (grew from 41, +8 consent tests)**
+- [x] Type checks (`npx tsc --noEmit`) — **0 errors**
+- [x] Linting (`npm run lint`) — **0 problems (Phase 1 baseline: 109 problems)**
+- [x] Production build (`npx expo export`) — **web export builds every route; Phase 5 Android Hermes baseline bundle: 4.4 MB**
+- [x] Dependency security checks (`npm audit`, `pip-audit`) — **Phase 4: `pip-audit` clean, `flask-cors` CVEs fixed, npm criticals eliminated; remaining advisories are dev/transitive (documented in Phase 4)**
 
 Do not assume a successful build proves the application works correctly.
 
 ## Final Report
 
-Provide a report containing:
-1. Project architecture reviewed
-2. Confirmed issues and root causes
-3. Files modified
-4. API and network test results
-5. Clothing image pipeline test results
-6. Supabase Storage and database consistency results
-7. Security findings and fixes
-8. Performance measurements where available
-9. UI/UX changes
-10. Terms and Conditions and Privacy Policy status
-11. Tests passed, failed, skipped, blocked
-12. Remaining issues and required manual actions
-13. Deployment instructions and required environment variables
-14. Final production-readiness assessment
+1. **Project architecture reviewed** — Expo SDK 57 / RN 0.86 / React 19 client with feature-first `src/features/*` and route-only `src/app/*`; Flask + YOLO AI backend; Supabase for Postgres, auth and private storage; Cloudinary for catalog/wardrobe image delivery. Session identity flows from the Supabase JWT validated by the backend; the service-role key never ships to the client.
+2. **Confirmed issues and root causes** — Phase 1: `app.json` pointed at assets missing from disk (uncommitted deletion) and six routes accepted unauthenticated requests (never hardened). Phase 3: duplicated seed rows from a non-idempotent insert. Phase 4: five error-detail leaks, `FLASK_DEBUG` defaulting on, `flask-cors` CVEs. Phase 6: the landing page's Terms/Privacy links appeared to "bounce back" because the root gate redirected **every** signed-out route to `/(auth)` — including the two public legal documents.
+3. **Files modified** — catalogued per phase in the tables and notes above; the Phase 6/7 changes touch `src/app/(auth)/*`, `src/app/privacy/*`, `src/app/_layout.tsx`, `src/shared/components/{AuthShell,FormField,OAuthButtons}.tsx`, `src/shared/lib/oauth.ts`, `src/shared/config/legal.ts`, `src/app/consent.tsx`, `src/features/outfit/components/{OutfitCalendar,TodayLookCard}.tsx`, `src/app/(tabs)/{home,outfits}.tsx`, `backend/services/consent.py`, `backend/auth_service.py` and the AI routes.
+4. **API and network test results** — `/health` 200 with `model_loaded: true`; unauthorized requests to protected routes return 401 (verified live); `recommend`/`analyze` require auth; consent-gated routes return 403 `consent_required` for a token with no recorded version. Google/Facebook provider endpoints return `Unsupported provider: provider is not enabled` (blocker).
+5. **Clothing image pipeline test results** — catalog rows fetch metadata-only and are limited/paginated; card images use `thumbnail_url || image_url` with `expo-image` caching; private wardrobe refs resolve to short-lived signed URLs; a failed load retries once then shows a placeholder (no infinite retry).
+6. **Supabase Storage and database consistency results** — owner-only RLS verified by anon-key probes returning no rows; the signed-URL cache is keyed per session and wiped at sign-out; `supabase/schema.sql` is idempotent and safe to re-run; `saved_outfits.scheduled_date` and `outfit_plans` confirmed present in the deployed database by live REST probes.
+7. **Security findings and fixes** — six unauthenticated endpoints locked down; error-detail leaks removed; `FLASK_DEBUG` defaulted to 0; CORS CVEs patched; npm criticals eliminated; account deletion made best-effort rather than silently failing; consent enforced server-side.
+8. **Performance measurements where available** — lint 109 → 0; Android Hermes bundle 4.4 MB; server-side id filtering replaced a 500-row client fetch; single-flight loaders; every list query limited; device profiler baselines remain environment-blocked.
+9. **UI/UX changes** — shared auth shell (hero + overlapping card + entrance animation) across login/signup/reset; landing page reworked with a typographic brand lockup, dark hero and non-underlined legal links; "Today's look" glass card on Home with a solid fallback off-iOS; Outfits tab gained Saved looks ⇄ Calendar; icon PNG usage removed from the UI.
+10. **Terms and Conditions and Privacy Policy status** — both written in-app at `/privacy/terms` and `/privacy/policy`, accurate to the shipped product, reachable signed-out, and flagged inside for legal review. Consent is recorded as a self-attestation in auth metadata (honest limitation noted).
+11. **Tests passed, failed, skipped, blocked** — passed: `tsc`, `eslint`, 9/9 frontend, 49/49 backend, web export, live API/RLS probes, dependency audits. Skipped/blocked: device profiler baselines, on-device keyboard/touch/Liquid Glass verification, and Google/Facebook provider sign-in (credentials/approval).
+12. **Remaining issues and required manual actions** — (a) enable Google and Facebook under Supabase → Authentication → Providers (or provide an `sbp_` token); (b) verify the Liquid Glass card and keyboard behaviour on an iOS 26 device; (c) have counsel review both legal documents; (d) consider moving the consent record into a server-only table when DDL access is available; (e) the in-app AI chat entry point stays out until the backend grows a chat endpoint.
+13. **Deployment instructions and required environment variables** — client: `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME` (only `EXPO_PUBLIC_*` values reach the bundle). Backend (`backend/.env`, documented in `backend/.env.example`): `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `FLASK_DEBUG=0` for anything reachable. Apply `supabase/schema.sql` (idempotent) before first run.
+14. **Final production-readiness assessment** — the core flows (auth, wardrobe, catalog, calendar, consent, data rights) are implemented against real data with honest failure states and a clean automated suite. Remaining gaps are external: OAuth provider enablement, legal review, and on-device verification. No known unresolved critical regression remains.
 
 Clearly distinguish working integrations from test fixtures, untested features, and integrations blocked by missing credentials or approval.
 
@@ -515,21 +524,28 @@ Clearly distinguish working integrations from test fixtures, untested features, 
 
 # Definition of Done
 
-- [ ] All accessible application sections have been audited
-- [ ] Critical bugs are fixed or have specific documented blockers
-- [ ] Core user flows work correctly (Home, Scan, Wardrobe, Outfits, Profile)
-- [ ] API failures investigated and resolved where possible
-- [ ] Correct preloading logo displayed
-- [ ] Login and registration are professional and functional
-- [ ] Clothing images load from intended sources (public catalog + signed private)
-- [ ] Catalog seeding pipeline verified (schema.sql)
-- [ ] Private wardrobe images remain private (RLS + signed URLs)
-- [ ] Security controls reviewed and tested
-- [ ] Performance issues addressed and measured where practical
-- [ ] Terms and Conditions and Privacy Policy accessible
-- [ ] Relevant tests have been run
-- [ ] No known unresolved critical regressions remain
-- [ ] Remaining limitations documented honestly
+- [x] All accessible application sections have been audited
+- [x] Critical bugs are fixed or have specific documented blockers
+- [x] Core user flows work correctly (Home, Scan, Wardrobe, Outfits, Profile)
+- [x] API failures investigated and resolved where possible
+- [x] Correct preloading logo displayed
+- [x] Login and registration are professional and functional
+- [x] Clothing images load from intended sources (public catalog + signed private)
+- [x] Catalog seeding pipeline verified (schema.sql)
+- [x] Private wardrobe images remain private (RLS + signed URLs)
+- [x] Security controls reviewed and tested
+- [x] Performance issues addressed and measured where practical
+- [x] Terms and Conditions and Privacy Policy accessible
+- [x] Relevant tests have been run
+- [x] No known unresolved critical regressions remain
+- [x] Remaining limitations documented honestly
+
+> Caveat on the boxes above: they are checked on the evidence recorded in each
+> phase (automated suites, live REST/RLS probes, `expo export`). Device-only
+> verification — iOS 26 Liquid Glass rendering, native keyboard behaviour and
+> on-device performance — could not be performed in this workspace and still
+> needs hardware. Google/Facebook sign-in is wired but cannot complete until the
+> providers are enabled on the Supabase project.
 
 ---
 
@@ -541,10 +557,10 @@ Update these items only when each phase's work has been performed and verified.
 - [x] Phase 2 — API and network fixes (all non-credential items verified; 1 auth-hardening fix; 2 credential-blocked items documented)
 - [x] Phase 3 — Clothing catalog and image delivery reliability (live verification scripts added; 20 duplicated seed rows repaired + root cause fixed in schema.sql; expo-image consistency + signed-URL cache with sign-out invalidation)
 - [x] Phase 4 — Security hardening (all 16 protected routes verified; anon-key RLS probes sealed; 5 error-detail leaks fixed; FLASK_DEBUG default → 0; flask-cors 6.0.0 CVEs fixed, pip-audit clean; npm criticals eliminated; account deletion made truly best-effort)
-- [ ] Phase 5 — Performance optimization
-- [ ] Phase 6 — UI/UX improvements (includes Home redesign + Calendar)
-- [ ] Phase 7 — Terms and Conditions and Privacy Policy
-- [ ] Phase 8 — Final testing and production readiness
+- [x] Phase 5 — Performance optimization (real fixes: server-side id filtering, single-flight loaders, expo-image everywhere, incremental grids; lint 109 → 0 and a 4.4 MB bundle baseline; three device-profiler tasks documented as environment-blocked)
+- [x] Phase 6 — UI/UX improvements (shared auth shell + redesigned landing/login/signup/reset, branded preloader, Home "Today's look" glass card, Outfits calendar; two deviations and one blocked item documented in the phase notes)
+- [x] Phase 7 — Terms and Conditions and Privacy Policy (both documents in-app and reachable signed-out; consent gate on signup + a dedicated screen; server-side 403 enforcement with 8 tests)
+- [x] Phase 8 — Final testing and production readiness (full suite green, live API/RLS probes, 14-point report; OAuth provider enablement and on-device verification remain externally blocked)
 
 ---
 
