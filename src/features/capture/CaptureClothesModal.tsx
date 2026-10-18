@@ -152,16 +152,26 @@ export default function CaptureClothesModal() {
   };
 
   return (
-    <Modal visible={isOpen} animationType="slide" transparent onRequestClose={handleClose}>
+    <Modal
+      visible={isOpen}
+      animationType="slide"
+      transparent
+      statusBarTranslucent
+      navigationBarTranslucent
+      onRequestClose={handleClose}
+    >
       <View style={styles.overlay}>
-        <View style={[styles.sheet, { paddingBottom: insets.bottom + 20 }]}>
+        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 12 }]}>
           <View style={styles.handle} />
 
           <View style={styles.header}>
+            <View style={styles.headerIcon}>
+              <Ionicons name="camera" size={20} color={theme.colors.onPrimary} />
+            </View>
             <View style={styles.headerText}>
               <Text style={styles.title}>Add to Closet</Text>
               <Text style={styles.headerSub}>
-                Photos stay private — only ever shown to you.
+                New pieces stay private — only ever shown to you.
               </Text>
             </View>
             <Pressable
@@ -171,14 +181,33 @@ export default function CaptureClothesModal() {
               onPress={handleClose}
               style={styles.closeBtn}
             >
-              <Ionicons name="close" size={22} color={theme.colors.text} />
+              <Ionicons name="close" size={20} color={theme.colors.text} />
+            </Pressable>
+          </View>
+
+          <View style={styles.actionsRow}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={takePhoto}
+              style={({ pressed }) => [styles.captureBtn, pressed && styles.pressed]}
+            >
+              <Ionicons name="camera-outline" size={18} color={theme.colors.onPrimary} />
+              <Text style={styles.captureBtnText}>Camera</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={pickFromLibrary}
+              style={({ pressed }) => [styles.captureBtnAlt, pressed && styles.pressed]}
+            >
+              <Ionicons name="images-outline" size={18} color={theme.colors.text} />
+              <Text style={styles.captureBtnAltText}>Library</Text>
             </Pressable>
           </View>
 
           {entries.length === 0 ? (
             <View style={styles.emptyState}>
               <View style={styles.emptyIcon}>
-                <Ionicons name="images-outline" size={26} color={theme.colors.text} />
+                <Ionicons name="shirt-outline" size={24} color={theme.colors.text} />
               </View>
               <Text style={styles.emptyTitle}>No photos yet</Text>
               <Text style={styles.emptyText}>
@@ -187,78 +216,94 @@ export default function CaptureClothesModal() {
               </Text>
             </View>
           ) : (
-            <ScrollView
-              style={styles.itemsList}
-              contentContainerStyle={styles.itemsListContent}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-            >
-              {entries.map((entry, idx) => {
-                const chosen = Boolean(entry.category);
-                return (
-                  <View key={`${entry.uri}-${idx}`} style={styles.itemCard}>
-                    <View style={styles.itemImageWrap}>
-                      <Image source={{ uri: entry.uri }} style={styles.itemImage} contentFit="cover" transition={150} />
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Remove photo"
-                        hitSlop={6}
-                        style={styles.removeBadge}
-                        onPress={() => removeEntry(idx)}
-                      >
-                        <Ionicons name="close" size={12} color={theme.colors.onPrimary} />
-                      </Pressable>
-                    </View>
-                    <View style={styles.itemBody}>
-                      <Text style={[styles.itemLabel, !chosen && styles.itemLabelMuted]}>
-                        {chosen ? entry.category : "Choose a category"}
-                      </Text>
-                      <View style={styles.chipWrap}>
-                        {CATEGORIES.map((cat) => {
-                          const active = entry.category === cat;
-                          return (
-                            <Pressable
-                              key={cat}
-                              accessibilityRole="button"
-                              accessibilityState={{ selected: active }}
-                              style={[styles.chip, active && styles.chipActive]}
-                              onPress={() => setCategory(idx, cat)}
-                            >
-                              <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                                {cat}
-                              </Text>
-                            </Pressable>
-                          );
-                        })}
+            <>
+              <View style={styles.listHead}>
+                <Text style={styles.listHeadText}>
+                  {entries.length} photo{entries.length > 1 ? "s" : ""} · tag each piece
+                </Text>
+                <Pressable accessibilityRole="button" hitSlop={8} onPress={reset}>
+                  <Text style={styles.clearAll}>Clear all</Text>
+                </Pressable>
+              </View>
+              <ScrollView
+                style={styles.itemsList}
+                contentContainerStyle={styles.itemsListContent}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+              >
+                {entries.map((entry, idx) => {
+                  const chosen = Boolean(entry.category);
+                  return (
+                    <View key={`${entry.uri}-${idx}`} style={styles.itemCard}>
+                      <View style={styles.itemImageWrap}>
+                        <Image
+                          source={{ uri: entry.uri }}
+                          style={styles.itemImage}
+                          contentFit="cover"
+                          transition={150}
+                        />
+                        <View style={styles.itemIndex}>
+                          <Text style={styles.itemIndexText}>{idx + 1}</Text>
+                        </View>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="Remove photo"
+                          hitSlop={6}
+                          style={styles.removeBadge}
+                          onPress={() => removeEntry(idx)}
+                        >
+                          <Ionicons name="close" size={12} color={theme.colors.onPrimary} />
+                        </Pressable>
+                      </View>
+                      <View style={styles.itemBody}>
+                        <Text style={[styles.itemLabel, !chosen && styles.itemLabelMuted]}>
+                          {chosen ? entry.category : "Choose a category"}
+                        </Text>
+                        <ScrollView
+                          horizontal
+                          showsHorizontalScrollIndicator={false}
+                          contentContainerStyle={styles.chipRow}
+                          keyboardShouldPersistTaps="handled"
+                        >
+                          {CATEGORIES.map((cat) => {
+                            const active = entry.category === cat;
+                            return (
+                              <Pressable
+                                key={cat}
+                                accessibilityRole="button"
+                                accessibilityState={{ selected: active }}
+                                style={[styles.chip, active && styles.chipActive]}
+                                onPress={() => setCategory(idx, cat)}
+                              >
+                                {active ? (
+                                  <Ionicons
+                                    name="checkmark"
+                                    size={12}
+                                    color={theme.colors.onPrimary}
+                                  />
+                                ) : null}
+                                <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                                  {cat}
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+                        </ScrollView>
                       </View>
                     </View>
-                  </View>
-                );
-              })}
-            </ScrollView>
+                  );
+                })}
+              </ScrollView>
+            </>
           )}
 
-          <View style={styles.actionsRow}>
-            <AppButton
-              label="Camera"
-              icon="camera-outline"
-              variant="secondary"
-              size="md"
-              onPress={takePhoto}
-              style={styles.actionBtn}
-            />
-            <AppButton
-              label="Library"
-              icon="images-outline"
-              variant="secondary"
-              size="md"
-              onPress={pickFromLibrary}
-              style={styles.actionBtn}
-            />
-          </View>
-
           {entries.length === 0 ? (
-            <AppButton label="Done" onPress={handleClose} />
+            <AppButton
+              label="Done"
+              variant="secondary"
+              onPress={handleClose}
+              style={styles.doneBtn}
+            />
           ) : (
             <>
               <AppButton
@@ -268,9 +313,11 @@ export default function CaptureClothesModal() {
                 disabled={!allCategorized}
                 onPress={saveEntries}
               />
-              {!allCategorized ? (
-                <Text style={styles.hint}>Pick a category for every photo to save.</Text>
-              ) : null}
+              <Text style={styles.hint}>
+                {allCategorized
+                  ? "All tagged — ready to save."
+                  : "Pick a category for every photo to save."}
+              </Text>
             </>
           )}
         </View>
@@ -303,10 +350,17 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
+    alignItems: "center",
     gap: 12,
     marginBottom: 16,
+  },
+  headerIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: theme.colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerText: { flex: 1, minWidth: 0 },
   title: { fontSize: 21, fontWeight: "800", color: theme.colors.text, letterSpacing: -0.3 },
@@ -326,6 +380,11 @@ const styles = StyleSheet.create({
     paddingVertical: 26,
     paddingHorizontal: 16,
     marginBottom: 4,
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    borderColor: theme.colors.border,
+    borderRadius: theme.borderRadius.lg,
+    marginTop: 14,
   },
   emptyIcon: {
     width: 56,
@@ -345,6 +404,22 @@ const styles = StyleSheet.create({
     maxWidth: 280,
   },
 
+  listHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  listHeadText: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 1,
+    color: theme.colors.textMuted,
+    textTransform: "uppercase",
+  },
+  clearAll: { fontSize: 12.5, fontWeight: "700", color: theme.colors.primary },
+
   itemsList: { flexShrink: 1 },
   itemsListContent: { gap: 10, paddingBottom: 4 },
 
@@ -357,11 +432,24 @@ const styles = StyleSheet.create({
   },
   itemImageWrap: { position: "relative" },
   itemImage: {
-    width: 62,
-    height: 76,
+    width: 68,
+    height: 84,
     borderRadius: 12,
     backgroundColor: theme.colors.border,
   },
+  itemIndex: {
+    position: "absolute",
+    bottom: 6,
+    left: 6,
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 5,
+    borderRadius: 10,
+    backgroundColor: "rgba(20,20,20,0.6)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  itemIndexText: { fontSize: 10.5, fontWeight: "800", color: "#FFFFFF" },
   removeBadge: {
     position: "absolute",
     top: -6,
@@ -381,8 +469,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   itemLabelMuted: { color: theme.colors.textMuted, fontWeight: "700" },
-  chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  chipRow: { gap: 6, paddingRight: 4 },
   chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     backgroundColor: theme.colors.surface,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: theme.colors.border,
@@ -394,8 +485,35 @@ const styles = StyleSheet.create({
   chipText: { fontSize: 11.5, fontWeight: "600", color: theme.colors.textMuted },
   chipTextActive: { color: theme.colors.onPrimary },
 
-  actionsRow: { flexDirection: "row", gap: 10, marginTop: 16, marginBottom: 12 },
-  actionBtn: { flex: 1 },
+  actionsRow: { flexDirection: "row", gap: 10 },
+  captureBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.borderRadius.md,
+    paddingVertical: 13,
+    minHeight: 46,
+  },
+  captureBtnText: { color: theme.colors.onPrimary, fontWeight: "700", fontSize: 14 },
+  captureBtnAlt: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: theme.colors.surfaceAlt,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+    borderRadius: theme.borderRadius.md,
+    paddingVertical: 13,
+    minHeight: 46,
+  },
+  captureBtnAltText: { color: theme.colors.text, fontWeight: "700", fontSize: 14 },
+  pressed: { opacity: 0.85 },
+  doneBtn: { marginTop: 14 },
   hint: {
     fontSize: 12,
     color: theme.colors.textMuted,
