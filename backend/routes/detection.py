@@ -20,6 +20,7 @@ from config import Config
 from services import image_service
 from services.auth_service import require_auth
 from services.body_analysis import analyze_body_image
+from services.consent import require_consent
 from services.ratelimit import upload_limits
 from services.yolo_service import get_yolo_service, is_model_loaded
 
@@ -42,6 +43,7 @@ def health():
 @detection_bp.post("/api/analyze")
 @require_auth
 @upload_limits("analyze_upload")
+@require_consent
 def analyze():
     """Analyze an uploaded image without persisting anything.
 
@@ -85,6 +87,7 @@ def analyze():
 @detection_bp.post("/api/detect")
 @require_auth
 @upload_limits("detect_upload")
+@require_consent
 def detect():
     """Accept a multipart/form-data upload (`image=<file>`) and run YOLO.
 
