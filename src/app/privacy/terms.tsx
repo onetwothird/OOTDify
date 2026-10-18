@@ -37,7 +37,7 @@ export default function TermsScreen() {
           <P>
             Body analysis (pose + segmentation) is performed by YOLO models on
             our servers. Virtual try-on is a separate AI service. If that
-            service isn't configured, try-on jobs fail with an honest error
+            service isn&apos;t configured, try-on jobs fail with an honest error
             rather than showing generated images. We never substitute mocked or
             placeholder results for real ones.
           </P>
@@ -54,9 +54,9 @@ export default function TermsScreen() {
 
         <Section title="4. Acceptable use">
           <P>
-            Don't upload photos of other people without their permission, don't
-            use the service to harass or misidentify anyone, and don't attempt
-            to access other users' data.
+            Don&apos;t upload photos of other people without their permission,
+            don&apos;t use the service to harass or misidentify anyone, and
+            don&apos;t attempt to access other users&apos; data.
           </P>
         </Section>
 
@@ -71,7 +71,7 @@ export default function TermsScreen() {
 
         <Section title="6. Liability">
           <P>
-            The service is provided "as is" without warranties of any kind.
+            The service is provided &ldquo;as is&rdquo; without warranties of any kind.
             AI results may be imperfect; we are not liable for decisions based
             on recommendations, and virtual try-on is a preview, not a promise.
           </P>
