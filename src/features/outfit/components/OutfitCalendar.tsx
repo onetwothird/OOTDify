@@ -66,34 +66,48 @@ export function OutfitCalendar({ outfits, onOpenOutfit }: Props) {
     [thumbRefs],
   );
 
-  const loadPlans = useCallback(async (year: number, month: number) => {
+  // Effect-only loader: no synchronous setState here — the prevCursor reset
+  // below shows the loading state when the month changes, and `loading` starts
+  // as true for the first load.
+  const loadPlans = useCallback(
+    async (year: number, month: number) => {
+      try {
+        const { start, end } = monthBounds(year, month);
+        const rows = await fetchOutfitPlans(start, end);
+        const map: Record<string, OutfitPlan> = {};
+        for (const r of rows) map[r.plan_date] = r;
+        setPlans(map);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Could not load your calendar.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
+
+  // Month navigation must show the loading state for the new month — reset it
+  // during render (React's documented alternative to an effect sync setState).
+  const [prevCursor, setPrevCursor] = useState(cursor);
+  if (prevCursor !== cursor) {
+    setPrevCursor(cursor);
     setLoading(true);
     setError(null);
-    try {
-      const { start, end } = monthBounds(year, month);
-      const rows = await fetchOutfitPlans(start, end);
-      const map: Record<string, OutfitPlan> = {};
-      for (const r of rows) map[r.plan_date] = r;
-      setPlans(map);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load your calendar.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  }
 
   useEffect(() => {
-    void loadPlans(cursor.getFullYear(), cursor.getMonth());
+    // Microtask kick-off: no setState runs synchronously within the effect body.
+    Promise.resolve()
+      .then(() => loadPlans(cursor.getFullYear(), cursor.getMonth()))
+      .catch(() => {});
   }, [cursor, loadPlans]);
 
   // Load one thumbnail ref per saved outfit (first item) whenever they change.
+  // (Empty id lists resolve to an empty map inside fetchClothingImageRefs, so
+  // no synchronous "clear" setState is needed here.)
   useEffect(() => {
     let alive = true;
     const ids = outfits.map((o) => o.clothing_ids?.find(Boolean)).filter(Boolean) as string[];
-    if (!ids.length) {
-      setThumbRefs({});
-      return;
-    }
     fetchClothingImageRefs(ids)
       .then((map) => {
         if (alive) setThumbRefs(map);
@@ -111,7 +125,7 @@ export function OutfitCalendar({ outfits, onOpenOutfit }: Props) {
   const month = cursor.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const leadingBlanks = new Date(year, month, 1).getDay();
-  const cells: Array<number | null> = [
+  const cells: (number | null)[] = [
     ...Array.from({ length: leadingBlanks }, () => null),
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
   ];
@@ -367,20 +381,21 @@ function fromISOToLabel(iso: string): string {
 
 /** Small square outfit thumbnail with a graceful placeholder. */
 function MiniThumb({ imageRef, size }: { imageRef: string | null; size: number }) {
-  const [uri, setUri] = useState<string | null>(null);
+  // Result is keyed by the ref it was resolved for; the visible uri is derived
+  // during render, so no effect has to clear stale state synchronously.
+  const [resolved, setResolved] = useState<{ ref: string; uri: string | null } | null>(null);
   useEffect(() => {
+    if (!imageRef) return;
     let alive = true;
-    if (!imageRef) {
-      setUri(null);
-      return;
-    }
     resolveMediaUrl(imageRef, 900).then((u) => {
-      if (alive) setUri(u);
+      if (alive) setResolved({ ref: imageRef, uri: u });
     });
     return () => {
       alive = false;
     };
   }, [imageRef]);
+
+  const uri = resolved && resolved.ref === imageRef ? resolved.uri : null;
 
   const box = { width: size, height: size, borderRadius: size / 4 };
   if (uri) {
