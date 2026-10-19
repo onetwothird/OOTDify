@@ -316,6 +316,43 @@ export async function updateProfile(
   return p.profile;
 }
 
+// ---------------------------------------------------------------------------
+// Profile photo check
+// ---------------------------------------------------------------------------
+// Runs the real CV models (detection + pose) on a selfie to confirm a person is
+// actually in frame with a visible face. The uploaded image is analysed and
+// then deleted server-side — only the measurements come back.
+export interface PhotoCheck {
+  ok: boolean;
+  personDetected: boolean;
+  personConfidence: number | null;
+  /** Face keypoints (nose, eyes, ears) located with confidence. */
+  faceKeypoints: number;
+  /** Body keypoints located with confidence, out of 17. */
+  keypointsVisible: number;
+  /** Machine-readable reason when `ok` is false. */
+  reason: string | null;
+}
+
+export async function checkProfilePhoto(
+  photoUri: string,
+  timeoutMs = API_AI_TIMEOUT_MS,
+): Promise<PhotoCheck> {
+  const formData = new FormData();
+  formData.append("image", toNativeFormFile(photoUri));
+
+  const payload = (await apiRequest<{ success: boolean; check: PhotoCheck }>(
+    "/api/profile/photo-check",
+    { method: "POST", body: formData },
+    { timeoutMs },
+  )) as unknown;
+  const check = (payload as { check?: PhotoCheck }).check;
+  if (!check) {
+    throw new ApiError("invalid-response", "The AI service returned an unexpected response.", 200, payload);
+  }
+  return check;
+}
+
 export async function getPrivacySummary(): Promise<PrivacySummary> {
   const payload = (await apiRequest<{ success: boolean; summary: PrivacySummary }>(
     "/api/privacy/summary",

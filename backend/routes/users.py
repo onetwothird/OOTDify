@@ -23,6 +23,7 @@ from services import image_service, storage_service
 from services.auth_service import require_auth, require_user
 from services.body_analysis import analyze_body_image
 from services.ratelimit import default_limits, rate_limit, upload_limits
+from services.selfie_check import evaluate_photo_check
 from services.supabase_client import get_supabase
 
 logger = logging.getLogger(__name__)
@@ -132,6 +133,50 @@ def update_profile_route():
     )
     logger.info("Profile updated for user %s (%s)", user["id"], ", ".join(allowed))
     return jsonify(success=True, profile=rows[0] if rows else get_profile(user["id"]))
+
+
+# --------------------------------------------------------------------------
+# Profile photo check
+# --------------------------------------------------------------------------
+@users_bp.post("/api/profile/photo-check")
+@require_auth
+@upload_limits("photo_check")
+def photo_check_route():
+    """Check a selfie with the real CV models: is a person present, is a face visible?
+
+    Privacy: the uploaded frame is written to a temporary file, analysed, and
+    deleted in the `finally` block. The image itself is never stored — only the
+    measurements are returned, so a selfie sent for checking leaves no copy.
+    """
+    require_user()
+
+    if "image" not in request.files:
+        return jsonify(success=False, error="No image part in request."), 400
+
+    temp_path = None
+    try:
+        temp_path = image_service.ingest_upload(
+            request.files["image"],
+            Config.UPLOAD_FOLDER,
+            max_bytes=Config.MAX_CONTENT_LENGTH,
+        )
+        analysis = analyze_body_image(str(temp_path))
+        check = evaluate_photo_check(analysis)
+        logger.info(
+            "Photo check: ok=%s person=%s face_keypoints=%s",
+            check["ok"],
+            check["personDetected"],
+            check["faceKeypoints"],
+        )
+        return jsonify(success=True, check=check), 200
+    except ValueError as exc:
+        return jsonify(success=False, error=str(exc)), 400
+    except Exception:
+        logger.exception("Profile photo check failed")
+        return jsonify(success=False, error="Could not check that photo. Please try again."), 500
+    finally:
+        if temp_path is not None:
+            image_service.cleanup(temp_path)
 
 
 # --------------------------------------------------------------------------

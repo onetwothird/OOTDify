@@ -21,6 +21,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCaptureModalStore } from "../../features/capture/captureModalStore";
 import { CATALOG_CATEGORIES, OCCASIONS } from "../../features/clothing/types";
 import { ProfileAvatar } from "../../features/profile/ProfileAvatar";
+import { captureSelfie, promptAvatarChange } from "../../features/profile/avatar";
+import { useAvatarStore } from "../../features/profile/avatarStore";
 import { AppButton } from "../../shared/components/AppButton";
 import { ErrorState } from "../../shared/components/StateViews";
 import { LoadingState } from "../../shared/components/LoadingState";
@@ -30,6 +32,7 @@ import { supabase } from "../../shared/lib/supabase";
 import { toast } from "../../shared/lib/toast";
 import {
   checkBackendHealth,
+  checkProfilePhoto,
   getProfile,
   updateProfile,
 } from "../../services/aiApi";
@@ -39,6 +42,23 @@ const STYLES = ["Minimal", "Streetwear", "Classic", "Sporty", "Smart casual", "V
 const COLORS = ["Black", "White", "Neutral", "Pastel", "Bold", "Earthy"];
 const SIZES = ["XS", "S", "M", "L", "XL"];
 const GENDERS = ["men", "women", "unisex"] as const;
+
+/** Plain-language explanation for a failed photo check. */
+function photoCheckReason(reason: string | null): string {
+  switch (reason) {
+    case "no_person":
+      return "Nobody was detected in the frame. Face the camera and try again.";
+    case "face_not_visible":
+      return "A person was found, but the face wasn't clear. Try brighter light and a closer frame.";
+    default:
+      return "The check didn't pass. Try again in good light with your face in the frame.";
+  }
+}
+
+function formatClock(iso: string): string {
+  const d = new Date(iso);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -53,7 +73,12 @@ export default function ProfileScreen() {
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [avatarRef, setAvatarRef] = useState<string | null>(null);
+  // Shared so the home header shows a change the moment it happens.
+  const avatarRef = useAvatarStore((s) => s.ref);
+  const setAvatarRef = useAvatarStore((s) => s.setRef);
+  const photoCheck = useAvatarStore((s) => s.check);
+  const setPhotoCheck = useAvatarStore((s) => s.setCheck);
+  const [checkingPhoto, setCheckingPhoto] = useState(false);
   const [gender, setGender] = useState("");
   const [stylesSel, setStylesSel] = useState<Set<string>>(new Set());
   const [colorsSel, setColorsSel] = useState<Set<string>>(new Set());
@@ -161,6 +186,30 @@ export default function ProfileScreen() {
     void supabase.auth.signOut();
   };
 
+  // Runs the real models on a fresh selfie. The frame is analysed and discarded
+  // server-side, so this leaves no stored copy behind.
+  const runPhotoCheck = useCallback(async () => {
+    const selfie = await captureSelfie();
+    if (!selfie) return;
+    setCheckingPhoto(true);
+    try {
+      const result = await checkProfilePhoto(selfie.uri);
+      setPhotoCheck({ ...result, checkedAt: new Date().toISOString() });
+      if (result.ok) {
+        toast.success("Selfie check passed", "A live person with a clear face was detected.");
+      } else {
+        toast.error("Selfie check didn't pass", photoCheckReason(result.reason));
+      }
+    } catch (e) {
+      toast.error(
+        "Couldn't run the check",
+        e instanceof Error ? e.message : "Please try again in a moment.",
+      );
+    } finally {
+      setCheckingPhoto(false);
+    }
+  }, [setPhotoCheck]);
+
   const avatarInitial = (
     firstName.trim()[0] ||
     lastName.trim()[0] ||
@@ -197,10 +246,11 @@ export default function ProfileScreen() {
               <View style={[styles.heroBlob, styles.heroBlobB]} pointerEvents="none" />
               <View style={styles.heroRow}>
                 <ProfileAvatar
-                  size={58}
+                  size={78}
                   initial={avatarInitial}
                   avatarRef={avatarRef}
                   onChanged={setAvatarRef}
+                  badge
                   background={theme.colors.surface}
                   color={theme.colors.text}
                   badgeRing={theme.colors.primary}
@@ -214,8 +264,65 @@ export default function ProfileScreen() {
                   <Text style={styles.heroEmail} numberOfLines={1}>
                     {email ?? "Signed in"}
                   </Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => promptAvatarChange(setAvatarRef)}
+                    hitSlop={6}
+                    style={({ pressed }) => [
+                      styles.heroAction,
+                      pressed && { opacity: 0.85 },
+                    ]}
+                  >
+                    <Ionicons name="camera-outline" size={13} color={theme.colors.onPrimary} />
+                    <Text style={styles.heroActionText}>Change photo</Text>
+                  </Pressable>
                 </View>
               </View>
+            </View>
+
+            <SectionLabel text="PHOTO CHECK" />
+            <View style={styles.card}>
+              {photoCheck ? (
+                <>
+                  <View style={styles.checkHead}>
+                    <View
+                      style={[
+                        styles.checkDot,
+                        photoCheck.ok ? styles.checkDotOk : styles.checkDotWarn,
+                      ]}
+                    />
+                    <Text style={styles.checkTitle}>
+                      {photoCheck.ok ? "Selfie check passed" : "Another try needed"}
+                    </Text>
+                  </View>
+                  <Text style={styles.checkText}>
+                    {photoCheck.ok
+                      ? `A person was detected (${Math.round(
+                          (photoCheck.personConfidence ?? 0) * 100,
+                        )}% confidence) with ${photoCheck.faceKeypoints} of 5 face points and ${photoCheck.keypointsVisible} of 17 body points located.`
+                      : photoCheckReason(photoCheck.reason)}
+                  </Text>
+                </>
+              ) : (
+                <Text style={styles.checkText}>
+                  Confirms a person is really in frame, using the same body-model
+                  models as the try-on. The selfie is analysed and discarded — no
+                  copy is kept.
+                </Text>
+              )}
+              {photoCheck ? (
+                <Text style={styles.checkMeta}>
+                  Checked at {formatClock(photoCheck.checkedAt)} · image not stored
+                </Text>
+              ) : null}
+              <AppButton
+                label={photoCheck ? "Run the check again" : "Run selfie check"}
+                icon="scan-outline"
+                variant="secondary"
+                size="md"
+                loading={checkingPhoto}
+                onPress={() => void runPhotoCheck()}
+              />
             </View>
 
             <SectionLabel text="PERSONAL DETAILS" />
@@ -548,6 +655,39 @@ const styles = StyleSheet.create({
   },
   heroRow: { flexDirection: "row", alignItems: "center", gap: 14 },
   heroBody: { flex: 1, minWidth: 0 },
+  heroAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 6,
+    marginTop: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: theme.borderRadius.pill,
+    backgroundColor: "rgba(255,255,255,0.14)",
+  },
+  heroActionText: {
+    color: theme.colors.onPrimary,
+    fontSize: 12.5,
+    fontWeight: "700",
+  },
+  checkHead: { flexDirection: "row", alignItems: "center", gap: 8 },
+  checkDot: { width: 9, height: 9, borderRadius: 5 },
+  checkDotOk: { backgroundColor: theme.colors.success },
+  checkDotWarn: { backgroundColor: theme.colors.warning },
+  checkTitle: { fontSize: 14, fontWeight: "800", color: theme.colors.text },
+  checkText: {
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: theme.colors.textMuted,
+    marginTop: 8,
+  },
+  checkMeta: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: theme.colors.textMuted,
+    marginTop: 6,
+  },
   heroName: {
     color: theme.colors.onPrimary,
     fontSize: 19,

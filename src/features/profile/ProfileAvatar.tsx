@@ -1,7 +1,14 @@
 // C:\OOTDify\src\features\profile\ProfileAvatar.tsx
-// Tappable profile photo: renders the real, owner-scoped avatar (signed URL) or
-// the user's initial, and lets them take/choose a new photo in place. Used by
-// the home header and the profile hero so both stay identical.
+// The user's profile photo as a circle: renders the real, owner-scoped avatar
+// (signed URL), a local preview, or their initial. Shared by the home header,
+// the profile hero and the signup wizard so all three stay identical.
+//
+// Interaction is opt-in:
+//   * `onPress`   → tap runs that handler (the header opens Profile).
+//   * `onChanged` → tap opens the take/choose-photo chooser (Profile).
+//   * neither     → a plain visual (the signup preview).
+// The camera badge is only drawn when explicitly asked for, so a display-only
+// avatar never promises a capability it does not have.
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useEffect, useState } from "react";
@@ -15,9 +22,14 @@ export function ProfileAvatar({
   size = 44,
   initial,
   avatarRef,
+  uri,
   onChanged,
+  onPress,
+  badge = false,
+  busy: busyProp = false,
   background = theme.colors.primary,
   color = theme.colors.onPrimary,
+  ring,
   badgeRing = theme.colors.surface,
   badgeBackground = theme.colors.primary,
   badgeColor = theme.colors.onPrimary,
@@ -25,104 +37,141 @@ export function ProfileAvatar({
   size?: number;
   initial: string;
   avatarRef: string | null;
+  /** Local file to show instead of `avatarRef` (preview before an upload). */
+  uri?: string | null;
   onChanged?: (ref: string) => void;
+  onPress?: () => void;
+  /** Draws the small camera badge — only meaningful with `onChanged`. */
+  badge?: boolean;
+  /** Forces the spinner (e.g. a wizard upload in flight). */
+  busy?: boolean;
   background?: string;
   color?: string;
-  /** Colour of the small camera badge's ring (matches the surface behind it). */
+  /** Optional outline colour for the circle. */
+  ring?: string;
+  /** Colour of the camera badge's ring (matches the surface behind it). */
   badgeRing?: string;
   badgeBackground?: string;
   badgeColor?: string;
 }) {
-  const [uri, setUri] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [resolved, setResolved] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
 
   // Clear immediately when the ref is removed (render-phase adjust, so no
   // synchronous setState runs inside an effect).
   const [prevRef, setPrevRef] = useState<string | null>(avatarRef);
   if (avatarRef !== prevRef) {
     setPrevRef(avatarRef);
-    if (!avatarRef) setUri(null);
+    if (!avatarRef) setResolved(null);
   }
 
   useEffect(() => {
     if (!avatarRef) return;
     let alive = true;
     resolveMediaUrl(avatarRef, 3600).then((u) => {
-      if (alive) setUri(u);
+      if (alive) setResolved(u);
     });
     return () => {
       alive = false;
     };
   }, [avatarRef]);
 
+  const shown = uri ?? resolved;
+  const busy = picking || busyProp;
+
   const pick = (source: "library" | "camera") => {
     void (async () => {
-      setBusy(true);
+      setPicking(true);
       const ref = await changeProfileAvatar(source);
-      setBusy(false);
+      setPicking(false);
       if (ref) onChanged?.(ref);
     })();
   };
 
-  const badge = Math.round(size * 0.4);
+  const interactive = Boolean(onPress || onChanged);
+  const handlePress = () => {
+    if (busy) return;
+    if (onPress) {
+      onPress();
+      return;
+    }
+    if (onChanged) promptAvatarSource(pick);
+  };
 
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="Change profile photo"
-      onPress={() => {
-        if (!busy) promptAvatarSource(pick);
-      }}
-      hitSlop={8}
-      style={({ pressed }) => [
-        styles.wrap,
-        { width: size, height: size },
-        pressed && { opacity: 0.85 },
+  const badgeSize = Math.max(20, Math.round(size * 0.34));
+  const initialSize = Math.round(size * 0.4);
+
+  const inner = (
+    <View
+      style={[
+        styles.clip,
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: background,
+          borderColor: ring ?? "transparent",
+          borderWidth: ring ? 2 : 0,
+        },
       ]}
     >
-      <View
-        style={[
-          styles.clip,
-          { width: size, height: size, borderRadius: size / 2, backgroundColor: background },
-        ]}
-      >
-        {uri ? (
-          <Image
-            source={{ uri }}
-            style={{ width: size, height: size }}
-            contentFit="cover"
-            transition={150}
-          />
-        ) : (
-          <Text style={[styles.initial, { color, fontSize: Math.round(size * 0.4) }]}>
-            {initial || "?"}
-          </Text>
-        )}
+      {shown ? (
+        <Image
+          source={{ uri: shown }}
+          style={{ width: size, height: size }}
+          contentFit="cover"
+          transition={150}
+        />
+      ) : (
+        <Text style={[styles.initial, { color, fontSize: initialSize }]}>
+          {initial || "?"}
+        </Text>
+      )}
 
-        {busy ? (
-          <View style={[styles.overlay, { borderRadius: size / 2 }]}>
-            <ActivityIndicator size="small" color={theme.colors.onPrimary} />
-          </View>
-        ) : null}
-      </View>
+      {busy ? (
+        <View style={[styles.overlay, { borderRadius: size / 2 }]}>
+          <ActivityIndicator size="small" color={theme.colors.onPrimary} />
+        </View>
+      ) : null}
+    </View>
+  );
 
-      <View
-        style={[
-          styles.badge,
-          {
-            width: badge,
-            height: badge,
-            borderRadius: badge / 2,
-            right: -2,
-            bottom: -2,
-            borderColor: badgeRing,
-            backgroundColor: badgeBackground,
-          },
-        ]}
-      >
-        <Ionicons name="camera" size={Math.round(badge * 0.55)} color={badgeColor} />
-      </View>
-    </Pressable>
+  return (
+    <View style={{ width: size, height: size }}>
+      {interactive ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={onPress ? "Open profile" : "Change profile photo"}
+          onPress={handlePress}
+          hitSlop={8}
+          style={({ pressed }) => [styles.wrap, pressed && { opacity: 0.85 }]}
+        >
+          {inner}
+        </Pressable>
+      ) : (
+        <View style={styles.wrap}>{inner}</View>
+      )}
+
+      {badge ? (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.badge,
+            {
+              width: badgeSize,
+              height: badgeSize,
+              borderRadius: badgeSize / 2,
+              right: -1,
+              bottom: -1,
+              borderColor: badgeRing,
+              backgroundColor: badgeBackground,
+            },
+          ]}
+        >
+          <Ionicons name="camera" size={Math.round(badgeSize * 0.52)} color={badgeColor} />
+        </View>
+      ) : null}
+    </View>
   );
 }
 

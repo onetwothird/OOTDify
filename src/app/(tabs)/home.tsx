@@ -32,6 +32,8 @@ import { CatalogItem, OCCASIONS } from "../../features/clothing/types";
 import { TodayLookCard } from "../../features/outfit/components/TodayLookCard";
 import { fetchOutfitPlans, OutfitPlan, toISODate } from "../../features/outfit/planner";
 import { ProfileAvatar } from "../../features/profile/ProfileAvatar";
+import { useAvatarStore } from "../../features/profile/avatarStore";
+import { applyPendingAvatar, runPendingPhotoCheck } from "../../features/profile/avatar";
 import { useWardrobeStore } from "../../features/wardrobe/store";
 import { AppButton } from "../../shared/components/AppButton";
 import { Chip } from "../../shared/components/Chip";
@@ -79,7 +81,10 @@ export default function HomeScreen() {
 
   // ---- Greeting (real profile nickname + avatar; fallbacks are honest) ------
   const [nickname, setNickname] = useState<string | null>(null);
-  const [avatarRef, setAvatarRef] = useState<string | null>(null);
+  // The photo lives in a shared store so Profile changes show up here at once.
+  const avatarRef = useAvatarStore((s) => s.ref);
+  const setAvatarRef = useAvatarStore((s) => s.setRef);
+  const setPhotoCheck = useAvatarStore((s) => s.setCheck);
   const [greetingLoading, setGreetingLoading] = useState(true);
   const place = useCurrentPlace();
 
@@ -166,13 +171,21 @@ export default function HomeScreen() {
         null;
       setNickname(name);
       setAvatarRef(profile.avatar_url ?? null);
+
+      // First moment the new account can own its photo: a picture chosen in the
+      // signup wizard is uploaded here, and a selfie captured there is checked
+      // by the real models. Neither was uploaded while signed out.
+      const applied = await applyPendingAvatar();
+      if (applied) setAvatarRef(applied);
+      const check = await runPendingPhotoCheck();
+      if (check) setPhotoCheck(check);
     } catch {
       // AI service down / not signed in: fall back to a generic greeting.
       setNickname(null);
     } finally {
       setGreetingLoading(false);
     }
-  }, []);
+  }, [setAvatarRef, setPhotoCheck]);
 
   // Reset loading/error during render when the occasion changes — React's
   // documented alternative to a synchronous setState inside an effect.
@@ -232,7 +245,7 @@ export default function HomeScreen() {
           place={place.label}
           placeStatus={place.status}
           onRequestPlace={place.request}
-          onAvatarChanged={setAvatarRef}
+          onOpenProfile={() => router.push("/(tabs)/profile")}
         />
 
         {/* ------------------------------------------------ Hero */}
@@ -473,7 +486,7 @@ function GreetingHeader({
   place,
   placeStatus,
   onRequestPlace,
-  onAvatarChanged,
+  onOpenProfile,
 }: {
   nickname: string | null;
   avatarRef: string | null;
@@ -481,7 +494,7 @@ function GreetingHeader({
   place: string | null;
   placeStatus: "loading" | "ready" | "blocked";
   onRequestPlace: () => void;
-  onAvatarChanged: (ref: string) => void;
+  onOpenProfile: () => void;
 }) {
   // Recompute the greeting as real time passes so "Good morning" never sticks
   // into the afternoon while the app stays open.
@@ -560,11 +573,13 @@ function GreetingHeader({
           </Text>
         </View>
 
+        {/* The user's real photo — tap opens Profile, where it can be changed.
+            No camera badge here: the header only shows, it never edits. */}
         <ProfileAvatar
-          size={44}
+          size={48}
           initial={initial}
           avatarRef={avatarRef}
-          onChanged={onAvatarChanged}
+          onPress={onOpenProfile}
         />
       </View>
     </Animated.View>
