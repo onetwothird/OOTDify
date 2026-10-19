@@ -2,6 +2,7 @@
 // Typography-led section heading with an optional trailing action. Not a card —
 // hierarchy and whitespace carry the section.
 import { Ionicons } from "@expo/vector-icons";
+import { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { theme } from "../config/theme";
 
@@ -11,9 +12,11 @@ interface Props {
   /** Trailing action label, e.g. "See all". Rendered as text + chevron. */
   actionLabel?: string;
   onAction?: () => void;
+  /** Custom trailing node (e.g. a view toggle). Overrides the action label. */
+  right?: ReactNode;
 }
 
-export function SectionHeader({ title, subtitle, actionLabel, onAction }: Props) {
+export function SectionHeader({ title, subtitle, actionLabel, onAction, right }: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.textBlock}>
@@ -26,7 +29,9 @@ export function SectionHeader({ title, subtitle, actionLabel, onAction }: Props)
           </Text>
         ) : null}
       </View>
-      {actionLabel && onAction ? (
+      {right ? (
+        <View style={styles.rightSlot}>{right}</View>
+      ) : actionLabel && onAction ? (
         <Pressable
           accessibilityRole="button"
           onPress={onAction}
@@ -63,6 +68,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     lineHeight: 17,
   },
+  rightSlot: { flexShrink: 0, paddingBottom: 2 },
   action: { flexDirection: "row", alignItems: "center", gap: 2, paddingBottom: 2 },
   actionText: {
     fontSize: 13,
