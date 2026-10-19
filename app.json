@@ -53,7 +53,8 @@
           "photosPermission": "OOTDify accesses your photos only for the profile picture you choose.",
           "cameraPermission": "OOTDify uses the camera only for the profile picture you choose to take."
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true,
