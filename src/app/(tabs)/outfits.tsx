@@ -59,6 +59,7 @@ export default function OutfitsScreen() {
   // Builder state
   const [builderMode, setBuilderMode] = useState(false);
   const [view, setView] = useState<"looks" | "calendar">("looks");
+  const [looksView, setLooksView] = useState<"list" | "grid">("list");
 
   // Honour a `view=calendar` deep link without a setState-in-effect: adjust
   // state during render when the param changes (React's documented pattern,
@@ -225,6 +226,23 @@ export default function OutfitsScreen() {
 
         {!builderMode ? (
           <>
+            {/* Primary actions: Build + AI Picker - moved up for better UX */}
+            <View style={styles.ctaRow}>
+              <AppButton
+                label="Build outfit"
+                icon="add-circle-outline"
+                onPress={() => setBuilderMode(true)}
+                style={styles.ctaFlex}
+              />
+              <AppButton
+                label="AI Picker"
+                icon="sparkles-outline"
+                variant="secondary"
+                onPress={() => router.push("/ai-picker")}
+                style={styles.ctaFlex}
+              />
+            </View>
+
             <View style={styles.segment}>
               <Pressable
                 accessibilityRole="button"
@@ -259,26 +277,38 @@ export default function OutfitsScreen() {
               />
             ) : (
               <>
-                <View style={styles.ctaRow}>
-                  <AppButton
-                    label="Build outfit"
-                    icon="add-circle-outline"
-                    onPress={() => setBuilderMode(true)}
-                    style={styles.ctaFlex}
-                  />
-                  <AppButton
-                    label="AI Picker"
-                    icon="sparkles-outline"
-                    variant="secondary"
-                    onPress={() => router.push("/ai-picker")}
-                    style={styles.ctaFlex}
-                  />
-                </View>
-
                 <SectionHeader
                   title="Saved looks"
                   subtitle="Outfits you've built and kept."
                 />
+                <View style={styles.displayToggleWrap}>
+                  <View style={styles.viewToggle}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: looksView === "list" }}
+                      onPress={() => setLooksView("list")}
+                      style={[styles.toggleBtn, looksView === "list" && styles.toggleBtnActive]}
+                    >
+                      <Ionicons
+                        name="list"
+                        size={14}
+                        color={looksView === "list" ? theme.colors.onPrimary : theme.colors.textMuted}
+                      />
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: looksView === "grid" }}
+                      onPress={() => setLooksView("grid")}
+                      style={[styles.toggleBtn, looksView === "grid" && styles.toggleBtnActive]}
+                    >
+                      <Ionicons
+                        name="grid"
+                        size={14}
+                        color={looksView === "grid" ? theme.colors.onPrimary : theme.colors.textMuted}
+                      />
+                    </Pressable>
+                  </View>
+                </View>
 
                 {savedLoading ? (
                   <LoadingState label="Loading outfits" />
@@ -292,7 +322,7 @@ export default function OutfitsScreen() {
                     actionLabel="Build outfit"
                     onAction={() => setBuilderMode(true)}
                   />
-                ) : (
+                ) : looksView === "list" ? (
                   saved.map((o) => (
                     <SavedOutfitRow
                       key={o.id}
@@ -301,6 +331,17 @@ export default function OutfitsScreen() {
                       onDelete={() => removeOutfit(o.id)}
                     />
                   ))
+                ) : (
+                  <View style={styles.gridWrap}>
+                    {saved.map((o) => (
+                      <SavedOutfitCard
+                        key={o.id}
+                        outfit={o}
+                        onPress={() => router.push(`/outfit/${o.id}`)}
+                        onDelete={() => removeOutfit(o.id)}
+                      />
+                    ))}
+                  </View>
                 )}
               </>
             )}
@@ -444,6 +485,51 @@ function SavedOutfitRow({
   );
 }
 
+function SavedOutfitCard({
+  outfit,
+  onPress,
+  onDelete,
+}: {
+  outfit: SavedOutfit;
+  onPress: () => void;
+  onDelete: () => void;
+}) {
+  const count = outfit.clothing_ids?.length ?? 0;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [styles.savedCard, pressed && { opacity: 0.95 }]}
+    >
+      <View style={styles.savedCardIconWrap}>
+        <Ionicons name="shirt-outline" size={24} color={theme.colors.primary} />
+      </View>
+      <View style={styles.savedCardBody}>
+        <Text style={styles.savedCardName} numberOfLines={2}>
+          {outfit.name || "Untitled outfit"}
+        </Text>
+        <Text style={styles.savedCardMeta} numberOfLines={1}>
+          {outfit.occasion ?? "No occasion"} · {count} item{count === 1 ? "" : "s"}
+        </Text>
+        <Text style={styles.savedCardDate} numberOfLines={1}>
+          {new Date(outfit.created_at).toLocaleDateString()}
+        </Text>
+      </View>
+      <Pressable
+        accessibilityRole="button"
+        hitSlop={8}
+        onPress={(e) => {
+          e.stopPropagation();
+          onDelete();
+        }}
+        style={styles.savedCardTrash}
+      >
+        <Ionicons name="trash-outline" size={16} color={theme.colors.textMuted} />
+      </Pressable>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   content: { paddingHorizontal: 16, paddingBottom: 40, gap: 12 },
@@ -545,4 +631,52 @@ const styles = StyleSheet.create({
   savedName: { fontSize: 14, fontWeight: "700", color: theme.colors.text },
   savedMeta: { fontSize: 11.5, color: theme.colors.textMuted, marginTop: 2 },
   savedTrash: { padding: 6 },
+  viewToggle: {
+    flexDirection: "row",
+    backgroundColor: theme.colors.surfaceAlt,
+    borderRadius: theme.borderRadius.pill,
+    padding: 2,
+    gap: 2,
+  },
+  toggleBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: theme.borderRadius.pill,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  toggleBtnActive: { backgroundColor: theme.colors.primary },
+  displayToggleWrap: {
+    alignItems: "flex-end",
+    marginBottom: 4,
+  },
+  gridWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    justifyContent: "space-between",
+  },
+  savedCard: {
+    width: "48%",
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+    padding: 12,
+    gap: 10,
+  },
+  savedCardIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: theme.colors.primaryMuted,
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "flex-start",
+  },
+  savedCardBody: { gap: 4 },
+  savedCardName: { fontSize: 14, fontWeight: "700", color: theme.colors.text },
+  savedCardMeta: { fontSize: 11.5, color: theme.colors.textMuted },
+  savedCardDate: { fontSize: 11, color: theme.colors.textMuted },
+  savedCardTrash: { position: "absolute", top: 8, right: 8, padding: 6 },
 });
