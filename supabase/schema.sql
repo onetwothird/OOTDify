@@ -167,27 +167,9 @@ create table if not exists public.recently_viewed (
 
 create index if not exists recently_viewed_user_idx on public.recently_viewed (user_id, viewed_at desc);
 
-insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values
-  ('users',    'users',    false, 10 * 1024 * 1024, array['image/jpeg','image/png','image/webp']),
-  ('wardrobe', 'wardrobe', false, 10 * 1024 * 1024, array['image/jpeg','image/png','image/webp']),
-  ('clothing', 'clothing', true,  10 * 1024 * 1024, array['image/jpeg','image/png','image/webp']),
-  ('tryons',   'tryons',   false, 20 * 1024 * 1024, array['image/jpeg','image/png','image/webp']),
-  ('avatars',  'avatars',  false,  5 * 1024 * 1024, array['image/jpeg','image/png','image/webp'])
-on conflict (id) do nothing;
-
-do $$ begin
-  alter table public.clothing       enable row level security;
-  alter table public.clothing_items enable row level security;
-  alter table public.user_profiles  enable row level security;
-  alter table public.body_photos    enable row level security;
-  alter table public.try_on_jobs    enable row level security;
-  alter table public.saved_outfits  enable row level security;
-  alter table public.outfit_plans   enable row level security;
-  alter table public.favorites      enable row level security;
-  alter table public.recently_viewed enable row level security;
-end $$;
-
+-- Policy helper: creates a policy only when one of that name does not already
+-- exist, so the schema file stays idempotent on re-runs. Defined before every
+-- policy call (community included) so ordering never matters.
 create or replace function public._ensure_policy(
   p_policy text, p_table regclass, p_command text, p_using text, p_check text default null
 ) returns void language plpgsql as $$
@@ -208,6 +190,235 @@ begin
         raise exception 'Unsupported policy command: %', upper(p_command);
     end case;
   end if;
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- COMMUNITY — public outfit posts, a social graph, and 1:1 chat.
+-- Unlike every other table here, community content is intentionally readable by
+-- ALL authenticated users (that is the point of a feed). Writes remain strictly
+-- owner-scoped. Apply this whole block to your Supabase project before using
+-- the Community tab; until then the screens surface a clear "not available"
+-- state rather than showing fake data.
+-- ---------------------------------------------------------------------------
+
+-- A post shares an outfit (optionally linked to one of the author's saved
+-- outfits) with the community. image_urls holds the resolved, publicly readable
+-- catalog image URLs for the shared pieces.
+create table if not exists public.community_posts (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  saved_outfit_id uuid references public.saved_outfits (id) on delete set null,
+  title text,
+  caption text,
+  image_urls jsonb not null default '[]',
+  like_count int not null default 0,
+  comment_count int not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists community_posts_created_idx on public.community_posts (created_at desc);
+create index if not exists community_posts_user_idx on public.community_posts (user_id);
+
+create table if not exists public.community_likes (
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid not null references public.community_posts (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (post_id, user_id)
+);
+
+create index if not exists community_likes_post_idx on public.community_likes (post_id);
+
+create table if not exists public.community_comments (
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid not null references public.community_posts (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  body text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists community_comments_post_idx on public.community_comments (post_id, created_at);
+
+create table if not exists public.follows (
+  follower_id uuid not null references auth.users (id) on delete cascade,
+  followee_id uuid not null references auth.users (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (follower_id, followee_id),
+  check (follower_id <> followee_id)
+);
+
+create index if not exists follows_followee_idx on public.follows (followee_id);
+
+-- 1:1 chat. A conversation is just a container; created_by records who started
+-- it (so they may add the other participant), and the participants row decides
+-- who may read it. last_read_at powers unread badges.
+create table if not exists public.conversations (
+  id uuid primary key default gen_random_uuid(),
+  created_by uuid not null references auth.users (id) on delete cascade default auth.uid(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.conversations add column if not exists created_by uuid not null references auth.users (id) on delete cascade default auth.uid();
+
+create table if not exists public.conversation_participants (
+  conversation_id uuid not null references public.conversations (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  last_read_at timestamptz,
+  primary key (conversation_id, user_id)
+);
+
+create index if not exists conversation_participants_user_idx on public.conversation_participants (user_id);
+
+create table if not exists public.messages (
+  id uuid primary key default gen_random_uuid(),
+  conversation_id uuid not null references public.conversations (id) on delete cascade,
+  sender_id uuid not null references auth.users (id) on delete cascade,
+  body text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists messages_conversation_idx on public.messages (conversation_id, created_at);
+
+do $$ begin
+  alter table public.community_posts             enable row level security;
+  alter table public.community_likes             enable row level security;
+  alter table public.community_comments          enable row level security;
+  alter table public.follows                     enable row level security;
+  alter table public.conversations               enable row level security;
+  alter table public.conversation_participants  enable row level security;
+  alter table public.messages                    enable row level security;
+end $$;
+
+-- Helper: is the current user a participant of a conversation?
+create or replace function public.is_conversation_participant(conv uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.conversation_participants
+    where conversation_id = conv and user_id = auth.uid()
+  );
+$$;
+
+-- Denormalized counts on community_posts. Clients have NO update policy on
+-- posts, so these are maintained only by these triggers (owner = postgres).
+create or replace function public._sync_post_counts() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  update public.community_posts set
+    like_count = (select count(*) from public.community_likes where post_id = coalesce(new.post_id, old.post_id)),
+    comment_count = (select count(*) from public.community_comments where post_id = coalesce(new.post_id, old.post_id))
+  where id = coalesce(new.post_id, old.post_id);
+  return null;
+end $$;
+
+drop trigger if exists community_likes_count_trg on public.community_likes;
+create trigger community_likes_count_trg
+  after insert or delete on public.community_likes
+  for each row execute function public._sync_post_counts();
+
+drop trigger if exists community_comments_count_trg on public.community_comments;
+create trigger community_comments_count_trg
+  after insert or delete on public.community_comments
+  for each row execute function public._sync_post_counts();
+
+-- Keep conversations.updated_at fresh so the chat list sorts by last activity.
+create or replace function public._touch_conversation() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  update public.conversations set updated_at = now() where id = new.conversation_id;
+  return new;
+end $$;
+
+drop trigger if exists messages_touch_conversation_trg on public.messages;
+create trigger messages_touch_conversation_trg
+  after insert on public.messages
+  for each row execute function public._touch_conversation();
+
+-- Feed: every authenticated user can read posts; only the author writes.
+select public._ensure_policy('community_posts_select', 'public.community_posts', 'select', 'auth.role() = ''authenticated''');
+select public._ensure_policy('community_posts_insert', 'public.community_posts', 'insert', 'auth.uid() = user_id', 'auth.uid() = user_id');
+select public._ensure_policy('community_posts_delete', 'public.community_posts', 'delete', 'auth.uid() = user_id');
+
+select public._ensure_policy('community_likes_select', 'public.community_likes', 'select', 'auth.role() = ''authenticated''');
+select public._ensure_policy('community_likes_insert', 'public.community_likes', 'insert', 'auth.uid() = user_id', 'auth.uid() = user_id');
+select public._ensure_policy('community_likes_delete', 'public.community_likes', 'delete', 'auth.uid() = user_id');
+
+select public._ensure_policy('community_comments_select', 'public.community_comments', 'select', 'auth.role() = ''authenticated''');
+select public._ensure_policy('community_comments_insert', 'public.community_comments', 'insert', 'auth.uid() = user_id', 'auth.uid() = user_id');
+select public._ensure_policy('community_comments_delete', 'public.community_comments', 'delete', 'auth.uid() = user_id');
+
+-- Follows are readable by anyone signed in; you only create/drop your own.
+select public._ensure_policy('follows_select', 'public.follows', 'select', 'auth.role() = ''authenticated''');
+select public._ensure_policy('follows_insert', 'public.follows', 'insert', 'auth.uid() = follower_id', 'auth.uid() = follower_id');
+select public._ensure_policy('follows_delete', 'public.follows', 'delete', 'auth.uid() = follower_id');
+
+-- Conversations: only participants can read the container; the creator may
+-- insert it (and the rows for both people — that's how a 1:1 chat is started).
+select public._ensure_policy('conversations_select', 'public.conversations', 'select', 'public.is_conversation_participant(id)');
+select public._ensure_policy('conversations_insert', 'public.conversations', 'insert', 'auth.uid() = created_by', 'auth.uid() = created_by');
+select public._ensure_policy('conversations_update', 'public.conversations', 'update', 'public.is_conversation_participant(id)');
+
+-- You may add yourself to any conversation, or (as its creator) add the other
+-- person when you're already a participant. Nobody can inject themselves into
+-- a conversation they don't belong to.
+select public._ensure_policy('conversation_participants_select', 'public.conversation_participants', 'select', 'public.is_conversation_participant(conversation_id)');
+select public._ensure_policy('conversation_participants_insert', 'public.conversation_participants', 'insert', 'user_id = auth.uid() or public.is_conversation_participant(conversation_id)', 'user_id = auth.uid() or public.is_conversation_participant(conversation_id)');
+select public._ensure_policy('conversation_participants_update', 'public.conversation_participants', 'update', 'user_id = auth.uid()');
+select public._ensure_policy('conversation_participants_delete', 'public.conversation_participants', 'delete', 'user_id = auth.uid() or exists (select 1 from public.conversations c where c.id = conversation_id and c.created_by = auth.uid())');
+
+-- Minimal public directory so feed/chat can show a real name + avatar next to
+-- posts and messages. The view runs with definer rights (NOT security_invoker,
+-- which would inherit user_profiles' owner-only RLS and hide everyone from
+-- everyone) and exposes ONLY these three columns — preferences, body photos,
+-- and the rest of user_profiles stay unreachable through it.
+create or replace view public.community_directory as
+  select user_id, display_name, first_name, avatar_url
+  from public.user_profiles;
+
+revoke all on public.community_directory from anon;
+grant select on public.community_directory to authenticated;
+
+-- Messages: only participants can read; only participants can send.
+select public._ensure_policy('messages_select', 'public.messages', 'select', 'public.is_conversation_participant(conversation_id)');
+select public._ensure_policy('messages_insert', 'public.messages', 'insert', 'public.is_conversation_participant(conversation_id) and auth.uid() = sender_id', 'public.is_conversation_participant(conversation_id) and auth.uid() = sender_id');
+
+-- Enable realtime for live chat + feed updates.
+do $$ begin
+  alter publication supabase_realtime add table public.messages;
+exception when duplicate_object then null; end $$;
+do $$ begin
+  alter publication supabase_realtime add table public.community_posts;
+exception when duplicate_object then null; end $$;
+do $$ begin
+  alter publication supabase_realtime add table public.community_comments;
+exception when duplicate_object then null; end $$;
+do $$ begin
+  alter publication supabase_realtime add table public.community_likes;
+exception when duplicate_object then null; end $$;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values
+  ('users',     'users',     false, 10 * 1024 * 1024, array['image/jpeg','image/png','image/webp']),
+  ('wardrobe',  'wardrobe',  false, 10 * 1024 * 1024, array['image/jpeg','image/png','image/webp']),
+  ('clothing',  'clothing',  true,  10 * 1024 * 1024, array['image/jpeg','image/png','image/webp']),
+  ('tryons',    'tryons',    false, 20 * 1024 * 1024, array['image/jpeg','image/png','image/webp']),
+  ('avatars',   'avatars',   false,  5 * 1024 * 1024, array['image/jpeg','image/png','image/webp']),
+  -- Public copies of images the author has explicitly shared to the Community
+  -- feed. Sharing copies bytes here so other users can view them without ever
+  -- getting access to the private wardrobe/avatars buckets.
+  ('community', 'community', true,  10 * 1024 * 1024, array['image/jpeg','image/png','image/webp'])
+on conflict (id) do nothing;
+
+do $$ begin
+  alter table public.clothing       enable row level security;
+  alter table public.clothing_items enable row level security;
+  alter table public.user_profiles  enable row level security;
+  alter table public.body_photos    enable row level security;
+  alter table public.try_on_jobs    enable row level security;
+  alter table public.saved_outfits  enable row level security;
+  alter table public.outfit_plans   enable row level security;
+  alter table public.favorites      enable row level security;
+  alter table public.recently_viewed enable row level security;
 end $$;
 
 select public._ensure_policy('clothing_select', 'public.clothing', 'select', 'auth.role() = ''authenticated''');
@@ -271,6 +482,20 @@ do $$ begin
   if not exists (select 1 from pg_policies where schemaname='storage' and policyname='catalog_public_read_ootdify') then
     create policy catalog_public_read_ootdify on storage.objects for select
       using (bucket_id = 'clothing');
+  end if;
+  -- Community feed images: anyone signed in can read, but only the owner of the
+  -- object (folder = their uid) can write — sharing copies, never wardrobe refs.
+  if not exists (select 1 from pg_policies where schemaname='storage' and policyname='community_read_ootdify') then
+    create policy community_read_ootdify on storage.objects for select
+      using (bucket_id = 'community');
+  end if;
+  if not exists (select 1 from pg_policies where schemaname='storage' and policyname='community_insert_ootdify') then
+    create policy community_insert_ootdify on storage.objects for insert
+      with check (bucket_id = 'community' and auth.uid()::text = owner_id);
+  end if;
+  if not exists (select 1 from pg_policies where schemaname='storage' and policyname='community_delete_ootdify') then
+    create policy community_delete_ootdify on storage.objects for delete
+      using (bucket_id = 'community' and auth.uid()::text = owner_id);
   end if;
   if not exists (select 1 from pg_policies where schemaname='storage' and policyname='user_storage_select_ootdify') then
     create policy user_storage_select_ootdify on storage.objects for select
