@@ -54,7 +54,7 @@ export function TodayLookCard({
     <GlassView
       glassEffectStyle="regular"
       // Force a light material so the near-black type stays readable over the
-      // dark hero it overlaps.
+      // light hero card it sits beneath.
       tintColor={LIQUID_GLASS ? "rgba(255,255,255,0.82)" : undefined}
       colorScheme="light"
       style={[styles.card, !LIQUID_GLASS && styles.cardFallback]}
@@ -190,7 +190,9 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: theme.borderRadius.lg,
     padding: 16,
-    marginTop: -26,
+    // Sits just below the light hero, which now carries the mascot along its
+    // bottom edge — a negative offset would crop the penguin's feet.
+    marginTop: 12,
     overflow: "hidden",
   },
   // Off-iOS (and whenever Liquid Glass isn't in the build) GlassView is a plain
