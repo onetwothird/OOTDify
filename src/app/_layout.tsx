@@ -17,6 +17,7 @@
 // documents are exempt from the signed-out redirect.
 import { Session } from "@supabase/supabase-js";
 import { Stack, useRouter, useSegments } from "expo-router";
+import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold } from "@expo-google-fonts/inter";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
@@ -51,6 +52,14 @@ function hasCurrentConsent(session: Session | null): boolean {
 export default function RootLayout() {
   const [session, setSession] = useState<Session | null>(null);
   const [initialized, setInitialized] = useState(!AUTH_CONFIGURED);
+
+  const [fontsLoaded] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    Inter_800ExtraBold,
+  });
 
   const segments = useSegments();
   const router = useRouter();
@@ -88,8 +97,8 @@ export default function RootLayout() {
 
   // Hide the native splash only after the first real frame can render.
   useEffect(() => {
-    if (initialized) SplashScreen.hideAsync().catch(() => {});
-  }, [initialized]);
+    if (initialized && fontsLoaded) SplashScreen.hideAsync().catch(() => {});
+  }, [initialized, fontsLoaded]);
 
   useEffect(() => {
     if (!initialized) return;
