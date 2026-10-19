@@ -16,6 +16,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -231,12 +232,15 @@ export default function HomeScreen() {
           place={place.label}
           placeStatus={place.status}
           onRequestPlace={place.request}
-          onProfile={() => router.push("/(tabs)/profile")}
           onAvatarChanged={setAvatarRef}
         />
 
         {/* ------------------------------------------------ Hero */}
-        <Hero />
+        <Hero
+          pieceCount={closet.length}
+          lookCount={saved.length}
+          loading={closetLoading || savedLoading}
+        />
 
         {/* ------------------------------------------------ Today's planned look */}
         <TodayLookCard
@@ -469,7 +473,6 @@ function GreetingHeader({
   place,
   placeStatus,
   onRequestPlace,
-  onProfile,
   onAvatarChanged,
 }: {
   nickname: string | null;
@@ -478,7 +481,6 @@ function GreetingHeader({
   place: string | null;
   placeStatus: "loading" | "ready" | "blocked";
   onRequestPlace: () => void;
-  onProfile: () => void;
   onAvatarChanged: (ref: string) => void;
 }) {
   // Recompute the greeting as real time passes so "Good morning" never sticks
@@ -491,31 +493,9 @@ function GreetingHeader({
   const greeting = greetingFor(now.getHours());
   const initial = (nickname?.[0] ?? "").toUpperCase();
 
-  // Typewriter tips: type out a tip, hold it, then advance to the next one.
-  const [tipIndex, setTipIndex] = useState(0);
-  const [typed, setTyped] = useState(0);
-  const tip = GREETING_TIPS[tipIndex];
-
-  useEffect(() => {
-    const done = typed >= tip.length;
-    const id = setTimeout(
-      () => {
-        if (done) {
-          setTyped(0);
-          setTipIndex((i) => (i + 1) % GREETING_TIPS.length);
-        } else {
-          setTyped((n) => n + 1);
-        }
-      },
-      done ? 3000 : 38,
-    );
-    return () => clearTimeout(id);
-  }, [tip, typed]);
-
-  // Entrance (fade + rise), a gentle mascot bob, and a blinking caret.
+  // Entrance (fade + rise). The rotating tips now live in the hero, spoken by
+  // the app's single mascot there.
   const [enter] = useState(() => new Animated.Value(0));
-  const [bob] = useState(() => new Animated.Value(0));
-  const [caret] = useState(() => new Animated.Value(1));
 
   useEffect(() => {
     const entrance = Animated.timing(enter, {
@@ -524,37 +504,9 @@ function GreetingHeader({
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     });
-    const bobLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(bob, {
-          toValue: 1,
-          duration: 1700,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(bob, {
-          toValue: 0,
-          duration: 1700,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-    const caretLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(caret, { toValue: 0, duration: 520, useNativeDriver: true }),
-        Animated.timing(caret, { toValue: 1, duration: 520, useNativeDriver: true }),
-      ]),
-    );
     entrance.start();
-    bobLoop.start();
-    caretLoop.start();
-    return () => {
-      entrance.stop();
-      bobLoop.stop();
-      caretLoop.stop();
-    };
-  }, [enter, bob, caret]);
+    return () => entrance.stop();
+  }, [enter]);
 
   return (
     <Animated.View
@@ -574,34 +526,9 @@ function GreetingHeader({
       ]}
     >
       <View style={[styles.greetBlob, styles.greetBlobA]} pointerEvents="none" />
+      <View style={[styles.greetBlob, styles.greetBlobB]} pointerEvents="none" />
 
       <View style={styles.greetTop}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Open profile"
-          onPress={onProfile}
-          hitSlop={6}
-          style={({ pressed }) => pressed && { opacity: 0.85 }}
-        >
-          <Animated.View
-            style={[
-              styles.mascotWrap,
-              {
-                transform: [
-                  {
-                    translateY: bob.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0, -3],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          >
-            <Mascot size={44} />
-          </Animated.View>
-        </Pressable>
-
         <View style={styles.greetingBody}>
           <View style={styles.greetEyebrowRow}>
             <Pressable
@@ -640,23 +567,6 @@ function GreetingHeader({
           onChanged={onAvatarChanged}
         />
       </View>
-
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Show another tip"
-        onPress={() => {
-          setTyped(0);
-          setTipIndex((i) => (i + 1) % GREETING_TIPS.length);
-        }}
-        style={({ pressed }) => [styles.tipPill, pressed && { opacity: 0.7 }]}
-      >
-        <Ionicons name="bulb-outline" size={15} color={theme.colors.text} />
-        <Text style={styles.tipText} numberOfLines={2}>
-          {tip.slice(0, typed)}
-          <Animated.Text style={[styles.tipCaret, { opacity: caret }]}>▍</Animated.Text>
-        </Text>
-        <Ionicons name="refresh" size={14} color={theme.colors.textMuted} />
-      </Pressable>
     </Animated.View>
   );
 }
@@ -664,20 +574,133 @@ function GreetingHeader({
 // ---------------------------------------------------------------------------
 // Hero
 // ---------------------------------------------------------------------------
-function Hero() {
+// Dashboard-style hero. The mascot is anchored to the bottom-left corner of the
+// card and sized as a share of the card width (≈40% of the visible card once
+// the PNG's transparent margin is accounted for), so it reads as part of the
+// composition rather than a small icon beside the heading.
+function Hero({
+  pieceCount,
+  lookCount,
+  loading,
+}: {
+  pieceCount: number;
+  lookCount: number;
+  loading: boolean;
+}) {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+
+  // The hero sits inside the page gutter, so the card is the window minus both
+  // gutters. Clamped so the mascot stays sane on small phones and tablets.
+  const cardW = Math.max(240, width - theme.spacing.page * 2);
+  const mascot = Math.round(Math.min(Math.max(cardW * 0.5, 128), 300));
+  // Leave a lane beside the mascot so its speech bubble never sits on its body.
+  const mascotLane = Math.round(mascot * 0.72);
+
+  // The mascot "speaks" a rotating styling tip: type it out, hold, then swap.
+  const [tipIndex, setTipIndex] = useState(0);
+  const [typed, setTyped] = useState(0);
+  const tip = GREETING_TIPS[tipIndex];
+
+  useEffect(() => {
+    const done = typed >= tip.length;
+    const id = setTimeout(
+      () => {
+        if (done) {
+          setTyped(0);
+          setTipIndex((i) => (i + 1) % GREETING_TIPS.length);
+        } else {
+          setTyped((n) => n + 1);
+        }
+      },
+      done ? 3000 : 38,
+    );
+    return () => clearTimeout(id);
+  }, [tip, typed]);
+
+  // Entrance (fade + rise), a slow offset bob, and a blinking caret.
+  const [appear] = useState(() => new Animated.Value(0));
+  const [bob] = useState(() => new Animated.Value(0));
+  const [caret] = useState(() => new Animated.Value(1));
+
+  useEffect(() => {
+    const entrance = Animated.timing(appear, {
+      toValue: 1,
+      duration: 520,
+      delay: 100,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    });
+    const bobLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(bob, {
+          toValue: 1,
+          duration: 2100,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(bob, {
+          toValue: 0,
+          duration: 2100,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    const caretLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(caret, { toValue: 0, duration: 520, useNativeDriver: true }),
+        Animated.timing(caret, { toValue: 1, duration: 520, useNativeDriver: true }),
+      ]),
+    );
+    entrance.start();
+    bobLoop.start();
+    caretLoop.start();
+    return () => {
+      entrance.stop();
+      bobLoop.stop();
+      caretLoop.stop();
+    };
+  }, [appear, bob, caret]);
+
   return (
     <View style={styles.hero}>
-      <Text style={styles.heroEyebrow}>OOTDIFY · AI STYLIST</Text>
-      <Text style={styles.heroTitle}>
-        Your wardrobe.
-        {"\n"}
-        Styled by AI.
-      </Text>
-      <Text style={styles.heroText}>
-        Create outfits, try clothes virtually, and discover what to wear next.
-      </Text>
-      <View style={styles.heroActions}>
+      <View style={[styles.heroBlob, styles.heroBlobA]} pointerEvents="none" />
+      <View style={[styles.heroBlob, styles.heroBlobB]} pointerEvents="none" />
+
+      <View style={styles.heroTop}>
+        <View style={styles.heroCopy}>
+          <View style={styles.heroPill}>
+            <Ionicons name="sparkles" size={11} color={theme.colors.text} />
+            <Text style={styles.heroPillText}>OOTDIFY</Text>
+          </View>
+          <Text style={styles.heroTitle}>
+            Your wardrobe.
+            {"\n"}
+            Styled by AI.
+          </Text>
+          <Text style={styles.heroText}>
+            Create outfits, try clothes virtually, and discover what to wear next.
+          </Text>
+        </View>
+
+        {/* Real counts from the user's own rows — dashes until they load. */}
+        <View style={styles.heroStats}>
+          <StatCell
+            icon="shirt-outline"
+            value={loading ? "—" : String(pieceCount)}
+            label="PIECES"
+          />
+          <View style={styles.heroStatDivider} />
+          <StatCell
+            icon="sparkles-outline"
+            value={loading ? "—" : String(lookCount)}
+            label="LOOKS"
+          />
+        </View>
+      </View>
+
+      <View style={styles.heroButtons}>
         <AppButton
           label="Create outfit"
           icon="shirt-outline"
@@ -689,18 +712,114 @@ function Hero() {
           icon="sparkles-outline"
           variant="secondary"
           onPress={() => router.push("/(tabs)/scan")}
-          style={styles.heroBtn}
+          style={[styles.heroBtn, styles.heroBtnAlt]}
         />
       </View>
+
       <Pressable
         accessibilityRole="button"
         onPress={() => router.push("/(tabs)/discover")}
-        style={styles.heroWalletLink}
+        style={({ pressed }) => [styles.heroLink, pressed && { opacity: 0.7 }]}
       >
-        <Ionicons name="folder-open-outline" size={16} color={theme.colors.onPrimary} />
-        <Text style={styles.heroWalletText}>My wardrobe</Text>
-        <Ionicons name="chevron-forward" size={14} color={theme.colors.onPrimary} />
+        <Ionicons name="folder-open-outline" size={15} color={theme.colors.text} />
+        <Text style={styles.heroLinkText}>My wardrobe</Text>
+        <Ionicons name="chevron-forward" size={13} color={theme.colors.textMuted} />
       </Pressable>
+
+      {/* Soft stage the penguin stands on — keeps the corner from feeling empty. */}
+      <View
+        style={[
+          styles.heroStageBlob,
+          {
+            width: Math.round(mascot * 1.1),
+            height: Math.round(mascot * 0.2),
+            left: -Math.round(mascot * 0.16),
+          },
+        ]}
+        pointerEvents="none"
+      />
+
+      {/* The app's one mascot: anchored to the card's bottom-left corner,
+          painted before the bubble so its speech sits in front of it. */}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.heroMascot,
+          {
+            width: mascot,
+            height: mascot,
+            left: -Math.round(mascot * 0.06),
+            bottom: -Math.round(mascot * 0.04),
+            opacity: appear,
+            transform: [
+              {
+                translateY: appear.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [18, 0],
+                }),
+              },
+              {
+                translateY: bob.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, -6],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        <Mascot size={mascot} />
+      </Animated.View>
+
+      {/* One mascot, one voice — the penguin says the rotating tip in a
+          manga-style bubble whose tail points back at its head. */}
+      <View style={[styles.heroSpeak, { minHeight: Math.round(mascot * 0.9) }]}>
+        <View style={{ width: mascotLane }} pointerEvents="none" />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Show another tip"
+          onPress={() => {
+            setTyped(0);
+            setTipIndex((i) => (i + 1) % GREETING_TIPS.length);
+          }}
+          style={({ pressed }) => [styles.bubbleWrap, pressed && { opacity: 0.85 }]}
+        >
+          <View style={styles.bubbleTail} pointerEvents="none" />
+          <View style={styles.bubble}>
+            <View style={styles.bubbleHead}>
+              <Ionicons name="bulb-outline" size={13} color={theme.colors.text} />
+              <Text style={styles.bubbleLabel}>STYLING TIP</Text>
+              <Ionicons name="refresh" size={13} color={theme.colors.textMuted} />
+            </View>
+            <Text style={styles.bubbleText} numberOfLines={3}>
+              {tip.slice(0, typed)}
+              <Animated.Text style={[styles.bubbleCaret, { opacity: caret }]}>▍</Animated.Text>
+            </Text>
+          </View>
+          <View style={styles.bubbleTail} pointerEvents="none" />
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+/** Compact "dashboard widget" cell: real count over a small caps label. */
+function StatCell({
+  icon,
+  value,
+  label,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  value: string;
+  label: string;
+}) {
+  return (
+    <View style={styles.statCell}>
+      <View style={styles.statValueRow}>
+        <Ionicons name={icon} size={13} color="rgba(255,255,255,0.62)" />
+        <Text style={styles.statValue}>{value}</Text>
+      </View>
+      <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
 }
@@ -809,16 +928,14 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(17,17,17,0.035)",
   },
   greetBlobA: { width: 180, height: 180, top: -80, right: -50 },
-  greetTop: { flexDirection: "row", alignItems: "center", gap: 10 },
-  greetMain: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1, minWidth: 0 },
-  mascotWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    backgroundColor: theme.colors.surfaceAlt,
-    alignItems: "center",
-    justifyContent: "center",
+  greetBlobB: {
+    width: 120,
+    height: 120,
+    bottom: -70,
+    left: -40,
+    backgroundColor: "rgba(17,17,17,0.025)",
   },
+  greetTop: { flexDirection: "row", alignItems: "center", gap: 10 },
   greetingBody: { flex: 1, minWidth: 0 },
   greetEyebrowRow: { flexDirection: "row", alignItems: "center", gap: 5, flexWrap: "wrap" },
   locChip: { flexDirection: "row", alignItems: "center", gap: 2, flexShrink: 1, minWidth: 0 },
@@ -842,69 +959,153 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     marginTop: 2,
   },
-  tipPill: {
+  // Manga-style speech bubble — the penguin's voice in the hero
+  bubbleWrap: { flex: 1, minWidth: 0 },
+  bubbleTail: {
+    position: "absolute",
+    left: -7,
+    top: 24,
+    width: 14,
+    height: 14,
+    backgroundColor: theme.colors.surface,
+    borderLeftWidth: 1.5,
+    borderBottomWidth: 1.5,
+    borderColor: theme.colors.text,
+    transform: [{ rotate: "45deg" }],
+  },
+  bubble: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1.5,
+    borderColor: theme.colors.text,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 12,
+  },
+  bubbleHead: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6 },
+  bubbleLabel: {
+    flex: 1,
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 1.3,
+    color: theme.colors.textMuted,
+  },
+  bubbleText: {
+    fontSize: 12.5,
+    lineHeight: 18,
+    fontWeight: "600",
+    color: theme.colors.text,
+    minHeight: 54,
+  },
+  bubbleCaret: { color: theme.colors.text, fontWeight: "700" },
+
+  // Hero (dashboard-style panel; the mascot is anchored bottom-left)
+  hero: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 28,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+    padding: 20,
+    marginTop: theme.spacing.sm,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.07,
+    shadowRadius: 22,
+    elevation: 4,
+  },
+  heroBlob: {
+    position: "absolute",
+    borderRadius: 999,
+    backgroundColor: "rgba(17,17,17,0.03)",
+  },
+  heroBlobA: { width: 220, height: 220, top: -110, right: -70 },
+  heroBlobB: {
+    width: 150,
+    height: 150,
+    bottom: 30,
+    right: -70,
+    backgroundColor: "rgba(17,17,17,0.02)",
+  },
+  heroTop: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  heroCopy: { flex: 1, minWidth: 0 },
+  heroPill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 5,
+    alignSelf: "flex-start",
     backgroundColor: theme.colors.surfaceAlt,
-    borderRadius: theme.borderRadius.md,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginTop: 14,
+    borderRadius: theme.borderRadius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
-  tipText: { flex: 1, fontSize: 12, color: theme.colors.text, lineHeight: 17, minHeight: 34 },
-  tipCaret: { color: theme.colors.textMuted, fontWeight: "700" },
-
-  // Hero
-  hero: {
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.borderRadius.lg,
-    padding: 22,
-    // Extra room at the bottom so the "Today's look" card can overlap the dark
-    // panel without covering the "My wardrobe" link.
-    paddingBottom: 44,
-    marginTop: theme.spacing.sm,
-  },
-  heroEyebrow: {
-    color: "#B8B8B8",
-    fontSize: 11,
+  heroPillText: {
+    fontSize: 10.5,
     fontWeight: "800",
-    letterSpacing: 2,
-    marginBottom: 10,
+    letterSpacing: 1.2,
+    color: theme.colors.text,
   },
   heroTitle: {
-    color: theme.colors.onPrimary,
-    fontSize: 34,
-    lineHeight: 38,
+    fontSize: 30,
+    lineHeight: 34,
     fontWeight: "800",
-    letterSpacing: -1,
+    letterSpacing: -0.8,
+    color: theme.colors.text,
+    marginTop: 12,
   },
   heroText: {
-    color: "#C9C9C9",
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 10,
-    maxWidth: 300,
+    fontSize: 13.5,
+    lineHeight: 19,
+    color: theme.colors.textMuted,
+    marginTop: 8,
   },
-  heroActions: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    marginTop: 18,
+  heroStats: {
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.borderRadius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    gap: 9,
+    minWidth: 88,
   },
-  heroBtn: { flexGrow: 1, flexShrink: 1, flexBasis: 150, minWidth: 140 },
-  heroWalletLink: {
+  heroStatDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: "rgba(255,255,255,0.18)",
+  },
+  statCell: { gap: 1 },
+  statValueRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  statValue: {
+    fontSize: 17,
+    fontWeight: "800",
+    letterSpacing: -0.4,
+    color: theme.colors.onPrimary,
+  },
+  statLabel: {
+    fontSize: 9.5,
+    fontWeight: "700",
+    letterSpacing: 0.8,
+    color: "rgba(255,255,255,0.6)",
+  },
+  heroStageBlob: {
+    position: "absolute",
+    bottom: 0,
+    borderRadius: 999,
+    backgroundColor: "rgba(17,17,17,0.05)",
+  },
+  heroSpeak: { flexDirection: "row", alignItems: "center", marginTop: 18 },
+  heroButtons: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 18 },
+  heroBtn: { flexGrow: 1, flexShrink: 1, flexBasis: 150, minWidth: 130 },
+  // The card is light, so the white "secondary" fill needs a visible tint.
+  heroBtnAlt: { backgroundColor: theme.colors.surfaceAlt },
+  heroLink: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    marginTop: 14,
+    paddingVertical: 4,
+    marginTop: 12,
     alignSelf: "flex-start",
   },
-  heroWalletText: {
-    color: theme.colors.onPrimary,
-    fontSize: 13.5,
-    fontWeight: "700",
-  },
+  heroLinkText: { fontSize: 13.5, fontWeight: "700", color: theme.colors.text },
+  heroMascot: { position: "absolute" },
 
   // Sections
   chips: { gap: 8, paddingRight: 16, paddingBottom: 4 },
