@@ -14,8 +14,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import { Alert } from "react-native";
 
-import { updateProfile } from "../../services/aiApi";
-import { checkProfilePhoto } from "../../services/aiApi";
+import { checkProfilePhoto, updateProfile } from "../../services/aiApi";
 import { supabase } from "../../shared/lib/supabase";
 import { toast } from "../../shared/lib/toast";
 import type { PhotoCheckResult } from "./avatarStore";
