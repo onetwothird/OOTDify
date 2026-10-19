@@ -42,10 +42,10 @@ export const theme = {
   typography: {
     display: { fontSize: 34, lineHeight: 38, fontWeight: "800", letterSpacing: -1 },
     hero: { fontSize: 26, lineHeight: 32, fontWeight: "800", letterSpacing: -0.5 },
-    heading: { fontSize: 20, lineHeight: 26, fontWeight: "800", letterSpacing: -0.3 },
-    subheading: { fontSize: 16, lineHeight: 22, fontWeight: "700" },
-    body: { fontSize: 14, lineHeight: 20, fontWeight: "400" },
-    caption: { fontSize: 12, lineHeight: 16, fontWeight: "500" },
+    heading: { fontSize: 20, lineHeight: 26, fontWeight: "800", letterSpacing: -0.2 },
+    subheading: { fontSize: 16, lineHeight: 22, fontWeight: "700", letterSpacing: -0.1 },
+    body: { fontSize: 15, lineHeight: 22, fontWeight: "400", letterSpacing: -0.05 },
+    caption: { fontSize: 12.5, lineHeight: 17, fontWeight: "500" },
     micro: { fontSize: 10.5, lineHeight: 14, fontWeight: "700", letterSpacing: 1 },
   },
 } as const;
