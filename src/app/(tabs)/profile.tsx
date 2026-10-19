@@ -131,7 +131,7 @@ export default function ProfileScreen() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [setAvatarRef]);
 
   // Handler-facing wrapper: show the spinner and clear the previous error.
   const load = useCallback(async () => {
@@ -217,7 +217,7 @@ export default function ProfileScreen() {
     "?"
   ).toUpperCase();
   const displayName =
-    [firstName.trim(), lastName.trim()].filter(Boolean).join(" ") || "Your profile";
+    [firstName.trim(), lastName.trim()].filter(Boolean).join(" ") || "Profile";
 
   return (
     <KeyboardAvoidingView
