@@ -74,6 +74,10 @@ export default function HomeScreen() {
   const [recent, setRecent] = useState<CatalogItem[]>([]);
   const [recentLoading, setRecentLoading] = useState(true);
 
+  // Which Home section is visible. The old layout stacked every section in one
+  // long scroll; the switcher shows one at a time so the page stays short.
+  const [homeTab, setHomeTab] = useState<"discover" | "wardrobe" | "looks">("discover");
+
   // ---- Today's planned look (public.outfit_plans, owner-only via RLS) ------
   const [todayPlan, setTodayPlan] = useState<OutfitPlan | null>(null);
   const [planLoading, setPlanLoading] = useState(true);
@@ -86,7 +90,6 @@ export default function HomeScreen() {
   const setAvatarRef = useAvatarStore((s) => s.setRef);
   const setPhotoCheck = useAvatarStore((s) => s.setCheck);
   const [greetingLoading, setGreetingLoading] = useState(true);
-  const place = useCurrentPlace();
 
   // ---------------------------------------------------------------------------
   // Loaders (real endpoints only)
@@ -237,14 +240,11 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* ------------------------------------------------ Greeting header */}
-        <GreetingHeader
+        {/* ------------------------------------------------ Top bar */}
+        <HomeTopBar
           nickname={nickname}
           avatarRef={avatarRef}
           loading={greetingLoading}
-          place={place.label}
-          placeStatus={place.status}
-          onRequestPlace={place.request}
           onOpenProfile={() => router.push("/(tabs)/profile")}
         />
 
@@ -267,194 +267,225 @@ export default function HomeScreen() {
           }
         />
 
-        {/* ------------------------------------------------ Recommended looks */}
-        <SectionHeader
-          title="Recommended for you"
-          subtitle={`Real catalog picks for “${occasion}”, scored by the style engine.`}
-        />
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chips}
-        >
-          {OCCASIONS.map((occ) => (
-            <Chip
-              key={occ}
-              label={occ}
-              active={occ === occasion}
-              onPress={() => setOccasion(occ)}
-            />
-          ))}
-        </ScrollView>
-        <View style={styles.chipsSpacer} />
-
-        {recLoading ? (
-          <SkeletonGrid />
-        ) : recError ? (
-          <View style={styles.unavailable}>
-            <Ionicons name="cloud-offline-outline" size={20} color={theme.colors.accent} />
-            <View style={styles.unavailableBody}>
-              <Text style={styles.unavailableTitle}>AI styling is temporarily unavailable</Text>
-              <Text style={styles.unavailableText}>
-                {recError.message} Make sure the AI service is running, then try again.
-              </Text>
-            </View>
+        {/* ------------------------------------------------ Section switcher */}
+        <View style={styles.segment}>
+          {(
+            [
+              ["discover", "Discover"],
+              ["wardrobe", "Wardrobe"],
+              ["looks", "Looks"],
+            ] as const
+          ).map(([key, label]) => (
             <Pressable
-              accessibilityRole="button"
-              onPress={() => void loadRecommendations(occasion)}
-              style={styles.unavailableRetry}
+              key={key}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: homeTab === key }}
+              onPress={() => setHomeTab(key)}
+              style={[styles.segmentBtn, homeTab === key && styles.segmentBtnActive]}
             >
-              <Text style={styles.unavailableRetryText}>Retry</Text>
+              <Text style={[styles.segmentText, homeTab === key && styles.segmentTextActive]}>
+                {label}
+              </Text>
             </Pressable>
-          </View>
-        ) : recommended.length === 0 ? (
-          <Text style={styles.emptyLine}>
-            No catalog items for this occasion yet — try another one.
-          </Text>
-        ) : (
-          <View style={styles.grid} onLayout={onLayout}>
-            {recommended.map((item) => (
-              <ClothingCard
-                key={item.id}
-                item={item}
-                width={itemWidth}
-                onPress={() => openItem(item)}
-              />
-            ))}
-          </View>
-        )}
+          ))}
+        </View>
 
-        {/* ------------------------------------------------ My wardrobe */}
-        <SectionHeader
-          title="My wardrobe"
-          subtitle="Your pieces, stored privately."
-          actionLabel="Open"
-          onAction={() => router.push("/(tabs)/discover")}
-        />
-        {closetLoading && closet.length === 0 ? (
-          <View style={styles.hRow}>
-            {[0, 1, 2].map((i) => (
-              <Skeleton key={i} width={110} height={140} radius={theme.borderRadius.md} />
-            ))}
-          </View>
-        ) : closet.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <View style={styles.emptyTop}>
-              <View style={styles.emptyIconTile}>
-                <Ionicons name="shirt-outline" size={22} color={theme.colors.text} />
-              </View>
-              <View style={styles.emptyBody}>
-                <Text style={styles.emptyTitle}>Your wardrobe is empty</Text>
-                <Text style={styles.emptyText}>
-                  Add your first pieces to build looks and try them on.
-                </Text>
-              </View>
-            </View>
-            <AppButton
-              label="Add clothes"
-              size="md"
-              icon="add"
-              onPress={() => router.push("/(tabs)/discover")}
-              style={styles.emptyBtn}
+        {homeTab === "discover" ? (
+          <>
+            {/* ------------------------------------------------ Recommended looks */}
+            <SectionHeader
+              title="Recommended for you"
+              subtitle={`Real catalog picks for “${occasion}”, scored by the style engine.`}
             />
-          </View>
-        ) : (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.tileRow}
-          >
-            {closet.slice(0, 8).map((item) => (
-              <WardrobeTile
-                key={item.id}
-                id={item.id}
-                imageRef={item.image_url}
-                name={item.name || item.category || "Item"}
-                category={item.category ?? ""}
-                onPress={() => router.push(`/item/${item.id}`)}
-              />
-            ))}
-          </ScrollView>
-        )}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.chips}
+            >
+              {OCCASIONS.map((occ) => (
+                <Chip
+                  key={occ}
+                  label={occ}
+                  active={occ === occasion}
+                  onPress={() => setOccasion(occ)}
+                />
+              ))}
+            </ScrollView>
+            <View style={styles.chipsSpacer} />
 
-        {/* ------------------------------------------------ Recent looks (saved) */}
-        <SectionHeader
-          title="Recent looks"
-          subtitle="Outfits you saved — built from real pieces."
-          actionLabel="All"
-          onAction={() => router.push("/(tabs)/outfits")}
-        />
-        {savedLoading ? (
-          <SkeletonRow />
-        ) : saved.length === 0 ? (
-          <Text style={styles.emptyLine}>
-            Build your first outfit and it will show up here.
-          </Text>
-        ) : (
-          <View style={styles.savedList}>
-            {saved.slice(0, 4).map((o) => (
-              <SavedLookRow
-                key={o.id}
-                outfit={o}
-                onPress={() => router.push(`/outfit/${o.id}`)}
-              />
-            ))}
-          </View>
-        )}
+            {recLoading ? (
+              <SkeletonGrid />
+            ) : recError ? (
+              <View style={styles.unavailable}>
+                <Ionicons name="cloud-offline-outline" size={20} color={theme.colors.accent} />
+                <View style={styles.unavailableBody}>
+                  <Text style={styles.unavailableTitle}>AI styling is temporarily unavailable</Text>
+                  <Text style={styles.unavailableText}>
+                    {recError.message} Make sure the AI service is running, then try again.
+                  </Text>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => void loadRecommendations(occasion)}
+                  style={styles.unavailableRetry}
+                >
+                  <Text style={styles.unavailableRetryText}>Retry</Text>
+                </Pressable>
+              </View>
+            ) : recommended.length === 0 ? (
+              <Text style={styles.emptyLine}>
+                No catalog items for this occasion yet — try another one.
+              </Text>
+            ) : (
+              <View style={styles.grid} onLayout={onLayout}>
+                {recommended.map((item) => (
+                  <ClothingCard
+                    key={item.id}
+                    item={item}
+                    width={itemWidth}
+                    onPress={() => openItem(item)}
+                  />
+                ))}
+              </View>
+            )}
 
-        {/* ------------------------------------------------ Recently viewed */}
-        <SectionHeader title="Recently viewed" subtitle="Pick up where you left off." />
-        {recentLoading ? (
-          <SkeletonRow />
-        ) : recent.length === 0 ? (
-          <Text style={styles.emptyLine}>
-            Items you open will appear here.
-          </Text>
+            {/* ------------------------------------------------ Trending inspiration */}
+            <SectionHeader
+              title="Trending inspiration"
+              subtitle="Fresh from the catalog."
+              actionLabel="Browse"
+              onAction={() => router.push("/(tabs)/discover")}
+            />
+            {trendingLoading ? (
+              <SkeletonGrid count={3} />
+            ) : trendingError ? (
+              <Text style={styles.emptyLine}>{trendingError}</Text>
+            ) : trending.length === 0 ? (
+              <Text style={styles.emptyLine}>The catalog is being seeded — check back soon.</Text>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.tileRow}
+              >
+                {trending.map((item) => (
+                  <ClothingCard
+                    key={item.id}
+                    item={item}
+                    width={HORIZONTAL_CARD_W}
+                    onPress={() => openItem(item)}
+                  />
+                ))}
+              </ScrollView>
+            )}
+          </>
+        ) : homeTab === "wardrobe" ? (
+          <>
+            {/* ------------------------------------------------ My wardrobe */}
+            <SectionHeader
+              title="My wardrobe"
+              subtitle="Your pieces, stored privately."
+              actionLabel="Open"
+              onAction={() => router.push("/(tabs)/discover")}
+            />
+            {closetLoading && closet.length === 0 ? (
+              <View style={styles.hRow}>
+                {[0, 1, 2].map((i) => (
+                  <Skeleton key={i} width={110} height={140} radius={theme.borderRadius.md} />
+                ))}
+              </View>
+            ) : closet.length === 0 ? (
+              <View style={styles.emptyCard}>
+                <View style={styles.emptyTop}>
+                  <View style={styles.emptyIconTile}>
+                    <Ionicons name="shirt-outline" size={22} color={theme.colors.text} />
+                  </View>
+                  <View style={styles.emptyBody}>
+                    <Text style={styles.emptyTitle}>Your wardrobe is empty</Text>
+                    <Text style={styles.emptyText}>
+                      Add your first pieces to build looks and try them on.
+                    </Text>
+                  </View>
+                </View>
+                <AppButton
+                  label="Add clothes"
+                  size="md"
+                  icon="add"
+                  onPress={() => router.push("/(tabs)/discover")}
+                  style={styles.emptyBtn}
+                />
+              </View>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.tileRow}
+              >
+                {closet.slice(0, 8).map((item) => (
+                  <WardrobeTile
+                    key={item.id}
+                    id={item.id}
+                    imageRef={item.image_url}
+                    name={item.name || item.category || "Item"}
+                    category={item.category ?? ""}
+                    onPress={() => router.push(`/item/${item.id}`)}
+                  />
+                ))}
+              </ScrollView>
+            )}
+          </>
         ) : (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.tileRow}
-          >
-            {recent.slice(0, 10).map((item) => (
-              <ClothingCard
-                key={item.id}
-                item={item}
-                width={HORIZONTAL_CARD_W}
-                onPress={() => openItem(item)}
-              />
-            ))}
-          </ScrollView>
-        )}
+          <>
+            {/* ------------------------------------------------ Recent looks (saved) */}
+            <SectionHeader
+              title="Recent looks"
+              subtitle="Outfits you saved — built from real pieces."
+              actionLabel="All"
+              onAction={() => router.push("/(tabs)/outfits")}
+            />
+            {savedLoading ? (
+              <SkeletonRow />
+            ) : saved.length === 0 ? (
+              <Text style={styles.emptyLine}>
+                Build your first outfit and it will show up here.
+              </Text>
+            ) : (
+              <View style={styles.savedList}>
+                {saved.slice(0, 4).map((o) => (
+                  <SavedLookRow
+                    key={o.id}
+                    outfit={o}
+                    onPress={() => router.push(`/outfit/${o.id}`)}
+                  />
+                ))}
+              </View>
+            )}
 
-        {/* ------------------------------------------------ Trending inspiration */}
-        <SectionHeader
-          title="Trending inspiration"
-          subtitle="Fresh from the catalog."
-          actionLabel="Browse"
-          onAction={() => router.push("/(tabs)/discover")}
-        />
-        {trendingLoading ? (
-          <SkeletonGrid count={3} />
-        ) : trendingError ? (
-          <Text style={styles.emptyLine}>{trendingError}</Text>
-        ) : trending.length === 0 ? (
-          <Text style={styles.emptyLine}>The catalog is being seeded — check back soon.</Text>
-        ) : (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.tileRow}
-          >
-            {trending.map((item) => (
-              <ClothingCard
-                key={item.id}
-                item={item}
-                width={HORIZONTAL_CARD_W}
-                onPress={() => openItem(item)}
-              />
-            ))}
-          </ScrollView>
+            {/* ------------------------------------------------ Recently viewed */}
+            <SectionHeader title="Recently viewed" subtitle="Pick up where you left off." />
+            {recentLoading ? (
+              <SkeletonRow />
+            ) : recent.length === 0 ? (
+              <Text style={styles.emptyLine}>
+                Items you open will appear here.
+              </Text>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.tileRow}
+              >
+                {recent.slice(0, 10).map((item) => (
+                  <ClothingCard
+                    key={item.id}
+                    item={item}
+                    width={HORIZONTAL_CARD_W}
+                    onPress={() => openItem(item)}
+                  />
+                ))}
+              </ScrollView>
+            )}
+          </>
         )}
       </ScrollView>
     </View>
@@ -479,21 +510,18 @@ function greetingFor(hour: number): string {
   return "Good Evening";
 }
 
-function GreetingHeader({
+// Flat top bar: greeting on the left, settings + avatar on the right. The old
+// greeting card (with blobs and the location chip) is gone — the header is now
+// a light row so the hero below carries the visual weight.
+function HomeTopBar({
   nickname,
   avatarRef,
   loading,
-  place,
-  placeStatus,
-  onRequestPlace,
   onOpenProfile,
 }: {
   nickname: string | null;
   avatarRef: string | null;
   loading: boolean;
-  place: string | null;
-  placeStatus: "loading" | "ready" | "blocked";
-  onRequestPlace: () => void;
   onOpenProfile: () => void;
 }) {
   // Recompute the greeting as real time passes so "Good morning" never sticks
@@ -506,8 +534,7 @@ function GreetingHeader({
   const greeting = greetingFor(now.getHours());
   const initial = (nickname?.[0] ?? "").toUpperCase();
 
-  // Entrance (fade + rise). The rotating tips now live in the hero, spoken by
-  // the app's single mascot there.
+  // Entrance (fade + rise).
   const [enter] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
@@ -524,64 +551,32 @@ function GreetingHeader({
   return (
     <Animated.View
       style={[
-        styles.greetCard,
+        styles.topBar,
         {
           opacity: enter,
           transform: [
             {
               translateY: enter.interpolate({
                 inputRange: [0, 1],
-                outputRange: [14, 0],
+                outputRange: [10, 0],
               }),
             },
           ],
         },
       ]}
     >
-      <View style={[styles.greetBlob, styles.greetBlobA]} pointerEvents="none" />
-      <View style={[styles.greetBlob, styles.greetBlobB]} pointerEvents="none" />
-
-      <View style={styles.greetTop}>
-        <View style={styles.greetingBody}>
-          <View style={styles.greetEyebrowRow}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={place ? "Refresh location" : "Set your location"}
-              onPress={onRequestPlace}
-              hitSlop={6}
-              style={styles.locChip}
-            >
-              <Ionicons name="location-outline" size={11} color={theme.colors.textMuted} />
-              <Text style={styles.locText} numberOfLines={1}>
-                {placeStatus === "loading" ? "Locating…" : place ?? "Set location"}
-              </Text>
-            </Pressable>
-          </View>
-          <Text style={styles.greetingTitle} numberOfLines={2}>
-            {nickname
-              ? `${greeting}, ${nickname}!`
-              : loading
-                ? "One moment…"
-                : `${greeting}!`}
-          </Text>
-          <Text style={styles.greetingSub} numberOfLines={1}>
-            {nickname
-              ? "Here's what works today."
-              : loading
-                ? "Checking your account…"
-                : "Style your wardrobe with AI."}
-          </Text>
-        </View>
-
-        {/* The user's real photo — tap opens Profile, where it can be changed.
-            No camera badge here: the header only shows, it never edits. */}
-        <ProfileAvatar
-          size={48}
-          initial={initial}
-          avatarRef={avatarRef}
-          onPress={onOpenProfile}
-        />
+      <View style={styles.greetingBody}>
+        <Text style={styles.greetingTitle} numberOfLines={1}>
+          {nickname ? `${greeting}, ${nickname}!` : loading ? "…" : `${greeting}!`}
+        </Text>
       </View>
+
+      <ProfileAvatar
+        size={40}
+        initial={initial}
+        avatarRef={avatarRef}
+        onPress={onOpenProfile}
+      />
     </Animated.View>
   );
 }
@@ -922,57 +917,22 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   content: { paddingHorizontal: theme.spacing.page, paddingBottom: 40 },
 
-  // Greeting header
-  greetCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.colors.border,
-    padding: 16,
+  // Top bar (flat, no card)
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
     marginTop: theme.spacing.sm,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06,
-    shadowRadius: 18,
-    elevation: 3,
+    marginBottom: theme.spacing.xs,
   },
-  greetBlob: {
-    position: "absolute",
-    borderRadius: 999,
-    backgroundColor: "rgba(17,17,17,0.035)",
-  },
-  greetBlobA: { width: 180, height: 180, top: -80, right: -50 },
-  greetBlobB: {
-    width: 120,
-    height: 120,
-    bottom: -70,
-    left: -40,
-    backgroundColor: "rgba(17,17,17,0.025)",
-  },
-  greetTop: { flexDirection: "row", alignItems: "center", gap: 10 },
   greetingBody: { flex: 1, minWidth: 0 },
-  greetEyebrowRow: { flexDirection: "row", alignItems: "center", gap: 5, flexWrap: "wrap" },
-  locChip: { flexDirection: "row", alignItems: "center", gap: 2, flexShrink: 1, minWidth: 0 },
-  locText: {
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 0.6,
-    color: theme.colors.textMuted,
-    flexShrink: 1,
-  },
   greetingTitle: {
-    fontSize: 19,
-    lineHeight: 24,
+    fontSize: 20,
+    lineHeight: 26,
     fontWeight: "800",
     letterSpacing: -0.4,
     color: theme.colors.text,
-    marginTop: 3,
-  },
-  greetingSub: {
-    fontSize: 12.5,
-    color: theme.colors.textMuted,
-    marginTop: 2,
   },
   // Manga-style speech bubble — the penguin's voice in the hero
   bubbleWrap: { flex: 1, minWidth: 0 },
@@ -1125,6 +1085,25 @@ const styles = StyleSheet.create({
   // Sections
   chips: { gap: 8, paddingRight: 16, paddingBottom: 4 },
   chipsSpacer: { height: 4 },
+  segment: {
+    flexDirection: "row",
+    backgroundColor: theme.colors.surfaceAlt,
+    borderRadius: theme.borderRadius.pill,
+    padding: 4,
+    gap: 4,
+    marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.xs,
+  },
+  segmentBtn: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 9,
+    borderRadius: theme.borderRadius.pill,
+  },
+  segmentBtnActive: { backgroundColor: theme.colors.primary },
+  segmentText: { fontSize: 13, fontWeight: "700", color: theme.colors.textMuted },
+  segmentTextActive: { color: theme.colors.onPrimary },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
