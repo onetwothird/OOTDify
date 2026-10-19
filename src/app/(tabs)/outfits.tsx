@@ -3,6 +3,7 @@
 // asks the server for real catalog recommendations, composes a deterministic
 // outfit, and persists it. No mock looks, no hardcoded content.
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -12,6 +13,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -19,6 +21,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CatalogItem, OCCASIONS } from "../../features/clothing/types";
 import {
   deleteSavedOutfit,
+  fetchCatalog,
   fetchSavedOutfits,
   insertSavedOutfit,
   SavedOutfit,
@@ -47,6 +50,10 @@ const CONDITIONS = [
 export default function OutfitsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { width: winWidth } = useWindowDimensions();
+  // Two-column grid, one column on very narrow screens (<360dp content width).
+  const gridCardWidth =
+    winWidth - 16 * 2 < 360 ? winWidth - 16 * 2 : (winWidth - 16 * 2 - 10) / 2;
 
   // Deep link support: Home's "Today's look" card opens the calendar directly.
   const { view: viewParam } = useLocalSearchParams<{ view?: string }>();
@@ -55,6 +62,8 @@ export default function OutfitsScreen() {
   const [saved, setSaved] = useState<SavedOutfit[]>([]);
   const [savedLoading, setSavedLoading] = useState(true);
   const [savedError, setSavedError] = useState<string | null>(null);
+  // clothing_id -> real catalog row, so saved outfits can show item thumbnails.
+  const [catalogById, setCatalogById] = useState<Record<string, CatalogItem>>({});
 
   // Builder state
   const [builderMode, setBuilderMode] = useState(false);
@@ -102,6 +111,29 @@ export default function OutfitsScreen() {
       .then(() => fetchSavedRows())
       .catch(() => {});
   }, [fetchSavedRows]);
+
+  // Hydrate the real catalog rows referenced by saved outfits so each look can
+  // show its actual item thumbnails. Failures are non-fatal: rows fall back to
+  // the icon when the catalog lookup fails — nothing is faked.
+  useEffect(() => {
+    const ids = Array.from(new Set(saved.flatMap((o) => o.clothing_ids ?? [])));
+    if (!ids.length) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const items = await fetchCatalog({ ids, limit: ids.length });
+        if (cancelled) return;
+        const map: Record<string, CatalogItem> = {};
+        for (const item of items) map[item.id] = item;
+        setCatalogById((prev) => ({ ...prev, ...map }));
+      } catch {
+        // Non-fatal: saved looks still render with the fallback icon.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [saved]);
 
   const build = async () => {
     setBuilding(true);
@@ -222,27 +254,36 @@ export default function OutfitsScreen() {
                 ? "Plan which look to wear each day."
                 : "Looks you've built and saved."
           }
+          right={
+            builderMode ? null : (
+              <View style={styles.headerActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Build outfit"
+                  hitSlop={6}
+                  onPress={() => setBuilderMode(true)}
+                  style={({ pressed }) => [styles.headerAction, pressed && { opacity: 0.7 }]}
+                >
+                  <Ionicons name="add-circle-outline" size={20} color={theme.colors.primary} />
+                  <Text style={styles.headerActionText}>Build</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="AI Picker"
+                  hitSlop={6}
+                  onPress={() => router.push("/ai-picker")}
+                  style={({ pressed }) => [styles.headerAction, pressed && { opacity: 0.7 }]}
+                >
+                  <Ionicons name="sparkles-outline" size={20} color={theme.colors.primary} />
+                  <Text style={styles.headerActionText}>AI Picker</Text>
+                </Pressable>
+              </View>
+            )
+          }
         />
 
         {!builderMode ? (
           <>
-            {/* Primary actions: Build + AI Picker - moved up for better UX */}
-            <View style={styles.ctaRow}>
-              <AppButton
-                label="Build outfit"
-                icon="add-circle-outline"
-                onPress={() => setBuilderMode(true)}
-                style={styles.ctaFlex}
-              />
-              <AppButton
-                label="AI Picker"
-                icon="sparkles-outline"
-                variant="secondary"
-                onPress={() => router.push("/ai-picker")}
-                style={styles.ctaFlex}
-              />
-            </View>
-
             <View style={styles.segment}>
               <Pressable
                 accessibilityRole="button"
@@ -280,35 +321,35 @@ export default function OutfitsScreen() {
                 <SectionHeader
                   title="Saved looks"
                   subtitle="Outfits you've built and kept."
+                  right={(
+                    <View style={styles.viewToggle}>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: looksView === "list" }}
+                        onPress={() => setLooksView("list")}
+                        style={[styles.toggleBtn, looksView === "list" && styles.toggleBtnActive]}
+                      >
+                        <Ionicons
+                          name="list"
+                          size={14}
+                          color={looksView === "list" ? theme.colors.onPrimary : theme.colors.textMuted}
+                        />
+                      </Pressable>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: looksView === "grid" }}
+                        onPress={() => setLooksView("grid")}
+                        style={[styles.toggleBtn, looksView === "grid" && styles.toggleBtnActive]}
+                      >
+                        <Ionicons
+                          name="grid"
+                          size={14}
+                          color={looksView === "grid" ? theme.colors.onPrimary : theme.colors.textMuted}
+                        />
+                      </Pressable>
+                    </View>
+                  )}
                 />
-                <View style={styles.displayToggleWrap}>
-                  <View style={styles.viewToggle}>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: looksView === "list" }}
-                      onPress={() => setLooksView("list")}
-                      style={[styles.toggleBtn, looksView === "list" && styles.toggleBtnActive]}
-                    >
-                      <Ionicons
-                        name="list"
-                        size={14}
-                        color={looksView === "list" ? theme.colors.onPrimary : theme.colors.textMuted}
-                      />
-                    </Pressable>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: looksView === "grid" }}
-                      onPress={() => setLooksView("grid")}
-                      style={[styles.toggleBtn, looksView === "grid" && styles.toggleBtnActive]}
-                    >
-                      <Ionicons
-                        name="grid"
-                        size={14}
-                        color={looksView === "grid" ? theme.colors.onPrimary : theme.colors.textMuted}
-                      />
-                    </Pressable>
-                  </View>
-                </View>
 
                 {savedLoading ? (
                   <LoadingState label="Loading outfits" />
@@ -327,6 +368,7 @@ export default function OutfitsScreen() {
                     <SavedOutfitRow
                       key={o.id}
                       outfit={o}
+                      thumbnails={thumbnailsFor(o, catalogById)}
                       onPress={() => router.push(`/outfit/${o.id}`)}
                       onDelete={() => removeOutfit(o.id)}
                     />
@@ -337,6 +379,8 @@ export default function OutfitsScreen() {
                       <SavedOutfitCard
                         key={o.id}
                         outfit={o}
+                        thumbnails={thumbnailsFor(o, catalogById)}
+                        width={gridCardWidth}
                         onPress={() => router.push(`/outfit/${o.id}`)}
                         onDelete={() => removeOutfit(o.id)}
                       />
@@ -450,12 +494,64 @@ export default function OutfitsScreen() {
   );
 }
 
+/**
+ * First few real thumbnails for a saved look, in the outfit's own item order.
+ * Falls back to [] when the catalog rows are unavailable.
+ */
+function thumbnailsFor(
+  outfit: SavedOutfit,
+  catalog: Record<string, CatalogItem>,
+  max = 4,
+): string[] {
+  const urls: string[] = [];
+  for (const id of outfit.clothing_ids ?? []) {
+    const item = catalog[id];
+    const url = item?.thumbnail_url || item?.image_url;
+    if (url) urls.push(url);
+    if (urls.length >= max) break;
+  }
+  return urls;
+}
+
+/** Row of item thumbnails for a look; falls back to the shirt icon. */
+function LookThumbs({ urls, size, gap }: { urls: string[]; size: number; gap: number }) {
+  if (!urls.length) {
+    return (
+      <View style={[styles.lookIcon, { width: size, height: size }]}>
+        <Ionicons name="shirt-outline" size={Math.round(size * 0.42)} color={theme.colors.primary} />
+      </View>
+    );
+  }
+  return (
+    <View style={styles.lookIcon}>
+      {urls.map((url, i) => (
+        <Image
+          key={`${url}-${i}`}
+          source={{ uri: url }}
+          style={{
+            width: size,
+            height: size,
+            borderRadius: theme.borderRadius.sm,
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: theme.colors.border,
+            marginLeft: i === 0 ? 0 : -size + gap,
+            zIndex: urls.length - i,
+          }}
+          contentFit="cover"
+        />
+      ))}
+    </View>
+  );
+}
+
 function SavedOutfitRow({
   outfit,
+  thumbnails,
   onPress,
   onDelete,
 }: {
   outfit: SavedOutfit;
+  thumbnails?: string[];
   onPress: () => void;
   onDelete: () => void;
 }) {
@@ -466,9 +562,7 @@ function SavedOutfitRow({
       onPress={onPress}
       style={({ pressed }) => [styles.savedRow, pressed && { opacity: 0.9 }]}
     >
-      <View style={styles.savedIcon}>
-        <Ionicons name="shirt-outline" size={20} color={theme.colors.primary} />
-      </View>
+      <LookThumbs urls={thumbnails ?? []} size={42} gap={10} />
       <View style={styles.savedBody}>
         <Text style={styles.savedName} numberOfLines={1}>
           {outfit.name || "Untitled outfit"}
@@ -487,10 +581,14 @@ function SavedOutfitRow({
 
 function SavedOutfitCard({
   outfit,
+  thumbnails,
+  width,
   onPress,
   onDelete,
 }: {
   outfit: SavedOutfit;
+  thumbnails?: string[];
+  width?: number;
   onPress: () => void;
   onDelete: () => void;
 }) {
@@ -499,10 +597,14 @@ function SavedOutfitCard({
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      style={({ pressed }) => [styles.savedCard, pressed && { opacity: 0.95 }]}
+      style={({ pressed }) => [
+        styles.savedCard,
+        width ? { width } : null,
+        pressed && { opacity: 0.95 },
+      ]}
     >
-      <View style={styles.savedCardIconWrap}>
-        <Ionicons name="shirt-outline" size={24} color={theme.colors.primary} />
+      <View style={styles.savedCardMedia}>
+        <LookThumbs urls={thumbnails ?? []} size={64} gap={16} />
       </View>
       <View style={styles.savedCardBody}>
         <Text style={styles.savedCardName} numberOfLines={2}>
@@ -533,8 +635,19 @@ function SavedOutfitCard({
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   content: { paddingHorizontal: 16, paddingBottom: 40, gap: 12 },
-  ctaRow: { flexDirection: "row", gap: 10 },
-  ctaFlex: { flex: 1 },
+  headerActions: { flexDirection: "row", gap: 14, alignItems: "center" },
+  headerAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingVertical: 7,
+    paddingHorizontal: 11,
+    borderRadius: theme.borderRadius.pill,
+    backgroundColor: theme.colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+  },
+  headerActionText: { fontSize: 12.5, fontWeight: "700", color: theme.colors.primary },
   sectionLabel: {
     fontSize: 11,
     fontWeight: "800",
@@ -619,14 +732,16 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     padding: 12,
   },
-  savedIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: theme.colors.primaryMuted,
+  lookIcon: {
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    borderRadius: theme.borderRadius.sm,
+    backgroundColor: theme.colors.primaryMuted,
+    minWidth: 42,
+    minHeight: 42,
   },
+  savedCardMedia: { alignItems: "center", justifyContent: "center", minHeight: 64 },
   savedBody: { flex: 1, minWidth: 0 },
   savedName: { fontSize: 14, fontWeight: "700", color: theme.colors.text },
   savedMeta: { fontSize: 11.5, color: theme.colors.textMuted, marginTop: 2 },
@@ -646,10 +761,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   toggleBtnActive: { backgroundColor: theme.colors.primary },
-  displayToggleWrap: {
-    alignItems: "flex-end",
-    marginBottom: 4,
-  },
   gridWrap: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -657,22 +768,12 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   savedCard: {
-    width: "48%",
     backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.md,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: theme.colors.border,
     padding: 12,
     gap: 10,
-  },
-  savedCardIconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: theme.colors.primaryMuted,
-    alignItems: "center",
-    justifyContent: "center",
-    alignSelf: "flex-start",
   },
   savedCardBody: { gap: 4 },
   savedCardName: { fontSize: 14, fontWeight: "700", color: theme.colors.text },
