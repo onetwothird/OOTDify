@@ -9,7 +9,7 @@
 
 import { supabase } from "./supabase";
 
-const KNOWN_BUCKETS = ["users", "wardrobe", "tryons", "avatars", "clothing"];
+const KNOWN_BUCKETS = ["users", "wardrobe", "tryons", "avatars", "clothing", "community"];
 
 // ---------------------------------------------------------------------------
 // Signed-URL cache
