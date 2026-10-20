@@ -1,3 +1,18 @@
+-- OOTDify database schema — canonical bootstrap file.
+--
+-- Workflow: supabase/migrations/20261020120000_initial_ootdify.sql mirrors
+-- this file byte-for-byte so `supabase db push` and "paste into the SQL
+-- Editor" both work; when you change one, change the other in the same commit.
+--
+-- Policy conventions (kept Supabase-Advisor-clean on purpose):
+--   * every app-facing policy targets `to authenticated` explicitly — anon is
+--     covered by no policy at all instead of by a role-string check;
+--   * `auth.uid()` is always evaluated once per statement via a subselect
+--     (`(select auth.uid()) = user_id`) so RLS predicates don't re-plan the
+--     auth lookup for every row;
+--   * policies are (re)created with drop-then-create so re-running this file
+--     CONVERGES a live database to the definitions below — a tightened
+--     predicate actually replaces the old policy instead of being skipped.
 create extension if not exists pgcrypto;
 
 create table if not exists public.clothing (
@@ -68,6 +83,9 @@ alter table public.clothing_items add column if not exists season text;
 alter table public.clothing_items add column if not exists occasion text[] not null default '{}';
 
 create index if not exists clothing_items_user_idx on public.clothing_items (user_id);
+-- FK column: without this the Performance Advisor flags unindexed foreign keys
+-- (parent-side deletes/joins would scan the whole wardrobe).
+create index if not exists clothing_items_clothing_id_idx on public.clothing_items (clothing_id);
 
 create table if not exists public.user_profiles (
   id uuid primary key default gen_random_uuid(),
@@ -116,6 +134,7 @@ create table if not exists public.try_on_jobs (
 );
 
 create index if not exists try_on_jobs_user_idx on public.try_on_jobs (user_id, created_at desc);
+create index if not exists try_on_jobs_body_photo_id_idx on public.try_on_jobs (body_photo_id);
 
 create table if not exists public.saved_outfits (
   id uuid primary key default gen_random_uuid(),
@@ -131,6 +150,7 @@ create table if not exists public.saved_outfits (
 alter table public.saved_outfits add column if not exists scheduled_date date;
 
 create index if not exists saved_outfits_user_idx on public.saved_outfits (user_id, created_at desc);
+create index if not exists saved_outfits_try_on_id_idx on public.saved_outfits (try_on_id);
 
 -- Style calendar: one planned look per day (owner-only). The app upserts by
 -- (user_id, plan_date) so re-picking an outfit for a day replaces the plan.
@@ -145,6 +165,7 @@ create table if not exists public.outfit_plans (
 );
 
 create index if not exists outfit_plans_user_date_idx on public.outfit_plans (user_id, plan_date);
+create index if not exists outfit_plans_outfit_id_idx on public.outfit_plans (outfit_id);
 
 create table if not exists public.favorites (
   id uuid primary key default gen_random_uuid(),
@@ -166,31 +187,35 @@ create table if not exists public.recently_viewed (
 );
 
 create index if not exists recently_viewed_user_idx on public.recently_viewed (user_id, viewed_at desc);
+create index if not exists recently_viewed_clothing_id_idx on public.recently_viewed (clothing_id);
 
--- Policy helper: creates a policy only when one of that name does not already
--- exist, so the schema file stays idempotent on re-runs. Defined before every
--- policy call (community included) so ordering never matters.
-create or replace function public._ensure_policy(
+-- Policy helper: (RE)creates a policy so re-running this file always converges
+-- the live policy set to the definitions below — a tightened predicate
+-- replaces the old policy instead of being skipped as "already present".
+-- Every policy is scoped `to authenticated`; anon matches nothing anywhere.
+-- Dropped at the end of the file so it never remains callable.
+create or replace function public._apply_policy(
   p_policy text, p_table regclass, p_command text, p_using text, p_check text default null
-) returns void language plpgsql as $$
+) returns void language plpgsql set search_path = public as $$
 begin
-  if not exists (
-    select 1 from pg_policies where schemaname = 'public' and policyname = p_policy and tablename = p_table::text
-  ) then
-    case upper(p_command)
-      when 'SELECT' then
-        execute format('create policy %I on %s for select using (%s)', p_policy, p_table::text, p_using);
-      when 'DELETE' then
-        execute format('create policy %I on %s for delete using (%s)', p_policy, p_table::text, p_using);
-      when 'INSERT' then
-        execute format('create policy %I on %s for insert with check (%s)', p_policy, p_table::text, coalesce(p_check, p_using));
-      when 'UPDATE' then
-        execute format('create policy %I on %s for update using (%s) with check (%s)', p_policy, p_table::text, p_using, coalesce(p_check, p_using));
-      else
-        raise exception 'Unsupported policy command: %', upper(p_command);
-    end case;
-  end if;
+  execute format('drop policy if exists %I on %s', p_policy, p_table::text);
+  case upper(p_command)
+    when 'SELECT' then
+      execute format('create policy %I on %s for select to authenticated using (%s)', p_policy, p_table::text, p_using);
+    when 'DELETE' then
+      execute format('create policy %I on %s for delete to authenticated using (%s)', p_policy, p_table::text, p_using);
+    when 'INSERT' then
+      execute format('create policy %I on %s for insert to authenticated with check (%s)', p_policy, p_table::text, coalesce(p_check, p_using));
+    when 'UPDATE' then
+      execute format('create policy %I on %s for update to authenticated using (%s) with check (%s)', p_policy, p_table::text, p_using, coalesce(p_check, p_using));
+    else
+      raise exception 'Unsupported policy command: %', upper(p_command);
+  end case;
 end $$;
+
+-- Only the file's own role (postgres/supabase_admin) may call this; it drops
+-- and recreates policies, so no client role gets it — not even authenticated.
+revoke execute on function public._apply_policy(text, regclass, text, text, text) from public, anon, authenticated, service_role;
 
 -- ---------------------------------------------------------------------------
 -- COMMUNITY — public outfit posts, a social graph, and 1:1 chat.
@@ -218,6 +243,7 @@ create table if not exists public.community_posts (
 
 create index if not exists community_posts_created_idx on public.community_posts (created_at desc);
 create index if not exists community_posts_user_idx on public.community_posts (user_id);
+create index if not exists community_posts_saved_outfit_id_idx on public.community_posts (saved_outfit_id);
 
 create table if not exists public.community_likes (
   id uuid primary key default gen_random_uuid(),
@@ -228,6 +254,7 @@ create table if not exists public.community_likes (
 );
 
 create index if not exists community_likes_post_idx on public.community_likes (post_id);
+create index if not exists community_likes_user_id_idx on public.community_likes (user_id);
 
 create table if not exists public.community_comments (
   id uuid primary key default gen_random_uuid(),
@@ -238,6 +265,7 @@ create table if not exists public.community_comments (
 );
 
 create index if not exists community_comments_post_idx on public.community_comments (post_id, created_at);
+create index if not exists community_comments_user_id_idx on public.community_comments (user_id);
 
 create table if not exists public.follows (
   follower_id uuid not null references auth.users (id) on delete cascade,
@@ -261,6 +289,8 @@ create table if not exists public.conversations (
 
 alter table public.conversations add column if not exists created_by uuid not null references auth.users (id) on delete cascade default auth.uid();
 
+create index if not exists conversations_created_by_idx on public.conversations (created_by);
+
 create table if not exists public.conversation_participants (
   conversation_id uuid not null references public.conversations (id) on delete cascade,
   user_id uuid not null references auth.users (id) on delete cascade,
@@ -279,6 +309,7 @@ create table if not exists public.messages (
 );
 
 create index if not exists messages_conversation_idx on public.messages (conversation_id, created_at);
+create index if not exists messages_sender_id_idx on public.messages (sender_id);
 
 do $$ begin
   alter table public.community_posts             enable row level security;
@@ -295,7 +326,7 @@ create or replace function public.is_conversation_participant(conv uuid)
 returns boolean language sql stable security definer set search_path = public as $$
   select exists (
     select 1 from public.conversation_participants
-    where conversation_id = conv and user_id = auth.uid()
+    where conversation_id = conv and user_id = (select auth.uid())
   );
 $$;
 
@@ -306,7 +337,7 @@ create or replace function public._is_conv_creator(conv uuid)
 returns boolean language sql stable security definer set search_path = public as $$
   select exists (
     select 1 from public.conversations
-    where id = conv and created_by = auth.uid()
+    where id = conv and created_by = (select auth.uid())
   );
 $$;
 
@@ -355,29 +386,43 @@ create trigger messages_touch_conversation_trg
   after insert on public.messages
   for each row execute function public._touch_conversation();
 
+-- These helpers exist FOR the policies below: each one reads a table whose own
+-- RLS would hide the row being checked (which would recurse), hence SECURITY
+-- DEFINER. Restrict execution to the role that actually evaluates the
+-- policies (authenticated); anon and every other role get nothing. Trigger
+-- functions never run as invokers — no role needs to call them.
+revoke execute on function public.is_conversation_participant(uuid) from public, anon;
+grant  execute on function public.is_conversation_participant(uuid) to authenticated;
+revoke execute on function public._is_conv_creator(uuid) from public, anon;
+grant  execute on function public._is_conv_creator(uuid) to authenticated;
+revoke execute on function public._conv_participant_count(uuid) from public, anon;
+grant  execute on function public._conv_participant_count(uuid) to authenticated;
+revoke execute on function public._sync_post_counts() from public, anon, authenticated;
+revoke execute on function public._touch_conversation() from public, anon, authenticated;
+
 -- Feed: every authenticated user can read posts; only the author writes.
-select public._ensure_policy('community_posts_select', 'public.community_posts', 'select', 'auth.role() = ''authenticated''');
-select public._ensure_policy('community_posts_insert', 'public.community_posts', 'insert', 'auth.uid() = user_id', 'auth.uid() = user_id');
-select public._ensure_policy('community_posts_delete', 'public.community_posts', 'delete', 'auth.uid() = user_id');
+select public._apply_policy('community_posts_select', 'public.community_posts', 'select', 'true');
+select public._apply_policy('community_posts_insert', 'public.community_posts', 'insert', '(select auth.uid()) = user_id');
+select public._apply_policy('community_posts_delete', 'public.community_posts', 'delete', '(select auth.uid()) = user_id');
 
-select public._ensure_policy('community_likes_select', 'public.community_likes', 'select', 'auth.role() = ''authenticated''');
-select public._ensure_policy('community_likes_insert', 'public.community_likes', 'insert', 'auth.uid() = user_id', 'auth.uid() = user_id');
-select public._ensure_policy('community_likes_delete', 'public.community_likes', 'delete', 'auth.uid() = user_id');
+select public._apply_policy('community_likes_select', 'public.community_likes', 'select', 'true');
+select public._apply_policy('community_likes_insert', 'public.community_likes', 'insert', '(select auth.uid()) = user_id');
+select public._apply_policy('community_likes_delete', 'public.community_likes', 'delete', '(select auth.uid()) = user_id');
 
-select public._ensure_policy('community_comments_select', 'public.community_comments', 'select', 'auth.role() = ''authenticated''');
-select public._ensure_policy('community_comments_insert', 'public.community_comments', 'insert', 'auth.uid() = user_id', 'auth.uid() = user_id');
-select public._ensure_policy('community_comments_delete', 'public.community_comments', 'delete', 'auth.uid() = user_id');
+select public._apply_policy('community_comments_select', 'public.community_comments', 'select', 'true');
+select public._apply_policy('community_comments_insert', 'public.community_comments', 'insert', '(select auth.uid()) = user_id');
+select public._apply_policy('community_comments_delete', 'public.community_comments', 'delete', '(select auth.uid()) = user_id');
 
 -- Follows are readable by anyone signed in; you only create/drop your own.
-select public._ensure_policy('follows_select', 'public.follows', 'select', 'auth.role() = ''authenticated''');
-select public._ensure_policy('follows_insert', 'public.follows', 'insert', 'auth.uid() = follower_id', 'auth.uid() = follower_id');
-select public._ensure_policy('follows_delete', 'public.follows', 'delete', 'auth.uid() = follower_id');
+select public._apply_policy('follows_select', 'public.follows', 'select', 'true');
+select public._apply_policy('follows_insert', 'public.follows', 'insert', '(select auth.uid()) = follower_id');
+select public._apply_policy('follows_delete', 'public.follows', 'delete', '(select auth.uid()) = follower_id');
 
 -- Conversations: only participants can read the container; the creator may
 -- insert it (and the rows for both people — that's how a 1:1 chat is started).
-select public._ensure_policy('conversations_select', 'public.conversations', 'select', 'public.is_conversation_participant(id)');
-select public._ensure_policy('conversations_insert', 'public.conversations', 'insert', 'auth.uid() = created_by', 'auth.uid() = created_by');
-select public._ensure_policy('conversations_update', 'public.conversations', 'update', 'public.is_conversation_participant(id)');
+select public._apply_policy('conversations_select', 'public.conversations', 'select', 'public.is_conversation_participant(id)');
+select public._apply_policy('conversations_insert', 'public.conversations', 'insert', '(select auth.uid()) = created_by');
+select public._apply_policy('conversations_update', 'public.conversations', 'update', 'public.is_conversation_participant(id)');
 
 -- You may add YOURSELF only to the shared community room — that is how the
 -- everyone-can-join room works. The conversation's creator may add their own
@@ -387,31 +432,95 @@ select public._ensure_policy('conversations_update', 'public.conversations', 'up
 -- conversation can never exceed two people, and nobody can inject themselves
 -- into a conversation they weren't invited to (the community room aside, its
 -- UUID is public by design).
--- Dropped first so re-running schema.sql actually TIGHTENS an existing policy
--- instead of _ensure_policy skipping it as "already present".
-select public._ensure_policy('conversation_participants_select', 'public.conversation_participants', 'select', 'public.is_conversation_participant(conversation_id)');
-drop policy if exists conversation_participants_insert on public.conversation_participants;
-select public._ensure_policy('conversation_participants_insert', 'public.conversation_participants', 'insert',
-  '(user_id = auth.uid() and conversation_id = ''4f544444-0000-4000-8000-00000000c0de''::uuid)
+select public._apply_policy('conversation_participants_select', 'public.conversation_participants', 'select', 'public.is_conversation_participant(conversation_id)');
+select public._apply_policy('conversation_participants_insert', 'public.conversation_participants', 'insert',
+  '(user_id = (select auth.uid()) and conversation_id = ''4f544444-0000-4000-8000-00000000c0de''::uuid)
    or (public._is_conv_creator(conversation_id) and public._conv_participant_count(conversation_id) < 2)');
-select public._ensure_policy('conversation_participants_update', 'public.conversation_participants', 'update', 'user_id = auth.uid()');
-select public._ensure_policy('conversation_participants_delete', 'public.conversation_participants', 'delete', 'user_id = auth.uid() or exists (select 1 from public.conversations c where c.id = conversation_id and c.created_by = auth.uid())');
+select public._apply_policy('conversation_participants_update', 'public.conversation_participants', 'update', 'user_id = (select auth.uid())');
+select public._apply_policy('conversation_participants_delete', 'public.conversation_participants', 'delete', 'user_id = (select auth.uid()) or exists (select 1 from public.conversations c where c.id = conversation_id and c.created_by = (select auth.uid()))');
 
 -- Minimal public directory so feed/chat can show a real name + avatar next to
--- posts and messages. The view runs with definer rights (NOT security_invoker,
--- which would inherit user_profiles' owner-only RLS and hide everyone from
--- everyone) and exposes ONLY these three columns — preferences, body photos,
--- and the rest of user_profiles stay unreachable through it.
-create or replace view public.community_directory as
+-- posts and messages. This replaces the old SECURITY DEFINER view (flagged by
+-- the Security Advisor) with a narrow mirror table:
+--
+--   * user_profiles keeps its owner-only RLS and is NOT readable cross-user;
+--   * user_directory holds only the four public columns (no preferences, no
+--     body photos) and is readable by any authenticated user via its own RLS
+--     policy — anon has no policy and no grant;
+--   * the view over it is security_invoker, so it inherits those plain grants
+--     and policies instead of running with definer rights;
+--   * only triggers/backfill write it — there are no INSERT/UPDATE/DELETE
+--     policies, so clients cannot write the mirror even for their own row
+--     (their own profile row still syncs through the trigger below).
+create table if not exists public.user_directory (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  display_name text,
+  first_name text,
+  avatar_url text,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.user_directory enable row level security;
+
+select public._apply_policy('user_directory_select', 'public.user_directory', 'select', 'true');
+-- Defence in depth: even though RLS already denies everything without a
+-- policy, take away the default table grants for the client roles too — the
+-- mirror is read-only for them by design.
+revoke insert, update, delete on public.user_directory from anon, authenticated, service_role;
+
+-- Mirror sync: SECURITY DEFINER so it can write the mirror regardless of which
+-- role performed the user_profiles change (client upsert or backend service
+-- role). search_path pinned so no object lookup can be hijacked.
+create or replace function public._sync_user_directory() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if tg_op = 'DELETE' then
+    delete from public.user_directory where user_id = old.user_id;
+    return old;
+  end if;
+  insert into public.user_directory (user_id, display_name, first_name, avatar_url, updated_at)
+  values (new.user_id, new.display_name, new.first_name, new.avatar_url, now())
+  on conflict (user_id) do update
+    set display_name = excluded.display_name,
+        first_name   = excluded.first_name,
+        avatar_url   = excluded.avatar_url,
+        updated_at   = now();
+  return new;
+end $$;
+
+-- Trigger functions never run as invokers — no client role needs EXECUTE.
+revoke execute on function public._sync_user_directory() from public, anon, authenticated, service_role;
+
+drop trigger if exists user_profiles_directory_sync_trg on public.user_profiles;
+create trigger user_profiles_directory_sync_trg
+  after insert or update or delete on public.user_profiles
+  for each row execute function public._sync_user_directory();
+
+-- Backfill (idempotent: on conflict refreshes from the source of truth, so
+-- re-running this file also repairs any historical drift).
+insert into public.user_directory (user_id, display_name, first_name, avatar_url)
+select user_id, display_name, first_name, avatar_url
+from public.user_profiles
+on conflict (user_id) do update
+  set display_name = excluded.display_name,
+      first_name   = excluded.first_name,
+      avatar_url   = excluded.avatar_url,
+      updated_at   = now();
+
+-- security_invoker: access is decided by the caller's own rights on
+-- user_directory (authenticated: select allowed; anon: nothing) — verified
+-- against both roles in the local-stack test.
+drop view if exists public.community_directory;
+create view public.community_directory with (security_invoker = true) as
   select user_id, display_name, first_name, avatar_url
-  from public.user_profiles;
+  from public.user_directory;
 
 revoke all on public.community_directory from anon;
 grant select on public.community_directory to authenticated;
 
 -- Messages: only participants can read; only participants can send.
-select public._ensure_policy('messages_select', 'public.messages', 'select', 'public.is_conversation_participant(conversation_id)');
-select public._ensure_policy('messages_insert', 'public.messages', 'insert', 'public.is_conversation_participant(conversation_id) and auth.uid() = sender_id', 'public.is_conversation_participant(conversation_id) and auth.uid() = sender_id');
+select public._apply_policy('messages_select', 'public.messages', 'select', 'public.is_conversation_participant(conversation_id)');
+select public._apply_policy('messages_insert', 'public.messages', 'insert', 'public.is_conversation_participant(conversation_id) and (select auth.uid()) = sender_id');
 
 -- Enable realtime for live chat + feed updates.
 do $$ begin
@@ -452,44 +561,44 @@ do $$ begin
   alter table public.recently_viewed enable row level security;
 end $$;
 
-select public._ensure_policy('clothing_select', 'public.clothing', 'select', 'auth.role() = ''authenticated''');
+select public._apply_policy('clothing_select', 'public.clothing', 'select', 'true');
 
-select public._ensure_policy('clothing_items_select', 'public.clothing_items', 'select', 'auth.uid() = user_id');
-select public._ensure_policy('clothing_items_insert', 'public.clothing_items', 'insert', 'auth.uid() = user_id', 'auth.uid() = user_id');
-select public._ensure_policy('clothing_items_update', 'public.clothing_items', 'update', 'auth.uid() = user_id');
-select public._ensure_policy('clothing_items_delete', 'public.clothing_items', 'delete', 'auth.uid() = user_id');
+select public._apply_policy('clothing_items_select', 'public.clothing_items', 'select', '(select auth.uid()) = user_id');
+select public._apply_policy('clothing_items_insert', 'public.clothing_items', 'insert', '(select auth.uid()) = user_id');
+select public._apply_policy('clothing_items_update', 'public.clothing_items', 'update', '(select auth.uid()) = user_id');
+select public._apply_policy('clothing_items_delete', 'public.clothing_items', 'delete', '(select auth.uid()) = user_id');
 
-select public._ensure_policy('user_profiles_select', 'public.user_profiles', 'select', 'auth.uid() = user_id');
-select public._ensure_policy('user_profiles_insert', 'public.user_profiles', 'insert', 'auth.uid() = user_id', 'auth.uid() = user_id');
-select public._ensure_policy('user_profiles_update', 'public.user_profiles', 'update', 'auth.uid() = user_id');
+select public._apply_policy('user_profiles_select', 'public.user_profiles', 'select', '(select auth.uid()) = user_id');
+select public._apply_policy('user_profiles_insert', 'public.user_profiles', 'insert', '(select auth.uid()) = user_id');
+select public._apply_policy('user_profiles_update', 'public.user_profiles', 'update', '(select auth.uid()) = user_id');
 
-select public._ensure_policy('body_photos_select', 'public.body_photos', 'select', 'auth.uid() = user_id');
-select public._ensure_policy('body_photos_insert', 'public.body_photos', 'insert', 'auth.uid() = user_id', 'auth.uid() = user_id');
-select public._ensure_policy('body_photos_delete', 'public.body_photos', 'delete', 'auth.uid() = user_id');
+select public._apply_policy('body_photos_select', 'public.body_photos', 'select', '(select auth.uid()) = user_id');
+select public._apply_policy('body_photos_insert', 'public.body_photos', 'insert', '(select auth.uid()) = user_id');
+select public._apply_policy('body_photos_delete', 'public.body_photos', 'delete', '(select auth.uid()) = user_id');
 
-select public._ensure_policy('try_on_jobs_select', 'public.try_on_jobs', 'select', 'auth.uid() = user_id');
-select public._ensure_policy('try_on_jobs_insert', 'public.try_on_jobs', 'insert', 'auth.uid() = user_id', 'auth.uid() = user_id');
-select public._ensure_policy('try_on_jobs_update', 'public.try_on_jobs', 'update', 'auth.uid() = user_id');
-select public._ensure_policy('try_on_jobs_delete', 'public.try_on_jobs', 'delete', 'auth.uid() = user_id');
+select public._apply_policy('try_on_jobs_select', 'public.try_on_jobs', 'select', '(select auth.uid()) = user_id');
+select public._apply_policy('try_on_jobs_insert', 'public.try_on_jobs', 'insert', '(select auth.uid()) = user_id');
+select public._apply_policy('try_on_jobs_update', 'public.try_on_jobs', 'update', '(select auth.uid()) = user_id');
+select public._apply_policy('try_on_jobs_delete', 'public.try_on_jobs', 'delete', '(select auth.uid()) = user_id');
 
-select public._ensure_policy('saved_outfits_select', 'public.saved_outfits', 'select', 'auth.uid() = user_id');
-select public._ensure_policy('saved_outfits_insert', 'public.saved_outfits', 'insert', 'auth.uid() = user_id', 'auth.uid() = user_id');
-select public._ensure_policy('saved_outfits_update', 'public.saved_outfits', 'update', 'auth.uid() = user_id');
-select public._ensure_policy('saved_outfits_delete', 'public.saved_outfits', 'delete', 'auth.uid() = user_id');
+select public._apply_policy('saved_outfits_select', 'public.saved_outfits', 'select', '(select auth.uid()) = user_id');
+select public._apply_policy('saved_outfits_insert', 'public.saved_outfits', 'insert', '(select auth.uid()) = user_id');
+select public._apply_policy('saved_outfits_update', 'public.saved_outfits', 'update', '(select auth.uid()) = user_id');
+select public._apply_policy('saved_outfits_delete', 'public.saved_outfits', 'delete', '(select auth.uid()) = user_id');
 
-select public._ensure_policy('outfit_plans_select', 'public.outfit_plans', 'select', 'auth.uid() = user_id');
-select public._ensure_policy('outfit_plans_insert', 'public.outfit_plans', 'insert', 'auth.uid() = user_id', 'auth.uid() = user_id');
-select public._ensure_policy('outfit_plans_update', 'public.outfit_plans', 'update', 'auth.uid() = user_id');
-select public._ensure_policy('outfit_plans_delete', 'public.outfit_plans', 'delete', 'auth.uid() = user_id');
+select public._apply_policy('outfit_plans_select', 'public.outfit_plans', 'select', '(select auth.uid()) = user_id');
+select public._apply_policy('outfit_plans_insert', 'public.outfit_plans', 'insert', '(select auth.uid()) = user_id');
+select public._apply_policy('outfit_plans_update', 'public.outfit_plans', 'update', '(select auth.uid()) = user_id');
+select public._apply_policy('outfit_plans_delete', 'public.outfit_plans', 'delete', '(select auth.uid()) = user_id');
 
-select public._ensure_policy('favorites_select', 'public.favorites', 'select', 'auth.uid() = user_id');
-select public._ensure_policy('favorites_insert', 'public.favorites', 'insert', 'auth.uid() = user_id', 'auth.uid() = user_id');
-select public._ensure_policy('favorites_delete', 'public.favorites', 'delete', 'auth.uid() = user_id');
+select public._apply_policy('favorites_select', 'public.favorites', 'select', '(select auth.uid()) = user_id');
+select public._apply_policy('favorites_insert', 'public.favorites', 'insert', '(select auth.uid()) = user_id');
+select public._apply_policy('favorites_delete', 'public.favorites', 'delete', '(select auth.uid()) = user_id');
 
-select public._ensure_policy('recently_viewed_select', 'public.recently_viewed', 'select', 'auth.uid() = user_id');
-select public._ensure_policy('recently_viewed_insert', 'public.recently_viewed', 'insert', 'auth.uid() = user_id', 'auth.uid() = user_id');
-select public._ensure_policy('recently_viewed_update', 'public.recently_viewed', 'update', 'auth.uid() = user_id');
-select public._ensure_policy('recently_viewed_delete', 'public.recently_viewed', 'delete', 'auth.uid() = user_id');
+select public._apply_policy('recently_viewed_select', 'public.recently_viewed', 'select', '(select auth.uid()) = user_id');
+select public._apply_policy('recently_viewed_insert', 'public.recently_viewed', 'insert', '(select auth.uid()) = user_id');
+select public._apply_policy('recently_viewed_update', 'public.recently_viewed', 'update', '(select auth.uid()) = user_id');
+select public._apply_policy('recently_viewed_delete', 'public.recently_viewed', 'delete', '(select auth.uid()) = user_id');
 
 do $$ begin
   if exists (
@@ -501,52 +610,36 @@ do $$ begin
       select 1 from information_schema.columns
       where table_schema='public' and table_name='itinerary_plans' and column_name='user_id'
     ) then
-      perform public._ensure_policy('itinerary_plans_select', 'public.itinerary_plans', 'select', 'auth.uid() = user_id');
-      perform public._ensure_policy('itinerary_plans_insert', 'public.itinerary_plans', 'insert', 'auth.uid() = user_id', 'auth.uid() = user_id');
-      perform public._ensure_policy('itinerary_plans_update', 'public.itinerary_plans', 'update', 'auth.uid() = user_id');
-      perform public._ensure_policy('itinerary_plans_delete', 'public.itinerary_plans', 'delete', 'auth.uid() = user_id');
+      perform public._apply_policy('itinerary_plans_select', 'public.itinerary_plans', 'select', '(select auth.uid()) = user_id');
+      perform public._apply_policy('itinerary_plans_insert', 'public.itinerary_plans', 'insert', '(select auth.uid()) = user_id');
+      perform public._apply_policy('itinerary_plans_update', 'public.itinerary_plans', 'update', '(select auth.uid()) = user_id');
+      perform public._apply_policy('itinerary_plans_delete', 'public.itinerary_plans', 'delete', '(select auth.uid()) = user_id');
     end if;
   end if;
 end $$;
 
-do $$ begin
-  if not exists (select 1 from pg_policies where schemaname='storage' and policyname='catalog_public_read_ootdify') then
-    create policy catalog_public_read_ootdify on storage.objects for select
-      using (bucket_id = 'clothing');
-  end if;
-  -- Community feed images: anyone signed in can read, but only the owner of the
-  -- object (folder = their uid) can write — sharing copies, never wardrobe refs.
-  if not exists (select 1 from pg_policies where schemaname='storage' and policyname='community_read_ootdify') then
-    create policy community_read_ootdify on storage.objects for select
-      using (bucket_id = 'community');
-  end if;
-  if not exists (select 1 from pg_policies where schemaname='storage' and policyname='community_insert_ootdify') then
-    create policy community_insert_ootdify on storage.objects for insert
-      with check (bucket_id = 'community' and auth.uid()::text = owner_id);
-  end if;
-  if not exists (select 1 from pg_policies where schemaname='storage' and policyname='community_delete_ootdify') then
-    create policy community_delete_ootdify on storage.objects for delete
-      using (bucket_id = 'community' and auth.uid()::text = owner_id);
-  end if;
-  if not exists (select 1 from pg_policies where schemaname='storage' and policyname='user_storage_select_ootdify') then
-    create policy user_storage_select_ootdify on storage.objects for select
-      using (bucket_id in ('users','wardrobe','tryons','avatars') and auth.uid()::text = owner_id);
-  end if;
-  if not exists (select 1 from pg_policies where schemaname='storage' and policyname='user_storage_insert_ootdify') then
-    create policy user_storage_insert_ootdify on storage.objects for insert
-      with check (bucket_id in ('users','wardrobe','tryons','avatars') and auth.uid()::text = owner_id);
-  end if;
-  if not exists (select 1 from pg_policies where schemaname='storage' and policyname='user_storage_update_ootdify') then
-    create policy user_storage_update_ootdify on storage.objects for update
-      using (bucket_id in ('users','wardrobe','tryons','avatars') and auth.uid()::text = owner_id)
-      with check (bucket_id in ('users','wardrobe','tryons','avatars') and auth.uid()::text = owner_id);
-  end if;
-  if not exists (select 1 from pg_policies where schemaname='storage' and policyname='user_storage_delete_ootdify') then
-    create policy user_storage_delete_ootdify on storage.objects for delete
-      using (bucket_id in ('users','wardrobe','tryons','avatars') and auth.uid()::text = owner_id);
-  end if;
-end $$;
+-- Storage policies, recreated drop-then-create so re-running this file
+-- converges them exactly like the table policies above (the old
+-- if-not-exists guards silently kept stale definitions). Reads of the two
+-- PUBLIC buckets ('clothing', 'community') need no policy at all for their
+-- public URLs; the policies below only gate the API/signed-URL path.
+select public._apply_policy('catalog_public_read_ootdify', 'storage.objects', 'select', 'bucket_id = ''clothing''');
+select public._apply_policy('community_read_ootdify', 'storage.objects', 'select', 'bucket_id = ''community''');
+select public._apply_policy('community_insert_ootdify', 'storage.objects', 'insert', 'bucket_id = ''community'' and (select auth.uid())::text = owner_id');
+select public._apply_policy('community_delete_ootdify', 'storage.objects', 'delete', 'bucket_id = ''community'' and (select auth.uid())::text = owner_id');
+select public._apply_policy('user_storage_select_ootdify', 'storage.objects', 'select', 'bucket_id in (''users'',''wardrobe'',''tryons'',''avatars'') and (select auth.uid())::text = owner_id');
+select public._apply_policy('user_storage_insert_ootdify', 'storage.objects', 'insert', 'bucket_id in (''users'',''wardrobe'',''tryons'',''avatars'') and (select auth.uid())::text = owner_id');
+select public._apply_policy('user_storage_update_ootdify', 'storage.objects', 'update', 'bucket_id in (''users'',''wardrobe'',''tryons'',''avatars'') and (select auth.uid())::text = owner_id');
+select public._apply_policy('user_storage_delete_ootdify', 'storage.objects', 'delete', 'bucket_id in (''users'',''wardrobe'',''tryons'',''avatars'') and (select auth.uid())::text = owner_id');
+-- Profile photos are deliberately shared: any signed-in user may READ avatar
+-- objects so chat and the feed can show real photos (the directory view
+-- already exposes each avatar ref). Writes stay owner-only and anon stays
+-- locked out — the bucket itself remains private (no public URLs).
+select public._apply_policy('avatars_read_ootdify', 'storage.objects', 'select', 'bucket_id = ''avatars''');
 
+-- Clean up the policy helper (both names: this file's current one and the
+-- legacy one older checkouts still call) so neither remains executable.
+drop function if exists public._apply_policy(text, regclass, text, text, text);
 drop function if exists public._ensure_policy(text, regclass, text, text, text);
 
 -- Seed catalog. Guarded so re-running this file never duplicates seed rows:
