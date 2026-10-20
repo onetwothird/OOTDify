@@ -14,6 +14,8 @@
 #     restarts.
 #   * backend/.env is optional; without it the app still boots and `/health`
 #     works (the try-on worker pauses "Supabase not configured").
+#   * Hosted platforms (Railway etc.) inject $PORT and only route traffic to
+#     that port — gunicorn binds it below. FLASK_PORT still overrides locally.
 
 # 3.12 matches the pinned local venv interpreter (cpython-3.12).
 FROM python:3.12-slim
@@ -41,4 +43,11 @@ COPY . .
 
 EXPOSE 5000
 
-CMD ["python", "app.py"]
+# Serve with gunicorn (production WSGI server), not the Flask dev server.
+# One worker with threads: each worker process would otherwise load its own
+# copy of the YOLO models (hundreds of MB of RAM on a small instance), and the
+# try-on job worker already runs as a background thread in this process.
+# Port precedence mirrors config.py: FLASK_PORT (local/compose) beats the
+# platform-injected PORT (Railway) beats the 5000 default.
+# Long timeout covers first-boot weight downloads + model warmup inference.
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${FLASK_PORT:-${PORT:-5000}} --workers 1 --threads 8 --timeout 300 --graceful-timeout 30 app:app"]
