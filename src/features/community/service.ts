@@ -7,8 +7,11 @@
 //     the point of a feed) but only ever WRITTEN by their owner.
 //   * Conversation rows and messages are readable only by participants.
 //   * Sharing an outfit COPIES image bytes into the public `community` bucket
-//     under the sharer's uid. Private buckets (wardrobe/tryons/users/avatars)
-//     never become cross-user readable — only the explicit copies do.
+//     under the sharer's uid. Private buckets (wardrobe/tryons/users) never
+//     become cross-user readable — only the explicit copies do. The `avatars`
+//     bucket is the one deliberate exception: signed-in users may READ avatar
+//     objects so chat and the feed can show real profile photos; writes stay
+//     owner-only and anon stays locked out.
 //
 // Errors are thrown raw (PostgrestError / Error) per the app-wide convention;
 // screens surface them through ErrorState/toast.
@@ -86,6 +89,15 @@ export function communityErrorMessage(e: unknown): string {
 export async function fetchUserDisplayName(userId: string): Promise<string> {
   const directory = await fetchDirectory([userId]);
   return authorDisplayName(directory.get(userId));
+}
+
+/**
+ * Full directory row (name + avatar) for one user. Chat headers and realtime
+ * message rows use it so a peer's real photo can render alongside their name.
+ */
+export async function fetchUserProfile(userId: string): Promise<DirectoryProfile | null> {
+  const directory = await fetchDirectory([userId]);
+  return directory.get(userId) ?? null;
 }
 
 // ---------------------------------------------------------------------------
@@ -413,6 +425,7 @@ export async function fetchConversations(): Promise<ConversationListEntry[]> {
         isRoom,
         otherUserId: otherId,
         otherName: isRoom ? "Community Chat" : authorDisplayName(other),
+        otherAvatar: isRoom ? null : other?.avatar_url ?? null,
         lastMessage: (lastMsg.data?.body as string | null) ?? null,
         lastMessageAt: (lastMsg.data?.created_at as string | null) ?? null,
         unread: unread.count ?? 0,
@@ -452,6 +465,7 @@ export async function fetchMessages(
   return rows.map((m) => ({
     ...m,
     senderName: authorDisplayName(directory.get(m.sender_id)),
+    senderAvatar: directory.get(m.sender_id)?.avatar_url ?? null,
   }));
 }
 
@@ -499,9 +513,9 @@ export function subscribeToMessages(
         filter: `conversation_id=eq.${conversationId}`,
       },
       (payload) => {
-        const row = payload.new as Omit<ChatMessageEntry, "senderName">;
-        // Sender name resolves lazily — realtime payloads don't carry joins.
-        onInsert({ ...row, senderName: "" });
+        const row = payload.new as Omit<ChatMessageEntry, "senderName" | "senderAvatar">;
+        // Sender name/avatar resolve lazily — realtime payloads don't carry joins.
+        onInsert({ ...row, senderName: "", senderAvatar: null });
       },
     )
     .subscribe();
