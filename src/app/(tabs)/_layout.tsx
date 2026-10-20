@@ -93,7 +93,7 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  tabLabel: { fontSize: 10, fontWeight: "700", marginTop: 2 },
+  tabLabel: { fontSize: 10, fontWeight: "500", marginTop: 2 },
   createPill: {
     width: 46,
     height: 30,
@@ -105,8 +105,8 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   createPillActive: {
-    // Deeper ink + small scale handled by the sibling label highlight.
-    backgroundColor: theme.colors.accent,
+    // Focus is carried by the label highlight + a subtle lift; the pill stays
+    // cobalt so orange never becomes a second brand color.
     transform: [{ scale: 1.06 }],
   },
 });
