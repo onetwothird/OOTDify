@@ -254,9 +254,7 @@ export default function CommunityScreen() {
               <EmptyState
                 icon="people-outline"
                 title="Nothing shared yet"
-                message="Be the first — share a saved look and the community can see it."
-                actionLabel="Share a look"
-                onAction={() => setShareOpen(true)}
+                message="Be the first — tap “Share a look” up top to post a saved outfit."
               />
             }
           />
@@ -316,7 +314,7 @@ export default function CommunityScreen() {
               <ProfileAvatar
                 size={42}
                 initial={(item.otherName[0] ?? "?").toUpperCase()}
-                avatarRef={null}
+                avatarRef={item.otherAvatar}
               />
               <View style={styles.chatBody}>
                 <Text style={styles.chatName} numberOfLines={1}>
