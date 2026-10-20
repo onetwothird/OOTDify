@@ -1,6 +1,8 @@
 // C:\OOTDify\src\app\(tabs)\_layout.tsx
-// Five tabs: Home · Wardrobe · Create (AI) · Outfits · Profile.
+// Five tabs: Home · Wardrobe · Create (AI) · Outfits · Community.
 // The central Create tab carries stronger visual emphasis (raised pill).
+// Profile is intentionally NOT a tab — it's the settings hub, reachable from
+// the Home header avatar (route kept alive with href: null).
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import { Platform, StyleSheet, View } from "react-native";
@@ -68,14 +70,20 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
-          name="profile"
+          name="community"
           options={{
-            title: "Profile",
+            title: "Community",
             tabBarIcon: ({ color, focused }) => (
-              <Ionicons name={focused ? "person" : "person-outline"} size={24} color={color} />
+              <Ionicons
+                name={focused ? "people" : "people-outline"}
+                size={24}
+                color={color}
+              />
             ),
           }}
         />
+        {/* Profile is settings — reachable from the Home avatar, not the menu. */}
+        <Tabs.Screen name="profile" options={{ href: null }} />
       </Tabs>
 
       {/* Capture modal is mounted once here so any tab can open it. */}
