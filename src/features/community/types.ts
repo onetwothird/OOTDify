@@ -54,6 +54,8 @@ export interface ConversationListEntry {
   isRoom: boolean;
   otherUserId: string | null;
   otherName: string;
+  /** The peer's avatar ref (null when unset — render an initial instead). */
+  otherAvatar: string | null;
   lastMessage: string | null;
   lastMessageAt: string | null;
   unread: number;
@@ -67,4 +69,6 @@ export interface ChatMessageEntry {
   body: string;
   created_at: string;
   senderName: string;
+  /** Sender's avatar ref; null for realtime inserts (resolved by the screen). */
+  senderAvatar: string | null;
 }
