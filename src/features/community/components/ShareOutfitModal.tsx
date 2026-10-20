@@ -6,7 +6,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,6 +16,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { fetchSavedOutfits, SavedOutfit } from "../../clothing/service";
 import { AppButton } from "../../../shared/components/AppButton";
@@ -54,6 +57,7 @@ export function ShareOutfitModal({
   onClose: () => void;
   onShared: () => void;
 }) {
+  const insets = useSafeAreaInsets();
   const [outfits, setOutfits] = useState<SavedOutfit[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refs, setRefs] = useState<Map<string, string | null>>(new Map());
@@ -103,112 +107,129 @@ export function ShareOutfitModal({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose} transparent>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      onRequestClose={onClose}
+      transparent
+      // Draw the sheet edge-to-edge so no "hole" appears over the Android
+      // status/navigation bars — the sheet's safe-area padding covers them.
+      statusBarTranslucent
+      navigationBarTranslucent
+    >
       <View style={styles.backdrop}>
-        <View style={styles.sheet}>
-          <View style={styles.sheetHeader}>
-            <Text style={styles.sheetTitle}>Share a look</Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Close"
-              hitSlop={8}
-              onPress={onClose}
-              style={({ pressed }) => pressed && { opacity: 0.6 }}
-            >
-              <Ionicons name="close" size={24} color={theme.colors.text} />
-            </Pressable>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={styles.sheetWrap}
+        >
+          <View style={[styles.sheet, { paddingBottom: 12 + insets.bottom }]}>
+            <View style={styles.handleWrap}>
+              <View style={styles.handle} />
+            </View>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>Share a look</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+                hitSlop={8}
+                onPress={onClose}
+                style={({ pressed }) => pressed && { opacity: 0.6 }}
+              >
+                <Ionicons name="close" size={24} color={theme.colors.text} />
+              </Pressable>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.sheetBody} keyboardShouldPersistTaps="handled">
+              {outfits === null && !error ? (
+                <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 24 }} />
+              ) : error ? (
+                <ErrorState message={error} onRetry={() => void load()} />
+              ) : !outfits?.length ? (
+                <EmptyState
+                  icon="sparkles-outline"
+                  title="No saved looks yet"
+                  message="Save an outfit from the Outfits tab, then share it here."
+                  compact
+                />
+              ) : (
+                <>
+                  <Text style={styles.groupLabel}>CHOOSE AN OUTFIT</Text>
+                  {outfits.map((o) => {
+                    const active = o.id === selectedId;
+                    const thumbs = o.clothing_ids
+                      .map((id) => refs.get(id))
+                      .filter((r): r is string => Boolean(r))
+                      .slice(0, 3);
+                    return (
+                      <Pressable
+                        key={o.id}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: active }}
+                        onPress={() => setSelectedId(active ? null : o.id)}
+                        style={[styles.outfitRow, active && styles.outfitRowActive]}
+                      >
+                        <View style={styles.thumbs}>
+                          {thumbs.length ? (
+                            thumbs.map((r, i) => (
+                              <SmartImage
+                                key={`${o.id}-thumb-${i}`}
+                                source={r}
+                                style={styles.thumb}
+                              />
+                            ))
+                          ) : (
+                            <View style={[styles.thumb, styles.thumbEmpty]}>
+                              <Ionicons name="shirt-outline" size={16} color={theme.colors.textMuted} />
+                            </View>
+                          )}
+                        </View>
+                        <View style={styles.outfitBody}>
+                          <Text style={styles.outfitName} numberOfLines={1}>
+                            {o.name || "Untitled look"}
+                          </Text>
+                          <Text style={styles.outfitMeta}>
+                            {o.clothing_ids.length} piece{o.clothing_ids.length === 1 ? "" : "s"}
+                            {o.occasion ? ` · ${o.occasion}` : ""}
+                          </Text>
+                        </View>
+                        <Ionicons
+                          name={active ? "checkmark-circle" : "ellipse-outline"}
+                          size={22}
+                          color={active ? theme.colors.primary : theme.colors.border}
+                        />
+                      </Pressable>
+                    );
+                  })}
+
+                  <Text style={styles.groupLabel}>CAPTION</Text>
+                  <TextInput
+                    style={styles.captionInput}
+                    value={caption}
+                    onChangeText={setCaption}
+                    placeholder="Tell the community about this look…"
+                    placeholderTextColor={theme.colors.textMuted}
+                    maxLength={400}
+                    multiline
+                  />
+
+                  {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+                  <AppButton
+                    label="Post to Community"
+                    icon="cloud-upload-outline"
+                    loading={sharing}
+                    disabled={!selected}
+                    onPress={() => void share()}
+                  />
+                  <Text style={styles.privacyNote}>
+                    The outfit images are copied to the public Community bucket. Your wardrobe
+                    itself stays private.
+                  </Text>
+                </>
+              )}
+            </ScrollView>
           </View>
-
-          <ScrollView contentContainerStyle={styles.sheetBody} keyboardShouldPersistTaps="handled">
-            {outfits === null && !error ? (
-              <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 24 }} />
-            ) : error ? (
-              <ErrorState message={error} onRetry={() => void load()} />
-            ) : !outfits?.length ? (
-              <EmptyState
-                icon="sparkles-outline"
-                title="No saved looks yet"
-                message="Save an outfit from the Outfits tab, then share it here."
-                compact
-              />
-            ) : (
-              <>
-                <Text style={styles.groupLabel}>CHOOSE AN OUTFIT</Text>
-                {outfits.map((o) => {
-                  const active = o.id === selectedId;
-                  const thumbs = o.clothing_ids
-                    .map((id) => refs.get(id))
-                    .filter((r): r is string => Boolean(r))
-                    .slice(0, 3);
-                  return (
-                    <Pressable
-                      key={o.id}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: active }}
-                      onPress={() => setSelectedId(active ? null : o.id)}
-                      style={[styles.outfitRow, active && styles.outfitRowActive]}
-                    >
-                      <View style={styles.thumbs}>
-                        {thumbs.length ? (
-                          thumbs.map((r, i) => (
-                            <SmartImage
-                              key={`${o.id}-thumb-${i}`}
-                              source={r}
-                              style={styles.thumb}
-                            />
-                          ))
-                        ) : (
-                          <View style={[styles.thumb, styles.thumbEmpty]}>
-                            <Ionicons name="shirt-outline" size={16} color={theme.colors.textMuted} />
-                          </View>
-                        )}
-                      </View>
-                      <View style={styles.outfitBody}>
-                        <Text style={styles.outfitName} numberOfLines={1}>
-                          {o.name || "Untitled look"}
-                        </Text>
-                        <Text style={styles.outfitMeta}>
-                          {o.clothing_ids.length} piece{o.clothing_ids.length === 1 ? "" : "s"}
-                          {o.occasion ? ` · ${o.occasion}` : ""}
-                        </Text>
-                      </View>
-                      <Ionicons
-                        name={active ? "checkmark-circle" : "ellipse-outline"}
-                        size={22}
-                        color={active ? theme.colors.primary : theme.colors.border}
-                      />
-                    </Pressable>
-                  );
-                })}
-
-                <Text style={styles.groupLabel}>CAPTION</Text>
-                <TextInput
-                  style={styles.captionInput}
-                  value={caption}
-                  onChangeText={setCaption}
-                  placeholder="Tell the community about this look…"
-                  placeholderTextColor={theme.colors.textMuted}
-                  maxLength={400}
-                  multiline
-                />
-
-                {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-                <AppButton
-                  label="Post to Community"
-                  icon="cloud-upload-outline"
-                  loading={sharing}
-                  disabled={!selected}
-                  onPress={() => void share()}
-                />
-                <Text style={styles.privacyNote}>
-                  The outfit images are copied to the public Community bucket. Your wardrobe
-                  itself stays private.
-                </Text>
-              </>
-            )}
-          </ScrollView>
-        </View>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );
@@ -220,12 +241,21 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.45)",
     justifyContent: "flex-end",
   },
+  // Fills the backdrop so the sheet keeps its "86% of the screen" cap while
+  // staying bottom-anchored; keyboard padding on iOS lifts the whole stack.
+  sheetWrap: { flex: 1, justifyContent: "flex-end", width: "100%" },
   sheet: {
     backgroundColor: theme.colors.background,
     borderTopLeftRadius: theme.borderRadius.xl,
     borderTopRightRadius: theme.borderRadius.xl,
     maxHeight: "86%",
-    paddingBottom: 12,
+  },
+  handleWrap: { alignItems: "center", paddingTop: 8 },
+  handle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: theme.colors.border,
   },
   sheetHeader: {
     flexDirection: "row",
