@@ -10,12 +10,24 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { theme } from "../config/theme";
 import { ToastRecord, ToastVariant, useToastStore } from "../lib/toast";
 
-const META: Record<ToastVariant, { icon: keyof typeof Ionicons.glyphMap; tint: string }> = {
-  success: { icon: "checkmark-circle", tint: theme.colors.success },
-  error: { icon: "alert-circle", tint: theme.colors.danger },
-  info: { icon: "information-circle", tint: theme.colors.primary },
-  loading: { icon: "sync", tint: theme.colors.textMuted },
-};
+// Resolved per render (not captured at module load) so the toast tinting
+// follows appearance-mode swaps of `theme.colors` instead of freezing the
+// boot palette.
+function toastMeta(variant: ToastVariant): {
+  icon: keyof typeof Ionicons.glyphMap;
+  tint: string;
+} {
+  switch (variant) {
+    case "success":
+      return { icon: "checkmark-circle", tint: theme.colors.success };
+    case "error":
+      return { icon: "alert-circle", tint: theme.colors.danger };
+    case "info":
+      return { icon: "information-circle", tint: theme.colors.primary };
+    case "loading":
+      return { icon: "sync", tint: theme.colors.textMuted };
+  }
+}
 
 export function ToastHost() {
   const current = useToastStore((s) => s.current);
@@ -61,7 +73,7 @@ export function ToastHost() {
 
   if (!shown) return null;
 
-  const meta = META[shown.variant];
+  const meta = toastMeta(shown.variant);
 
   return (
     <View style={[styles.layer, { paddingTop: insets.top + 8 }]} pointerEvents="box-none">
@@ -163,7 +175,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   body: { flex: 1, minWidth: 0 },
-  title: { fontSize: 13.5, fontWeight: "700", color: theme.colors.text },
+  title: { fontSize: 13.5, fontWeight: "600", color: theme.colors.text },
   message: { fontSize: 12, color: theme.colors.textMuted, marginTop: 1, lineHeight: 16 },
   action: {
     paddingHorizontal: 12,
@@ -171,5 +183,5 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.pill,
     backgroundColor: theme.colors.primary,
   },
-  actionText: { color: theme.colors.onPrimary, fontWeight: "700", fontSize: 12.5 },
+  actionText: { color: theme.colors.onPrimary, fontWeight: "500", fontSize: 12.5 },
 });
