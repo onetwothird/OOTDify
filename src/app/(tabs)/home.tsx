@@ -8,7 +8,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
   Easing,
@@ -33,7 +33,8 @@ import { TodayLookCard } from "../../features/outfit/components/TodayLookCard";
 import { fetchOutfitPlans, OutfitPlan, toISODate } from "../../features/outfit/planner";
 import { ProfileAvatar } from "../../features/profile/ProfileAvatar";
 import { useAvatarStore } from "../../features/profile/avatarStore";
-import { applyPendingAvatar, runPendingPhotoCheck } from "../../features/profile/avatar";
+import { applyPendingAvatar } from "../../features/profile/avatar";
+import { isOnboardingPending } from "../../features/profile/onboarding";
 import { useWardrobeStore } from "../../features/wardrobe/store";
 import { AppButton } from "../../shared/components/AppButton";
 import { Chip } from "../../shared/components/Chip";
@@ -88,8 +89,10 @@ export default function HomeScreen() {
   // The photo lives in a shared store so Profile changes show up here at once.
   const avatarRef = useAvatarStore((s) => s.ref);
   const setAvatarRef = useAvatarStore((s) => s.setRef);
-  const setPhotoCheck = useAvatarStore((s) => s.setCheck);
   const [greetingLoading, setGreetingLoading] = useState(true);
+  // The onboarding prompt is only considered once per mount (loadGreeting runs
+  // on every focus; navigating must not repeat).
+  const onboardingChecked = useRef(false);
 
   // ---------------------------------------------------------------------------
   // Loaders (real endpoints only)
@@ -175,20 +178,29 @@ export default function HomeScreen() {
       setNickname(name);
       setAvatarRef(profile.avatar_url ?? null);
 
-      // First moment the new account can own its photo: a picture chosen in the
-      // signup wizard is uploaded here, and a selfie captured there is checked
-      // by the real models. Neither was uploaded while signed out.
+      // First moment the new account can own its photo: a picture chosen or
+      // captured in the signup wizard is uploaded here. It was never uploaded
+      // while signed out.
       const applied = await applyPendingAvatar();
       if (applied) setAvatarRef(applied);
-      const check = await runPendingPhotoCheck();
-      if (check) setPhotoCheck(check);
+
+      // Post-signup prompt: a fresh account is asked once for its nickname and
+      // style preferences. Flag is local + email-tagged; opening the route once
+      // per mount keeps a saved/skipped answer from ever looping.
+      if (!onboardingChecked.current) {
+        onboardingChecked.current = true;
+        if (await isOnboardingPending(email)) {
+          router.replace("/onboarding");
+          return;
+        }
+      }
     } catch {
       // AI service down / not signed in: fall back to a generic greeting.
       setNickname(null);
     } finally {
       setGreetingLoading(false);
     }
-  }, [setAvatarRef, setPhotoCheck]);
+  }, [setAvatarRef, router]);
 
   // Reset loading/error during render when the occasion changes — React's
   // documented alternative to a synchronous setState inside an effect.
@@ -504,15 +516,25 @@ const GREETING_TIPS = [
   "Save the looks you love and they'll surface right here.",
 ] as const;
 
+// The mascot's dialogue: a one-time welcome line (index 0, labelled FITGUIN),
+// then the styling tips. Wrapping skips index 0 so the greeting never repeats —
+// it is a hello, not a tip.
+const WELCOME_LINE =
+  "Hi! I'm Fitguin, your style guide — I'll drop tips right here while you browse.";
+const DIALOGUE = [WELCOME_LINE, ...GREETING_TIPS] as const;
+
+/** Advance the dialogue, skipping the welcome line (index 0) on wrap. */
+const nextDialogueIndex = (i: number) => (i + 1 >= DIALOGUE.length ? 1 : i + 1);
+
 function greetingFor(hour: number): string {
   if (hour < 12) return "Good Morning";
   if (hour < 17) return "Good Afternoon";
   return "Good Evening";
 }
 
-// Flat top bar: greeting on the left, settings + avatar on the right. The old
-// greeting card (with blobs and the location chip) is gone — the header is now
-// a light row so the hero below carries the visual weight.
+// Flat top bar: greeting + live location on the left, avatar on the right. The
+// old greeting card (with blobs) is gone — the header is now a light row so the
+// hero below carries the visual weight.
 function HomeTopBar({
   nickname,
   avatarRef,
@@ -533,6 +555,10 @@ function HomeTopBar({
   }, []);
   const greeting = greetingFor(now.getHours());
   const initial = (nickname?.[0] ?? "").toUpperCase();
+
+  // Real GPS + reverse geocoding — shown right under the greeting. Honest states:
+  // loading while locating, the actual place when ready, tappable retry when off.
+  const place = useCurrentPlace();
 
   // Entrance (fade + rise).
   const [enter] = useState(() => new Animated.Value(0));
@@ -569,6 +595,25 @@ function HomeTopBar({
         <Text style={styles.greetingTitle} numberOfLines={1}>
           {nickname ? `${greeting}, ${nickname}!` : loading ? "…" : `${greeting}!`}
         </Text>
+        <Pressable
+          onPress={place.status === "blocked" ? place.request : undefined}
+          disabled={place.status !== "blocked"}
+          style={styles.greetingPlaceRow}
+          hitSlop={6}
+        >
+          <Ionicons
+            name={place.status === "blocked" ? "location-outline" : "location"}
+            size={12}
+            color={theme.colors.textMuted}
+          />
+          <Text style={styles.greetingPlace} numberOfLines={1}>
+            {place.status === "loading"
+              ? "Finding your location…"
+              : place.status === "ready"
+                ? place.label
+                : "Location off — tap to enable"}
+          </Text>
+        </Pressable>
       </View>
 
       <ProfileAvatar
@@ -607,10 +652,11 @@ function Hero({
   // Leave a lane beside the mascot so its speech bubble never sits on its body.
   const mascotLane = Math.round(mascot * 0.72);
 
-  // The mascot "speaks" a rotating styling tip: type it out, hold, then swap.
+  // The mascot "speaks" the dialogue: type it out, hold, then swap. Index 0 is
+  // the welcome; wrapping skips back to 1 so the hello never repeats.
   const [tipIndex, setTipIndex] = useState(0);
   const [typed, setTyped] = useState(0);
-  const tip = GREETING_TIPS[tipIndex];
+  const tip = DIALOGUE[tipIndex];
 
   useEffect(() => {
     const done = typed >= tip.length;
@@ -618,7 +664,7 @@ function Hero({
       () => {
         if (done) {
           setTyped(0);
-          setTipIndex((i) => (i + 1) % GREETING_TIPS.length);
+          setTipIndex((i) => nextDialogueIndex(i));
         } else {
           setTyped((n) => n + 1);
         }
@@ -682,7 +728,7 @@ function Hero({
         <View style={styles.heroCopy}>
           <View style={styles.heroPill}>
             <Ionicons name="sparkles" size={11} color={theme.colors.text} />
-            <Text style={styles.heroPillText}>OOTDIFY</Text>
+            <Text style={styles.heroPillText}>Fitguin</Text>
           </View>
           <Text style={styles.heroTitle}>
             Your wardrobe.
@@ -787,18 +833,22 @@ function Hero({
         <View style={{ width: mascotLane }} pointerEvents="none" />
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Show another tip"
+          accessibilityLabel="Show the next line"
           onPress={() => {
             setTyped(0);
-            setTipIndex((i) => (i + 1) % GREETING_TIPS.length);
+            setTipIndex((i) => nextDialogueIndex(i));
           }}
           style={({ pressed }) => [styles.bubbleWrap, pressed && { opacity: 0.85 }]}
         >
           <View style={styles.bubbleTail} pointerEvents="none" />
           <View style={styles.bubble}>
             <View style={styles.bubbleHead}>
-              <Ionicons name="bulb-outline" size={13} color={theme.colors.text} />
-              <Text style={styles.bubbleLabel}>STYLING TIP</Text>
+              <Ionicons
+                name={tipIndex === 0 ? "sparkles" : "bulb-outline"}
+                size={13}
+                color={theme.colors.text}
+              />
+              <Text style={styles.bubbleLabel}>{tipIndex === 0 ? "FITGUIN" : "STYLING TIP"}</Text>
               <Ionicons name="refresh" size={13} color={theme.colors.textMuted} />
             </View>
             <Text style={styles.bubbleText} numberOfLines={3}>
@@ -933,6 +983,20 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: -0.4,
     color: theme.colors.text,
+  },
+  greetingPlaceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 2,
+  },
+  greetingPlace: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: "600",
+    color: theme.colors.textMuted,
   },
   // Manga-style speech bubble — the penguin's voice in the hero
   bubbleWrap: { flex: 1, minWidth: 0 },
