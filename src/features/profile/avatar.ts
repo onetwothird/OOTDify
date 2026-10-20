@@ -14,10 +14,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import { Alert } from "react-native";
 
-import { checkProfilePhoto, updateProfile } from "../../services/aiApi";
+import { updateProfile } from "../../services/aiApi";
 import { supabase } from "../../shared/lib/supabase";
 import { toast } from "../../shared/lib/toast";
-import type { PhotoCheckResult } from "./avatarStore";
 
 export type AvatarSource = "library" | "camera";
 
@@ -35,10 +34,9 @@ export interface PickedPhoto {
   source: AvatarSource;
 }
 
-// Local-only keys. These never hold a remote URL — just a file:// path in the
+// Local-only key. This never holds a remote URL — just a file:// path in the
 // app's own cache that the OS may reclaim at any time (handled below).
 const PENDING_PHOTO_KEY = "ootdify.pending-avatar";
-const PENDING_SELFIE_KEY = "ootdify.pending-selfie";
 
 async function currentUserId(): Promise<string | null> {
   const { data } = await supabase.auth.getUser();
@@ -240,14 +238,6 @@ export async function clearPendingAvatar(): Promise<void> {
   await AsyncStorage.removeItem(PENDING_PHOTO_KEY);
 }
 
-export async function savePendingSelfie(uri: string, email: string): Promise<void> {
-  await writePending(PENDING_SELFIE_KEY, uri, email);
-}
-
-export async function clearPendingSelfie(): Promise<void> {
-  await AsyncStorage.removeItem(PENDING_SELFIE_KEY);
-}
-
 /**
  * Upload the photo chosen during signup and attach it to the profile.
  *
@@ -282,38 +272,4 @@ export async function applyPendingAvatar(): Promise<string | null> {
   }
 }
 
-// The selfie check is attempted at most once per app run, so a failing backend
-// cannot turn every screen focus into another request.
-let photoCheckAttempted = false;
 
-/**
- * Run the real photo check on the selfie captured during signup and hand back
- * the verdict. Returns null when there is nothing to check, the file is gone,
- * or the check could not run — in which case the pending selfie is kept.
- */
-export async function runPendingPhotoCheck(): Promise<PhotoCheckResult | null> {
-  if (photoCheckAttempted) return null;
-
-  const { data } = await supabase.auth.getUser();
-  const user = data.user;
-  if (!user) return null;
-
-  const pending = await readPending(PENDING_SELFIE_KEY);
-  if (!pending) return null;
-  if (!belongsTo(pending, user)) return null;
-
-  photoCheckAttempted = true;
-
-  if (!(await localFileExists(pending.uri))) {
-    await clearPendingSelfie();
-    return null;
-  }
-
-  try {
-    const check = await checkProfilePhoto(pending.uri);
-    await clearPendingSelfie();
-    return { ...check, checkedAt: new Date().toISOString() };
-  } catch {
-    return null;
-  }
-}
