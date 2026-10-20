@@ -299,6 +299,27 @@ returns boolean language sql stable security definer set search_path = public as
   );
 $$;
 
+-- Helper: is the current user the CREATOR of this conversation? SECURITY
+-- DEFINER so the policy can read conversations.created_by without inheriting
+-- that table's own participant-only SELECT policy (which would recurse).
+create or replace function public._is_conv_creator(conv uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.conversations
+    where id = conv and created_by = auth.uid()
+  );
+$$;
+
+-- Helper: how many participants a conversation already has. SECURITY DEFINER
+-- because a policy on conversation_participants may not query that same table
+-- through its own policies — Postgres would raise infinite recursion.
+create or replace function public._conv_participant_count(conv uuid)
+returns integer language sql stable security definer set search_path = public as $$
+  select count(*)::integer
+  from public.conversation_participants
+  where conversation_id = conv;
+$$;
+
 -- Denormalized counts on community_posts. Clients have NO update policy on
 -- posts, so these are maintained only by these triggers (owner = postgres).
 create or replace function public._sync_post_counts() returns trigger
@@ -358,11 +379,21 @@ select public._ensure_policy('conversations_select', 'public.conversations', 'se
 select public._ensure_policy('conversations_insert', 'public.conversations', 'insert', 'auth.uid() = created_by', 'auth.uid() = created_by');
 select public._ensure_policy('conversations_update', 'public.conversations', 'update', 'public.is_conversation_participant(id)');
 
--- You may add yourself to any conversation, or (as its creator) add the other
--- person when you're already a participant. Nobody can inject themselves into
--- a conversation they don't belong to.
+-- You may add YOURSELF only to the shared community room — that is how the
+-- everyone-can-join room works. The conversation's creator may add their own
+-- row and, for a 1:1, the other person's row: _conv_participant_count < 2 is
+-- read at statement start and the client inserts the two rows as sequential
+-- statements, so the second insert sees the first. Result: a private
+-- conversation can never exceed two people, and nobody can inject themselves
+-- into a conversation they weren't invited to (the community room aside, its
+-- UUID is public by design).
+-- Dropped first so re-running schema.sql actually TIGHTENS an existing policy
+-- instead of _ensure_policy skipping it as "already present".
 select public._ensure_policy('conversation_participants_select', 'public.conversation_participants', 'select', 'public.is_conversation_participant(conversation_id)');
-select public._ensure_policy('conversation_participants_insert', 'public.conversation_participants', 'insert', 'user_id = auth.uid() or public.is_conversation_participant(conversation_id)', 'user_id = auth.uid() or public.is_conversation_participant(conversation_id)');
+drop policy if exists conversation_participants_insert on public.conversation_participants;
+select public._ensure_policy('conversation_participants_insert', 'public.conversation_participants', 'insert',
+  '(user_id = auth.uid() and conversation_id = ''4f544444-0000-4000-8000-00000000c0de''::uuid)
+   or (public._is_conv_creator(conversation_id) and public._conv_participant_count(conversation_id) < 2)');
 select public._ensure_policy('conversation_participants_update', 'public.conversation_participants', 'update', 'user_id = auth.uid()');
 select public._ensure_policy('conversation_participants_delete', 'public.conversation_participants', 'delete', 'user_id = auth.uid() or exists (select 1 from public.conversations c where c.id = conversation_id and c.created_by = auth.uid())');
 
