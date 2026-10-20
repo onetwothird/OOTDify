@@ -1,6 +1,9 @@
 // C:\OOTDify\src\app\(tabs)\profile.tsx
-// Profile: identity + fashion preferences (real, persisted via the Flask
-// backend /api/profile), plus links to Privacy & Data controls and sign out.
+// Profile — the settings hub. Identity + fashion preferences (real, persisted
+// via the Flask backend /api/profile), device settings (language, appearance,
+// biometric unlock via features/settings/SettingsSection), Privacy & Data
+// controls, and sign out. Reachable from the Home header avatar — it is
+// intentionally not a menu tab (Community took that slot).
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
@@ -23,6 +26,7 @@ import { CATALOG_CATEGORIES, OCCASIONS } from "../../features/clothing/types";
 import { ProfileAvatar } from "../../features/profile/ProfileAvatar";
 import { captureSelfie, promptAvatarChange } from "../../features/profile/avatar";
 import { useAvatarStore } from "../../features/profile/avatarStore";
+import { SettingsSection } from "../../features/settings/SettingsSection";
 import { AppButton } from "../../shared/components/AppButton";
 import { ErrorState } from "../../shared/components/StateViews";
 import { LoadingState } from "../../shared/components/LoadingState";
@@ -487,6 +491,9 @@ export default function ProfileScreen() {
                 </Pressable>
               )}
             </View>
+
+            {/* Settings — Profile is the settings hub */}
+            <SettingsSection />
 
             {/* Privacy & legal */}
             <SectionLabel text="PRIVACY & DATA" />
