@@ -123,6 +123,33 @@ Open `http://127.0.0.1:5000/api/detect/annotated/<filename>` to view boxes.
 | Phone cannot reach the API (`Network request failed`) | Use the PC's LAN IP (not `localhost`); see root README networking section. Allow port 5000 through Windows Firewall. |
 | `413 File too large` | Your photo exceeds 10 MB. Raise `MAX_CONTENT_LENGTH` or compress the photo on-device (see Expo `quality`). |
 
+## Deploy to Railway
+
+The `Dockerfile` in this folder is the production image (gunicorn, not the
+Flask dev server). Railway must be pointed at **this subfolder**, not the repo
+root — the repo root is the Expo app, whose gitignored `dist/` folder does not
+exist in a fresh clone ("`/app/dist`: not found" during build = Railway is
+building the wrong folder).
+
+1. Railway service → **Settings → Root Directory** → set it to `backend`.
+   (Leave the builder as-is; Railway then finds `backend/Dockerfile`
+   automatically. Do *not* add a build command — the Dockerfile is the build.)
+2. **Variables** → add `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`
+   (backend-only secrets, same values as `backend/.env`), plus `SECRET_KEY`.
+   Everything else has working defaults; see `.env.example`.
+3. **Settings → Networking** → generate a public domain.
+4. Healthcheck: `GET /health` (the service registers it; the first deploy
+   takes a few minutes because torch/ultralytics are large and the YOLO
+   weights download on first boot).
+
+Notes:
+* Weights land in the container's filesystem and re-download on each new
+  deploy (containers are ephemeral). That is a few MB — fine. If it becomes
+  an issue, set `MODEL_LOAD_ON_STARTUP=0` and models load lazily per request.
+* Uploads/outputs are ephemeral too; the try-on job store lives in the
+  container. Fine for a demo, use a volume for anything durable.
+* The app binds `$PORT` (Railway injects it) unless `FLASK_PORT` overrides.
+
 ## Adding a new AI service later
 
 1. Create `services/<name>_service.py`.
