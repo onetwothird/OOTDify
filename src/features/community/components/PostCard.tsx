@@ -3,9 +3,9 @@
 // images, caption, like/comment counts, inline comments, a Message shortcut
 // to the author, and delete for the author's own posts.
 //
-// Avatars: other users' avatars live in a PRIVATE bucket (owner-scoped RLS),
-// so only the viewer's own posts render a photo — everyone else shows an
-// initial. That's a deliberate privacy line, not an oversight.
+// Avatars: each author's photo lives in the private `avatars` bucket. Signed-in
+// users may read avatar objects (see supabase/schema.sql), so every post shows
+// the real photo — falling back to the author's initial when they have none.
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import {
@@ -137,7 +137,7 @@ export function PostCard({
         <ProfileAvatar
           size={38}
           initial={initial}
-          avatarRef={isOwn ? post.author?.avatar_url ?? null : null}
+          avatarRef={post.author?.avatar_url ?? null}
         />
         <View style={styles.headerBody}>
           <Text style={styles.authorName} numberOfLines={1}>
