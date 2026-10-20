@@ -21,7 +21,10 @@ class Config:
     # explicitly when actively debugging on an isolated machine.
     DEBUG = os.getenv("FLASK_DEBUG", "0").lower() in {"1", "true", "yes", "on"}
     HOST = os.getenv("FLASK_HOST", "0.0.0.0")
-    PORT = int(os.getenv("FLASK_PORT", "5000"))
+    # FLASK_PORT wins (local dev / docker-compose); otherwise fall back to the
+    # generic PORT that hosting platforms (Railway, Render, Heroku) inject —
+    # the platform only routes traffic to the port the process actually binds.
+    PORT = int(os.getenv("FLASK_PORT") or os.getenv("PORT") or "5000")
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-change-me")
 
     # Max upload size: 10 MB (raise a 413 if exceeded)
