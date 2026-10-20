@@ -18,5 +18,7 @@ supabase>=2.6,<3
 # ---- Testing the API from a script (backend/scripts/test_api.py) ----
 requests>=2.31.0
 
-# ---- Production only (Linux). Not used during local Windows development. ----
-# gunicorn>=21.2.0
+# ---- Production server (Linux). `python app.py` remains the local dev path. ----
+# Serves the app in the Docker image (Railway / any Linux host) via
+# `gunicorn app:app` — the module-level `create_app()` result in app.py.
+gunicorn>=21.2.0
