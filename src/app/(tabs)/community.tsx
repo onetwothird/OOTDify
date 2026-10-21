@@ -23,16 +23,19 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PostCard } from "../../features/community/components/PostCard";
 import { ShareOutfitModal } from "../../features/community/components/ShareOutfitModal";
+import { CreateRoomModal } from "../../features/community/components/CreateRoomModal";
 import {
   communityErrorMessage,
   deletePost,
   ensureCommunityRoom,
   fetchConversations,
   fetchFeed,
+  fetchPublicRooms,
+  joinRoom,
   startDirectConversation,
   subscribeToFeed,
 } from "../../features/community/service";
-import type { ConversationListEntry, FeedPost } from "../../features/community/types";
+import type { CommunityRoom, ConversationListEntry, FeedPost } from "../../features/community/types";
 import { ProfileAvatar } from "../../features/profile/ProfileAvatar";
 import { AppButton } from "../../shared/components/AppButton";
 import { ScreenHeader } from "../../shared/components/ScreenHeader";
@@ -54,9 +57,13 @@ export default function CommunityScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { width } = useWindowDimensions();
-  // Narrow phones: the header action collapses to an icon so the title never
-  // truncates. Same 380pt line the Profile screen uses for its name row.
-  const condensed = width < 380;
+  // Header action responsiveness. The full "Share a look" button needs roughly
+  // 150pt, the title + subtitle about 170pt, plus the gutter (2×20) and the
+  // header's own gap (16) — about 376pt before anything has room to breathe.
+  // A 380pt line therefore still compresses on 380–420pt phones, especially at
+  // larger font scales, so collapse to the icon button at 430pt instead: the
+  // label is never squeezed, and the title keeps a comfortable column.
+  const condensed = width < 430;
 
   const [tab, setTab] = useState<Tab>("feed");
   const [meId, setMeId] = useState<string | null>(null);
@@ -72,6 +79,11 @@ export default function CommunityScreen() {
   const [chatsError, setChatsError] = useState<string | null>(null);
   const [chatsRefreshing, setChatsRefreshing] = useState(false);
   const [openingRoom, setOpeningRoom] = useState(false);
+
+  // ---- Public group rooms (user-created communities) -----------------------
+  const [rooms, setRooms] = useState<CommunityRoom[] | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [joiningId, setJoiningId] = useState<string | null>(null);
 
   // Refs so the realtime handler always sees fresh state without resubscribing.
   const postsRef = useRef<FeedPost[] | null>(null);
@@ -109,6 +121,17 @@ export default function CommunityScreen() {
     }
   }, []);
 
+  const loadRooms = useCallback(async () => {
+    try {
+      setRooms(await fetchPublicRooms());
+    } catch (e) {
+      // Rooms are a secondary section on the Chats tab; a failure here should
+      // not blank out the user's own conversations, so surface it inline.
+      setRooms([]);
+      setChatsError(communityErrorMessage(e));
+    }
+  }, []);
+
   const refreshFeed = useCallback(async () => {
     setFeedRefreshing(true);
     await loadFeed();
@@ -117,19 +140,23 @@ export default function CommunityScreen() {
 
   const refreshChats = useCallback(async () => {
     setChatsRefreshing(true);
-    await loadChats();
+    await Promise.all([loadChats(), loadRooms()]);
     setChatsRefreshing(false);
-  }, [loadChats]);
+  }, [loadChats, loadRooms]);
 
   // Load both lists on mount; reload whichever tab is visible on focus.
   useEffect(() => {
     void loadFeed();
     void loadChats();
-  }, [loadFeed, loadChats]);
+    void loadRooms();
+  }, [loadFeed, loadChats, loadRooms]);
 
   useEffect(() => {
-    if (tab === "chats") void loadChats();
-  }, [tab, loadChats]);
+    if (tab === "chats") {
+      void loadChats();
+      void loadRooms();
+    }
+  }, [tab, loadChats, loadRooms]);
 
   // Live feed: any change (someone posts/likes/deletes) re-pulls the list.
   useEffect(() => {
@@ -194,6 +221,31 @@ export default function CommunityScreen() {
     }
   }, [router]);
 
+  /** Join a public room (if needed) and open it. */
+  const openRoom = useCallback(
+    async (room: CommunityRoom) => {
+      setJoiningId(room.id);
+      try {
+        if (!room.joined) await joinRoom(room.id);
+        router.push(`/community/chat/${room.id}`);
+      } catch (e) {
+        toast.error("Could not join community", communityErrorMessage(e));
+      } finally {
+        setJoiningId(null);
+      }
+    },
+    [router],
+  );
+
+  const handleRoomCreated = useCallback(
+    (roomId: string) => {
+      setCreateOpen(false);
+      void loadRooms();
+      router.push(`/community/chat/${roomId}`);
+    },
+    [loadRooms, router],
+  );
+
   // ---- Renderers -----------------------------------------------------------
   const renderFeedItem = useCallback(
     ({ item }: { item: FeedPost }) => (
@@ -209,7 +261,9 @@ export default function CommunityScreen() {
     [meId, handleLikeChanged, handleMessage, handleDelete],
   );
 
-  const chatRows = (conversations ?? []).filter((c) => !c.isRoom);
+  // Direct messages only. Group rooms are rendered under Communities, and the
+  // fixed everyone-room has its own pinned row — so both are excluded here.
+  const chatRows = (conversations ?? []).filter((c) => !c.isRoom && !c.isGroup);
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 8 }]}>
@@ -229,7 +283,7 @@ export default function CommunityScreen() {
                 onPress={() => setShareOpen(true)}
                 style={({ pressed }) => [styles.shareIconBtn, pressed && { opacity: 0.7 }]}
               >
-                <Ionicons name="cloud-upload-outline" size={20} color={theme.colors.text} />
+                <Ionicons name="cloud-upload-outline" size={20} color={theme.colors.onPrimary} />
               </Pressable>
             ) : (
               <AppButton
@@ -306,32 +360,106 @@ export default function CommunityScreen() {
             />
           }
           ListHeaderComponent={
-            /* The shared everyone-room is pinned at the top of the list. */
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => void openCommunityRoom()}
-              disabled={openingRoom}
-              style={({ pressed }) => [styles.roomRow, pressed && { opacity: 0.85 }]}
-            >
-              <View style={styles.roomIcon}>
-                <Text style={styles.roomIconText}>OC</Text>
+            <View style={styles.chatSections}>
+              {/* The shared everyone-room is pinned at the top of the list. */}
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => void openCommunityRoom()}
+                disabled={openingRoom}
+                style={({ pressed }) => [styles.roomRow, pressed && { opacity: 0.85 }]}
+              >
+                <View style={styles.roomIcon}>
+                  <Text style={styles.roomIconText}>OC</Text>
+                </View>
+                <View style={styles.roomBody}>
+                  <Text style={styles.roomTitle}>Open Community Chat</Text>
+                  <Text style={styles.roomHint}>Talk with everyone on OOTDify</Text>
+                </View>
+                {openingRoom ? (
+                  <ActivityIndicator size="small" color={theme.colors.primary} />
+                ) : (
+                  <Text style={styles.roomOpen}>Open</Text>
+                )}
+              </Pressable>
+
+              {/* ------------------------------------------- Communities */}
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>COMMUNITIES</Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Create a community"
+                    hitSlop={8}
+                    onPress={() => setCreateOpen(true)}
+                    style={({ pressed }) => [styles.createBtn, pressed && { opacity: 0.85 }]}
+                  >
+                    <Ionicons name="add" size={16} color={theme.colors.onPrimary} />
+                    <Text style={styles.createBtnText}>Create</Text>
+                  </Pressable>
+                </View>
+
+                {/* Rows are their own group so the section heading hugs them. */}
+                <View style={styles.rowGroup}>
+                  {rooms === null ? (
+                    <ActivityIndicator color={theme.colors.primary} style={styles.roomsLoading} />
+                  ) : rooms.length === 0 ? (
+                    <Text style={styles.roomsEmpty}>
+                      No communities yet. Create one to get started.
+                    </Text>
+                  ) : (
+                    rooms.map((room) => {
+                      const busy = joiningId === room.id;
+                      return (
+                        <Pressable
+                          key={room.id}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${room.title}, ${room.category}, ${room.memberCount} members`}
+                          onPress={() => void openRoom(room)}
+                          disabled={busy}
+                          style={({ pressed }) => [styles.chatRow, pressed && { opacity: 0.85 }]}
+                        >
+                          <View style={styles.roomIcon}>
+                            <Text style={styles.roomIconText}>
+                              {room.title.slice(0, 2).toUpperCase()}
+                            </Text>
+                          </View>
+                          <View style={styles.chatBody}>
+                            <Text style={styles.chatName} numberOfLines={1}>
+                              {room.title}
+                            </Text>
+                            <Text style={styles.chatPreview} numberOfLines={1}>
+                              {room.category} ·{" "}
+                              {room.memberCount === 1
+                                ? "1 member"
+                                : `${room.memberCount} members`}
+                            </Text>
+                          </View>
+                          {busy ? (
+                            <ActivityIndicator size="small" color={theme.colors.primary} />
+                          ) : (
+                            <Text style={styles.roomOpen}>{room.joined ? "Open" : "Join"}</Text>
+                          )}
+                        </Pressable>
+                      );
+                    })
+                  )}
+                </View>
               </View>
-              <View style={styles.roomBody}>
-                <Text style={styles.roomTitle}>Open Community Chat</Text>
-                <Text style={styles.roomHint}>Talk with everyone on OOTDify</Text>
-              </View>
-              {openingRoom ? (
-                <ActivityIndicator size="small" color={theme.colors.primary} />
-              ) : (
-                <Text style={styles.roomOpen}>Open</Text>
-              )}
-            </Pressable>
+
+              {chatRows.length ? (
+                <Text style={styles.sectionTitle}>DIRECT MESSAGES</Text>
+              ) : null}
+            </View>
           }
           ListEmptyComponent={
+            // Only reachable when there are no DMs. The header already shows the
+            // community room and the Communities section, so don't claim "no
+            // chats" when communities are right above — just explain what a DM
+            // is and how to get one.
             <EmptyState
               icon="chatbubbles-outline"
-              title="No chats yet"
-              message="Open the community chat, or message someone from the feed."
+              title="No direct messages"
+              message="Message someone from the feed to start a private chat."
             />
           }
           renderItem={({ item }) => (
@@ -376,6 +504,12 @@ export default function CommunityScreen() {
           toast.success("Look shared", "Your outfit is now on the community feed.");
         }}
       />
+
+      <CreateRoomModal
+        visible={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={handleRoomCreated}
+      />
     </View>
   );
 }
@@ -407,7 +541,14 @@ const styles = StyleSheet.create({
   segmentText: { fontSize: 13, fontWeight: "700", color: theme.colors.textMuted },
   segmentTextActive: { color: theme.colors.onPrimary },
   listContent: { paddingHorizontal: GUTTER, paddingTop: 4, paddingBottom: 32, gap: 14 },
-  shareIconBtn: { padding: 6 },
+  shareIconBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 
   // Community chat room row
   roomRow: {
@@ -433,6 +574,44 @@ const styles = StyleSheet.create({
   roomTitle: { fontSize: 14.5, fontWeight: "800", color: theme.colors.text },
   roomHint: { fontSize: 11.5, color: theme.colors.textMuted, marginTop: 2 },
   roomOpen: { fontSize: 13, fontWeight: "800", color: theme.colors.primary },
+
+  // Communities section (public group rooms)
+  // The Chats list header stacks several blocks; the outer list applies one
+  // `gap` between them, so each section owns its internal rhythm here.
+  chatSections: { gap: theme.spacing.lg },
+  section: { gap: theme.spacing.sm },
+  // Room rows sit tight to each other so they read as one list, not as loose
+  // cards interleaved with the section headings.
+  rowGroup: { gap: theme.spacing.sm },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  sectionTitle: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    color: theme.colors.textMuted,
+  },
+  createBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: theme.borderRadius.pill,
+    backgroundColor: theme.colors.primary,
+    minHeight: 32,
+  },
+  createBtnText: { fontSize: 12.5, fontWeight: "800", color: theme.colors.onPrimary },
+  roomsLoading: { marginVertical: theme.spacing.md },
+  roomsEmpty: {
+    fontSize: 12.5,
+    color: theme.colors.textMuted,
+    paddingVertical: theme.spacing.sm,
+    lineHeight: 18,
+  },
 
   // 1:1 chat rows
   chatRow: {
