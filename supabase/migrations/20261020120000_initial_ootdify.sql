@@ -280,6 +280,11 @@ create index if not exists follows_followee_idx on public.follows (followee_id);
 -- 1:1 chat. A conversation is just a container; created_by records who started
 -- it (so they may add the other participant), and the participants row decides
 -- who may read it. last_read_at powers unread badges.
+--
+-- The same table also holds PUBLIC GROUP ROOMS: when is_public is true the row
+-- carries a title + category and any signed-in user may discover it and join by
+-- inserting their own participant row. 1:1 DMs leave those columns null and set
+-- is_public = false, so their membership rule (above) is unchanged.
 create table if not exists public.conversations (
   id uuid primary key default gen_random_uuid(),
   created_by uuid not null references auth.users (id) on delete cascade default auth.uid(),
@@ -288,8 +293,15 @@ create table if not exists public.conversations (
 );
 
 alter table public.conversations add column if not exists created_by uuid not null references auth.users (id) on delete cascade default auth.uid();
+-- Group-room metadata. All nullable/false for 1:1 DMs, so existing rows and the
+-- DM flow are untouched by these additions.
+alter table public.conversations add column if not exists title text;
+alter table public.conversations add column if not exists category text;
+alter table public.conversations add column if not exists is_public boolean not null default false;
 
 create index if not exists conversations_created_by_idx on public.conversations (created_by);
+-- Discovery index: the rooms list filters on is_public and orders by recency.
+create index if not exists conversations_public_idx on public.conversations (is_public, updated_at desc);
 
 create table if not exists public.conversation_participants (
   conversation_id uuid not null references public.conversations (id) on delete cascade,
@@ -351,6 +363,18 @@ returns integer language sql stable security definer set search_path = public as
   where conversation_id = conv;
 $$;
 
+-- Helper: is this a PUBLIC GROUP ROOM (discoverable, anyone may join)?
+-- SECURITY DEFINER for the same reason as _is_conv_creator: the policy that
+-- calls it lives on conversations, so reading conversations through that
+-- table's own SELECT policy would recurse.
+create or replace function public._is_public_conversation(conv uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.conversations
+    where id = conv and is_public
+  );
+$$;
+
 -- Denormalized counts on community_posts. Clients have NO update policy on
 -- posts, so these are maintained only by these triggers (owner = postgres).
 create or replace function public._sync_post_counts() returns trigger
@@ -397,6 +421,8 @@ revoke execute on function public._is_conv_creator(uuid) from public, anon;
 grant  execute on function public._is_conv_creator(uuid) to authenticated;
 revoke execute on function public._conv_participant_count(uuid) from public, anon;
 grant  execute on function public._conv_participant_count(uuid) to authenticated;
+revoke execute on function public._is_public_conversation(uuid) from public, anon;
+grant  execute on function public._is_public_conversation(uuid) to authenticated;
 revoke execute on function public._sync_post_counts() from public, anon, authenticated;
 revoke execute on function public._touch_conversation() from public, anon, authenticated;
 
@@ -418,23 +444,25 @@ select public._apply_policy('follows_select', 'public.follows', 'select', 'true'
 select public._apply_policy('follows_insert', 'public.follows', 'insert', '(select auth.uid()) = follower_id');
 select public._apply_policy('follows_delete', 'public.follows', 'delete', '(select auth.uid()) = follower_id');
 
--- Conversations: only participants can read the container; the creator may
--- insert it (and the rows for both people — that's how a 1:1 chat is started).
-select public._apply_policy('conversations_select', 'public.conversations', 'select', 'public.is_conversation_participant(id)');
+-- Conversations: participants can read the container. PUBLIC rooms are readable
+-- by everyone (that is how they are discoverable); the creator may insert it.
+select public._apply_policy('conversations_select', 'public.conversations', 'select', 'public.is_conversation_participant(id) or is_public');
 select public._apply_policy('conversations_insert', 'public.conversations', 'insert', '(select auth.uid()) = created_by');
 select public._apply_policy('conversations_update', 'public.conversations', 'update', 'public.is_conversation_participant(id)');
+-- A room's creator may delete their own room (cascades to its messages).
+select public._apply_policy('conversations_delete', 'public.conversations', 'delete', '(select auth.uid()) = created_by');
 
--- You may add YOURSELF only to the shared community room — that is how the
--- everyone-can-join room works. The conversation's creator may add their own
--- row and, for a 1:1, the other person's row: _conv_participant_count < 2 is
--- read at statement start and the client inserts the two rows as sequential
--- statements, so the second insert sees the first. Result: a private
--- conversation can never exceed two people, and nobody can inject themselves
--- into a conversation they weren't invited to (the community room aside, its
--- UUID is public by design).
+-- You may add yourself to any PUBLIC room (that is how everyone-can-join works)
+-- or to the fixed shared room; the conversation's creator may add their own row
+-- and, for a 1:1, the other person's row: _conv_participant_count < 2 is read at
+-- statement start and the client inserts the two rows as sequential statements,
+-- so the second insert sees the first. Result: a private conversation can never
+-- exceed two people, and nobody can inject themselves into a private
+-- conversation they weren't invited to.
 select public._apply_policy('conversation_participants_select', 'public.conversation_participants', 'select', 'public.is_conversation_participant(conversation_id)');
 select public._apply_policy('conversation_participants_insert', 'public.conversation_participants', 'insert',
   '(user_id = (select auth.uid()) and conversation_id = ''4f544444-0000-4000-8000-00000000c0de''::uuid)
+   or (user_id = (select auth.uid()) and public._is_public_conversation(conversation_id))
    or (public._is_conv_creator(conversation_id) and public._conv_participant_count(conversation_id) < 2)');
 select public._apply_policy('conversation_participants_update', 'public.conversation_participants', 'update', 'user_id = (select auth.uid())');
 select public._apply_policy('conversation_participants_delete', 'public.conversation_participants', 'delete', 'user_id = (select auth.uid()) or exists (select 1 from public.conversations c where c.id = conversation_id and c.created_by = (select auth.uid()))');
