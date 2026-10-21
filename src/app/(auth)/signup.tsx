@@ -1,11 +1,9 @@
 // C:\OOTDify\src\app\(auth)\signup.tsx
 // Signup — a three-step wizard: details → photo → agree & create.
 //
-// The photo step is a live preview only. Nothing is uploaded while signed out:
-// the file is remembered locally (tagged with the signup email) and attached to
-// the profile right after that account first signs in. A selfie captured for
-// the photo check is verified the same way, by the real CV models on the
-// backend, once a session exists.
+// The photo step is optional and a live preview only. Nothing is uploaded
+// while signed out: the file is remembered locally (tagged with the signup
+// email) and attached to the profile right after that account first signs in.
 //
 // The terms checkbox gates every path (including OAuth), and the accepted
 // version + timestamp are recorded in auth metadata at sign-up; the backend
@@ -29,14 +27,12 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
-  captureSelfie,
   pickAvatarPhoto,
   savePendingAvatar,
-  savePendingSelfie,
   clearPendingAvatar,
-  clearPendingSelfie,
 } from "../../features/profile/avatar";
 import type { PickedPhoto } from "../../features/profile/avatar";
+import { markOnboardingPending } from "../../features/profile/onboarding";
 import { ProfileAvatar } from "../../features/profile/ProfileAvatar";
 import { AppButton } from "../../shared/components/AppButton";
 import { AuthCard, AuthHero } from "../../shared/components/AuthShell";
@@ -61,7 +57,7 @@ const STEP_COPY = [
   },
   {
     title: "Add your photo",
-    subtitle: "Private to your account — until you say otherwise.",
+    subtitle: "Optional — skip it now and add one later from Profile.",
   },
   {
     title: "One last step",
@@ -81,7 +77,6 @@ export default function SignupScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [photo, setPhoto] = useState<{ uri: string } & Record<string, unknown> | null>(null);
-  const [selfie, setSelfie] = useState<{ uri: string } | null>(null);
   const [picking, setPicking] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -90,10 +85,8 @@ export default function SignupScreen() {
   const [facebookLoading, setFacebookLoading] = useState(false);
   const insets = useSafeAreaInsets();
 
-  // One in-flight action at a time: taps during any auth attempt are no-ops.
   const busy = loading || googleLoading || facebookLoading;
 
-  // ---- real password requirements (checked against what was typed) ----------
   const rules = [
     { label: "8+ characters", ok: password.length >= 8 },
     { label: "A letter", ok: /[a-zA-Z]/.test(password) },
@@ -157,22 +150,14 @@ export default function SignupScreen() {
     })();
   };
 
-  const takeSelfie = () => {
-    void (async () => {
-      setPicking(true);
-      const captured = await captureSelfie();
-      setPicking(false);
-      if (captured) setSelfie(captured);
-    })();
-  };
-
   // Remember the choices for the account being created — never uploaded now.
   const rememberChoice = async (accountEmail: string | null | undefined) => {
     if (!accountEmail) return;
     if (photo) await savePendingAvatar(photo.uri, accountEmail);
     else await clearPendingAvatar();
-    if (selfie) await savePendingSelfie(selfie.uri, accountEmail);
-    else await clearPendingSelfie();
+    // The first home visit asks once for a nickname + style prefs; setting the
+    // flag here (email-tagged) is what arms that prompt for this account.
+    await markOnboardingPending(accountEmail);
   };
 
   const handleSignup = async () => {
@@ -210,11 +195,6 @@ export default function SignupScreen() {
       "Log in and your photo is applied automatically — it is never uploaded before you have an account.",
       [{ text: "Log in", onPress: () => router.replace("/login") }],
     );
-  };
-
-  const finishOAuth = async (session: { user?: { email?: string | null } } | null) => {
-    await rememberChoice(email.trim() || session?.user?.email);
-    if (session) router.replace("/(tabs)/home");
   };
 
   const handleGoogleAuth = async () => {
@@ -393,7 +373,7 @@ export default function SignupScreen() {
                     <Text style={styles.previewHint}>
                       {photo
                         ? "This is exactly what your profile will show."
-                        : "Take one now, or pick one you already like."}
+                        : "Take one now, pick one you already like — or skip it entirely."}
                     </Text>
                   </View>
 
@@ -416,46 +396,6 @@ export default function SignupScreen() {
                   </View>
 
                   {photo ? <PhotoFacts photo={photo} /> : null}
-
-                  {/* Selfie check — runs on the real models once the account
-                      exists, because the check endpoint requires a session. */}
-                  <View style={styles.selfieCard}>
-                    <View style={styles.selfieHead}>
-                      <Ionicons name="shield-checkmark-outline" size={16} color={theme.colors.text} />
-                      <Text style={styles.selfieTitle}>Selfie check</Text>
-                    </View>
-                    {selfie ? (
-                      <View style={styles.selfieBody}>
-                        <View style={styles.selfieThumb}>
-                          <ProfileAvatar
-                            size={44}
-                            initial={avatarInitial}
-                            avatarRef={null}
-                            uri={selfie.uri}
-                            background={theme.colors.surfaceAlt}
-                            color={theme.colors.text}
-                          />
-                        </View>
-                        <Text style={styles.selfieText}>
-                          Captured. We run the check the first time you sign in — it confirms a
-                          person with a clear face, then the image is discarded.
-                        </Text>
-                      </View>
-                    ) : (
-                      <Text style={styles.selfieText}>
-                        Optional. A quick selfie confirms a real person is behind the account.
-                        It is analysed and discarded — no copy is kept.
-                      </Text>
-                    )}
-                    <AppButton
-                      label={selfie ? "Retake selfie" : "Capture selfie"}
-                      icon="scan-outline"
-                      variant="ghost"
-                      size="md"
-                      onPress={takeSelfie}
-                      disabled={busy || picking}
-                    />
-                  </View>
 
                   <Text style={styles.stepNote}>
                     Nothing is uploaded yet — the photo is kept on this device and attached
@@ -485,7 +425,6 @@ export default function SignupScreen() {
                       </Text>
                       <Text style={styles.summaryMeta}>
                         {photo ? "Photo ready to attach after sign-in" : "No photo yet — you can add one later"}
-                        {selfie ? " · selfie check queued" : ""}
                       </Text>
                     </View>
                   </View>
@@ -684,25 +623,6 @@ const styles = StyleSheet.create({
   factLabel: { flex: 1, fontSize: 12.5, fontWeight: "700", color: theme.colors.text },
   factValue: { fontSize: 12, color: theme.colors.textMuted },
 
-  // Selfie card
-  selfieCard: {
-    gap: 10,
-    padding: 14,
-    marginBottom: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.colors.border,
-  },
-  selfieHead: { flexDirection: "row", alignItems: "center", gap: 7 },
-  selfieTitle: { fontSize: 13.5, fontWeight: "800", color: theme.colors.text },
-  selfieBody: { flexDirection: "row", alignItems: "center", gap: 12 },
-  selfieThumb: { width: 44, height: 44, borderRadius: 22, overflow: "hidden" },
-  selfieText: {
-    flex: 1,
-    fontSize: 12,
-    lineHeight: 17,
-    color: theme.colors.textMuted,
-  },
   stepNote: {
     fontSize: 11.5,
     lineHeight: 16,
