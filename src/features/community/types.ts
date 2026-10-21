@@ -52,6 +52,15 @@ export interface ConversationListEntry {
   id: string;
   /** True for the shared everyone-can-join room (fixed UUID). */
   isRoom: boolean;
+  /**
+   * True when this is a public GROUP ROOM created by a user. Group rooms are
+   * listed under Communities, not Direct Messages, so the screen filters on
+   * this rather than on whether the room happens to be in the discover window.
+   */
+  isGroup: boolean;
+  /** Group rooms: the room's title and category (null for DMs / the fixed room). */
+  groupTitle: string | null;
+  groupCategory: string | null;
   otherUserId: string | null;
   otherName: string;
   /** The peer's avatar ref (null when unset — render an initial instead). */
@@ -72,3 +81,35 @@ export interface ChatMessageEntry {
   /** Sender's avatar ref; null for realtime inserts (resolved by the screen). */
   senderAvatar: string | null;
 }
+
+/**
+ * A public group room in the discover list: a conversations row with
+ * is_public = true, plus its title, category and current member count.
+ */
+export interface CommunityRoom {
+  id: string;
+  title: string;
+  category: string;
+  createdBy: string | null;
+  memberCount: number;
+  /** True when the viewer is already a member (show "Open" vs "Join"). */
+  joined: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * The fixed category list shipped with the app. Deliberately a constant rather
+ * than a table: it keeps the picker consistent and needs no admin UI. Adding a
+ * category is a one-line change here.
+ */
+export const ROOM_CATEGORIES = [
+  "Streetwear",
+  "Formal",
+  "Casual",
+  "Vintage",
+  "Thrift",
+  "Workwear",
+] as const;
+
+export type RoomCategory = (typeof ROOM_CATEGORIES)[number];
