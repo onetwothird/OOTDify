@@ -32,6 +32,7 @@ import {
   COMMUNITY_ROOM_ID,
   communityErrorMessage,
   fetchMessages,
+  fetchRoomMeta,
   fetchUserProfile,
   markConversationRead,
   sendMessage,
@@ -76,6 +77,11 @@ export default function ChatThreadScreen() {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [title, setTitle] = useState("Chat");
+  // Set when this conversation is a public group room, so the header can show
+  // its title/category and a group subtitle instead of a DM peer's.
+  const [groupMeta, setGroupMeta] = useState<{ title: string; category: string | null } | null>(
+    null,
+  );
   // The DM peer's id, kept so the header avatar can resolve alongside them.
   const [peerId, setPeerId] = useState<string | null>(null);
   // Resolved display names in state, so a late realtime name resolution
@@ -128,6 +134,14 @@ export default function ChatThreadScreen() {
     }
     void (async () => {
       try {
+        // A public group room is named by its own title, not by a peer.
+        const meta = await fetchRoomMeta(conversationId);
+        if (!alive) return;
+        if (meta?.isPublic && meta.title) {
+          setGroupMeta({ title: meta.title, category: meta.category });
+          setTitle(meta.title);
+          return;
+        }
         const { data: mine } = await supabase.auth.getSession();
         const uid = mine?.session?.user?.id;
         if (!uid || !alive) return;
@@ -281,10 +295,18 @@ export default function ChatThreadScreen() {
   const headerInitial =
     conversationId === COMMUNITY_ROOM_ID
       ? "OC"
-      : (title.trim()[0] ?? "?").toUpperCase();
+      : groupMeta
+        ? groupMeta.title.slice(0, 2).toUpperCase()
+        : (title.trim()[0] ?? "?").toUpperCase();
   // Honest subtitle: no presence feed exists, so nothing claims "online".
   const subtitle =
-    conversationId === COMMUNITY_ROOM_ID ? "Everyone on OOTDify" : "Direct message";
+    conversationId === COMMUNITY_ROOM_ID
+      ? "Everyone on OOTDify"
+      : groupMeta
+        ? groupMeta.category
+          ? `Community · ${groupMeta.category}`
+          : "Community"
+        : "Direct message";
 
   const showNewPill =
     newCount > 0 && Boolean(conversationId) && messages !== null && !error;
