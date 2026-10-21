@@ -1,6 +1,6 @@
 {
   "name": "ootdify",
-  "main": "index.js",
+  "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
@@ -12,7 +12,6 @@
     "expo": "~57.0.27",
     "expo-application": "~57.0.3",
     "expo-auth-session": "~57.0.16",
-    "expo-blob": "~57.0.2",
     "expo-camera": "~57.0.6",
     "expo-constants": "~57.0.19",
     "expo-device": "~57.0.2",
