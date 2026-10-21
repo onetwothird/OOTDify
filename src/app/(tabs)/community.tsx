@@ -6,6 +6,7 @@
 // Real data only: everything comes from the community tables in
 // supabase/schema.sql through the community service. Until that schema is
 // applied the screen says so plainly instead of inventing content.
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -15,6 +16,7 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -45,6 +47,10 @@ type Tab = "feed" | "chats";
 export default function CommunityScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  // Narrow phones: the header action collapses to an icon so the title never
+  // truncates. Same 380pt line the Profile screen uses for its name row.
+  const condensed = width < 380;
 
   const [tab, setTab] = useState<Tab>("feed");
   const [meId, setMeId] = useState<string | null>(null);
@@ -205,12 +211,24 @@ export default function CommunityScreen() {
         title="Community"
         subtitle="See what others are wearing"
         right={
-          <AppButton
-            label="Share a look"
-            icon="cloud-upload-outline"
-            size="md"
-            onPress={() => setShareOpen(true)}
-          />
+          condensed ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Share a look"
+              hitSlop={8}
+              onPress={() => setShareOpen(true)}
+              style={({ pressed }) => [styles.shareIconBtn, pressed && { opacity: 0.7 }]}
+            >
+              <Ionicons name="cloud-upload-outline" size={20} color={theme.colors.text} />
+            </Pressable>
+          ) : (
+            <AppButton
+              label="Share a look"
+              icon="cloud-upload-outline"
+              size="md"
+              onPress={() => setShareOpen(true)}
+            />
+          )
         }
       />
 
@@ -371,6 +389,7 @@ const styles = StyleSheet.create({
   segmentText: { fontSize: 13, fontWeight: "700", color: theme.colors.textMuted },
   segmentTextActive: { color: theme.colors.onPrimary },
   listContent: { padding: 16, paddingTop: 4, paddingBottom: 32, gap: 14 },
+  shareIconBtn: { padding: 6 },
 
   // Community chat room row
   roomRow: {
