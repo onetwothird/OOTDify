@@ -41,7 +41,9 @@ function spawnLabelled(command, args, cwd, label, color) {
   const child = spawn(command, args, {
     cwd,
     stdio: ["inherit", "pipe", "pipe"],
-    shell: isWin && command === "python", // resolve venv .exe under cmd on Windows
+    // Windows: spawn .cmd wrappers (npx.cmd) through cmd.exe — Node ≥ 20.12
+    // throws EINVAL when a .cmd/.bat is spawned without a shell.
+    shell: isWin,
     windowsHide: true,
   });
   const tag = prefix(label, color);
