@@ -16,6 +16,7 @@
 // Errors are thrown raw (PostgrestError / Error) per the app-wide convention;
 // screens surface them through ErrorState/toast.
 
+import { formFile } from "../../shared/lib/formFile";
 import { supabase } from "../../shared/lib/supabase";
 import { resolveMediaUrl } from "../../shared/lib/storageUrl";
 import { uuid } from "../../shared/lib/uuid";
@@ -23,6 +24,7 @@ import type {
   ChatMessageEntry,
   CommunityComment,
   CommunityPost,
+  CommunityRoom,
   ConversationListEntry,
   DirectoryProfile,
   FeedComment,
@@ -258,13 +260,14 @@ async function publicRefForShare(ref: string, uid: string, index: number): Promi
   try {
     const signed = await resolveMediaUrl(ref);
     if (!signed) return "";
-    const res = await fetch(signed);
-    if (!res.ok) return "";
-    const blob = await res.blob();
     const path = `${uid}/${Date.now()}-${index}.jpg`;
+    // `signed` is an http(s) URL, which RN's FormData uploads directly as a
+    // file part — no intermediate Blob (see shared/lib/formFile.ts).
     const { error } = await supabase.storage
       .from("community")
-      .upload(path, blob, { contentType: blob.type || "image/jpeg" });
+      .upload(path, formFile(signed, `look-${index}.jpg`, "image/jpeg"), {
+        contentType: "image/jpeg",
+      });
     if (error) return "";
     return `community/${path}`;
   } catch {
@@ -377,6 +380,137 @@ export async function startDirectConversation(otherUserId: string): Promise<stri
   return conversationId;
 }
 
+// ---------------------------------------------------------------------------
+// Public group rooms (user-created communities)
+// ---------------------------------------------------------------------------
+
+/**
+ * Create a public group room and join it. Returns the new room's id.
+ *
+ * The conversation row is inserted first (is_public = true so everyone can
+ * discover it), then MY participant row — two statements, because the room must
+ * exist before its participant row can reference it, and RLS evaluates each
+ * statement independently.
+ */
+export async function createRoom(input: {
+  title: string;
+  category: string;
+}): Promise<string> {
+  const uid = await currentUserId();
+  if (!uid) throw new Error("Not signed in");
+  const title = input.title.trim();
+  if (!title) throw new Error("Give your community a name");
+  if (title.length > 60) throw new Error("Keep the name under 60 characters");
+
+  const roomId = uuid();
+  const { error: cErr } = await supabase.from("conversations").insert({
+    id: roomId,
+    created_by: uid,
+    title,
+    category: input.category,
+    is_public: true,
+  });
+  if (cErr) throw cErr;
+
+  const { error: pErr } = await supabase
+    .from("conversation_participants")
+    .insert({ conversation_id: roomId, user_id: uid });
+  if (pErr) throw pErr;
+  return roomId;
+}
+
+/**
+ * Public rooms for the discover list, newest activity first, each with its
+ * member count and whether the viewer has already joined.
+ */
+export async function fetchPublicRooms(): Promise<CommunityRoom[]> {
+  const uid = await currentUserId();
+  if (!uid) return [];
+
+  const { data, error } = await supabase
+    .from("conversations")
+    .select("id, title, category, created_by, created_at, updated_at")
+    .eq("is_public", true)
+    .not("title", "is", null)
+    .order("updated_at", { ascending: false })
+    .limit(100);
+  if (error) throw error;
+  const rooms = (data ?? []) as {
+    id: string;
+    title: string | null;
+    category: string | null;
+    created_by: string | null;
+    created_at: string;
+    updated_at: string;
+  }[];
+  if (!rooms.length) return [];
+
+  const roomIds = rooms.map((r) => r.id);
+  // Member counts and my own memberships. N is bounded (rooms are capped above),
+  // so two set-based queries beat a per-room round trip.
+  const [counts, mine] = await Promise.all([
+    supabase
+      .from("conversation_participants")
+      .select("conversation_id")
+      .in("conversation_id", roomIds),
+    supabase
+      .from("conversation_participants")
+      .select("conversation_id")
+      .in("conversation_id", roomIds)
+      .eq("user_id", uid),
+  ]);
+  if (counts.error) throw counts.error;
+  if (mine.error) throw mine.error;
+
+  const countByRoom = new Map<string, number>();
+  for (const r of (counts.data ?? []) as { conversation_id: string }[]) {
+    countByRoom.set(r.conversation_id, (countByRoom.get(r.conversation_id) ?? 0) + 1);
+  }
+  const joined = new Set(
+    ((mine.data ?? []) as { conversation_id: string }[]).map((r) => r.conversation_id),
+  );
+
+  return rooms.map((r) => ({
+    id: r.id,
+    title: r.title ?? "Untitled community",
+    category: r.category ?? "Casual",
+    createdBy: r.created_by,
+    memberCount: countByRoom.get(r.id) ?? 0,
+    joined: joined.has(r.id),
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  }));
+}
+
+/** Join a public room (idempotent — already being a member is success). */
+export async function joinRoom(roomId: string): Promise<void> {
+  const uid = await currentUserId();
+  if (!uid) throw new Error("Not signed in");
+  const { error } = await supabase
+    .from("conversation_participants")
+    .insert({ conversation_id: roomId, user_id: uid });
+  // 23505 = already a member, which is the desired end state anyway.
+  if (error && error.code !== "23505") throw error;
+}
+
+/** Room metadata for the chat header (title + category), or null for a DM. */
+/** Room metadata for the chat header (title + category), or null for a DM. */
+export async function fetchRoomMeta(roomId: string): Promise<{
+  title: string | null;
+  category: string | null;
+  isPublic: boolean;
+} | null> {
+  const { data, error } = await supabase
+    .from("conversations")
+    .select("title, category, is_public")
+    .eq("id", roomId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const row = data as { title: string | null; category: string | null; is_public: boolean };
+  return { title: row.title, category: row.category, isPublic: row.is_public };
+}
+
 /** The viewer's conversations with last message + unread count, most recent first. */
 export async function fetchConversations(): Promise<ConversationListEntry[]> {
   const uid = await currentUserId();
@@ -403,12 +537,31 @@ export async function fetchConversations(): Promise<ConversationListEntry[]> {
   }
   const directory = await fetchDirectory(Array.from(otherByConv.values()));
 
+  // Which of these are public GROUP ROOMS? They are excluded from the DM list
+  // (the screen renders them under Communities) and named by their title rather
+  // than by "the other participant", which for a group is meaningless.
+  const { data: groupRows, error: gErr } = await supabase
+    .from("conversations")
+    .select("id, title, category")
+    .in("id", convIds)
+    .eq("is_public", true);
+  if (gErr) throw gErr;
+  const groupByConv = new Map<string, { title: string; category: string | null }>();
+  for (const g of (groupRows ?? []) as {
+    id: string;
+    title: string | null;
+    category: string | null;
+  }[]) {
+    groupByConv.set(g.id, { title: g.title ?? "Untitled community", category: g.category });
+  }
+
   // Last message + unread count per conversation. N is small (the user's own
   // chats), so a parallel per-conversation query keeps this simple and exact.
   const entries = await Promise.all(
     rows.map(async (row) => {
       const conversationId = row.conversation_id as string;
       const isRoom = conversationId === COMMUNITY_ROOM_ID;
+      const group = groupByConv.get(conversationId) ?? null;
       const otherId = otherByConv.get(conversationId) ?? null;
       const [lastMsg, unread] = await Promise.all([
         supabase
@@ -428,12 +581,22 @@ export async function fetchConversations(): Promise<ConversationListEntry[]> {
       if (lastMsg.error) throw lastMsg.error;
       if (unread.error) throw unread.error;
       const other = otherId ? directory.get(otherId) ?? null : null;
+      // Name precedence: the fixed room, then a group room's title, then the
+      // peer's display name for a 1:1.
+      const displayName = isRoom
+        ? "Community Chat"
+        : group
+          ? group.title
+          : authorDisplayName(other);
       return {
         id: conversationId,
         isRoom,
+        isGroup: group !== null,
+        groupTitle: group?.title ?? null,
+        groupCategory: group?.category ?? null,
         otherUserId: otherId,
-        otherName: isRoom ? "Community Chat" : authorDisplayName(other),
-        otherAvatar: isRoom ? null : other?.avatar_url ?? null,
+        otherName: displayName,
+        otherAvatar: isRoom || group ? null : other?.avatar_url ?? null,
         lastMessage: (lastMsg.data?.body as string | null) ?? null,
         lastMessageAt: (lastMsg.data?.created_at as string | null) ?? null,
         unread: unread.count ?? 0,
