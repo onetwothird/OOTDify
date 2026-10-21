@@ -159,6 +159,19 @@ max_indexes = 5
 
 [auth]
 enabled = true
+# ---------------------------------------------------------------------------
+# DO NOT run `supabase config push` from this repo without reviewing
+# `supabase config diff` first.
+#
+# This file is a LOCAL DEVELOPMENT config. Several values below are deliberately
+# local-only (localhost site_url/redirects, pooler sizes, storage vector) and do
+# NOT match the live project. Pushing them wholesale would break auth redirects
+# and change production pooler/storage settings.
+#
+# The security-sensitive ones are kept in sync with the live project on purpose
+# (MFA enabled, email OTP length 8, minimum password length 8) so an accidental
+# push cannot weaken them.
+# ---------------------------------------------------------------------------
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
 site_url = "http://127.0.0.1:3000"
@@ -184,7 +197,9 @@ enable_anonymous_sign_ins = false
 # Allow/disallow testing manual linking of accounts
 enable_manual_linking = false
 # Passwords shorter than this value will be rejected as weak. Minimum 6, recommended 8 or more.
-minimum_password_length = 6
+# Held at the app's own rule (the signup screen requires 8+) so a client that
+# skips the form cannot set a weaker password than the UI allows.
+minimum_password_length = 8
 # Passwords that do not meet the following requirements will be rejected as weak. Supported values
 # are: `letters_digits`, `lower_upper_letters_digits`, `lower_upper_letters_digits_symbols`
 password_requirements = ""
@@ -232,9 +247,10 @@ enable_confirmations = false
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
 secure_password_change = false
 # Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.
-max_frequency = "1s"
-# Number of characters used in the email OTP.
-otp_length = 6
+# Matches the live project's 1m; the CLI default (1s) is for local testing only.
+max_frequency = "1m"
+# Number of characters used in the email OTP. Matches the live project.
+otp_length = 8
 # Number of seconds before the email OTP expires (defaults to 1 hour).
 otp_expiry = 3600
 
@@ -304,9 +320,12 @@ auth_token = "env(SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN)"
 max_enrolled_factors = 10
 
 # Control MFA via App Authenticator (TOTP)
+# Kept TRUE to match the live project. The CLI default is false, but pushing
+# that default would silently DISABLE TOTP MFA in production — so the local
+# file must not under-declare it. Verify with `supabase config diff`.
 [auth.mfa.totp]
-enroll_enabled = false
-verify_enabled = false
+enroll_enabled = true
+verify_enabled = true
 
 # Configure MFA via Phone Messaging
 [auth.mfa.phone]
