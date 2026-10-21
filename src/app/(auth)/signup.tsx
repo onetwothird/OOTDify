@@ -169,7 +169,7 @@ export default function SignupScreen() {
 
     setLoading(true);
     setError(null);
-    const { error: signUpError } = await supabase.auth.signUp({
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
       email: email.trim(),
       password,
       options: {
@@ -180,13 +180,22 @@ export default function SignupScreen() {
         },
       },
     });
-    setLoading(false);
 
     if (signUpError) {
+      setLoading(false);
       // Nothing is remembered for an account that was never created.
       setError(signUpError.message);
       return;
     }
+
+    // Signing up must NOT sign you in. When email confirmation is off, Supabase
+    // returns a live session from signUp — drop it so creating an account and
+    // entering it stay separate steps, exactly as the copy below says. `local`
+    // scope clears this device only; other devices are untouched.
+    if (signUpData.session) {
+      await supabase.auth.signOut({ scope: "local" });
+    }
+    setLoading(false);
 
     // Only now can these belong to an account.
     await rememberChoice(email.trim());
