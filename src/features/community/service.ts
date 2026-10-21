@@ -82,6 +82,15 @@ export function communityErrorMessage(e: unknown): string {
   if (missingTable) {
     return "Community isn't set up in your database yet. Apply supabase/schema.sql to your Supabase project, then come back.";
   }
+  // 42501 = insufficient_privilege: the write was refused by a row-level
+  // security policy. The app only ever writes rows it owns, so this means the
+  // project's policies are missing or out of date rather than the user doing
+  // anything wrong — say that instead of leaking the raw Postgres text.
+  const policyDenied =
+    err?.code === "42501" || msg.includes("row-level security policy");
+  if (policyDenied) {
+    return "This project's community permissions are out of date. Apply supabase/schema.sql to your Supabase project, then try again.";
+  }
   return e instanceof Error ? e.message : "Something went wrong. Please try again.";
 }
 
@@ -310,15 +319,14 @@ export async function ensureCommunityRoom(): Promise<string> {
     .from("conversations")
     .insert({ id: COMMUNITY_ROOM_ID, created_by: uid });
   if (convErr && convErr.code !== "23505") throw convErr;
-  // Insert my own participant row if I'm not in yet (policy: self-join is
-  // allowed for the community room only; the creator's own row via creator).
+  // Join with a PLAIN insert, exactly like startDirectConversation does — no
+  // upsert. `ON CONFLICT` upserts additionally require the UPDATE policy to be
+  // satisfiable, and a join is not an update. A 23505 unique violation simply
+  // means I'm already in the room, which is success.
   const { error: partErr } = await supabase
     .from("conversation_participants")
-    .upsert(
-      { conversation_id: COMMUNITY_ROOM_ID, user_id: uid },
-      { onConflict: "conversation_id,user_id", ignoreDuplicates: true },
-    );
-  if (partErr) throw partErr;
+    .insert({ conversation_id: COMMUNITY_ROOM_ID, user_id: uid });
+  if (partErr && partErr.code !== "23505") throw partErr;
   return COMMUNITY_ROOM_ID;
 }
 
