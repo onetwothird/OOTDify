@@ -15,6 +15,7 @@ import * as ImagePicker from "expo-image-picker";
 import { Alert } from "react-native";
 
 import { updateProfile } from "../../services/aiApi";
+import { formFile } from "../../shared/lib/formFile";
 import { supabase } from "../../shared/lib/supabase";
 import { toast } from "../../shared/lib/toast";
 
@@ -48,11 +49,14 @@ export async function uploadAvatar(uri: string): Promise<string> {
   const uid = await currentUserId();
   if (!uid) throw new Error("Not signed in");
   const objectPath = `${uid}/avatar-${Date.now()}.jpg`;
-  const res = await fetch(uri);
-  const blob = await res.blob();
+  // Pass RN's { uri, name, type } file shape, never a Blob: a Blob has no `uri`
+  // and RN's FormData would upload its string form instead of the bytes.
   const { data, error } = await supabase.storage
     .from("avatars")
-    .upload(objectPath, blob, { contentType: "image/jpeg", upsert: true });
+    .upload(objectPath, formFile(uri, `avatar-${Date.now()}.jpg`, "image/jpeg"), {
+      contentType: "image/jpeg",
+      upsert: true,
+    });
   if (error) throw error;
   return `avatars/${data.path}`;
 }
