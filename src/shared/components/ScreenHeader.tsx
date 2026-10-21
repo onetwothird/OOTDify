@@ -72,6 +72,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
     lineHeight: 18,
   },
+  // The action keeps its intrinsic size; the title block above absorbs the
+  // slack (and truncates). Without this the action gets compressed when the
+  // title and subtitle together are wide.
   right: { flexShrink: 0 },
   iconButton: { padding: 6 },
 });
