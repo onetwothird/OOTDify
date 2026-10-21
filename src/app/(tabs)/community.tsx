@@ -44,6 +44,12 @@ import { toast } from "../../shared/lib/toast";
 
 type Tab = "feed" | "chats";
 
+/**
+ * Single horizontal gutter shared by the header, the segmented switcher and
+ * both lists, so everything on this screen lines up on one vertical rail.
+ */
+const GUTTER = 20;
+
 export default function CommunityScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -207,30 +213,35 @@ export default function CommunityScreen() {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 8 }]}>
-      <ScreenHeader
-        title="Community"
-        subtitle="See what others are wearing"
-        right={
-          condensed ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Share a look"
-              hitSlop={8}
-              onPress={() => setShareOpen(true)}
-              style={({ pressed }) => [styles.shareIconBtn, pressed && { opacity: 0.7 }]}
-            >
-              <Ionicons name="cloud-upload-outline" size={20} color={theme.colors.text} />
-            </Pressable>
-          ) : (
-            <AppButton
-              label="Share a look"
-              icon="cloud-upload-outline"
-              size="md"
-              onPress={() => setShareOpen(true)}
-            />
-          )
-        }
-      />
+      {/* Header is the one element rendered outside the lists, so it supplies
+          its own horizontal inset — the same 20pt the segment row and list
+          content use, keeping title, subtitle and action on one aligned rail. */}
+      <View style={styles.headerWrap}>
+        <ScreenHeader
+          title="Community"
+          subtitle="See what others are wearing"
+          right={
+            condensed ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Share a look"
+                hitSlop={8}
+                onPress={() => setShareOpen(true)}
+                style={({ pressed }) => [styles.shareIconBtn, pressed && { opacity: 0.7 }]}
+              >
+                <Ionicons name="cloud-upload-outline" size={20} color={theme.colors.text} />
+              </Pressable>
+            ) : (
+              <AppButton
+                label="Share a look"
+                icon="cloud-upload-outline"
+                size="md"
+                onPress={() => setShareOpen(true)}
+              />
+            )
+          }
+        />
+      </View>
 
       {/* ------------------------------------------------ Segmented switcher */}
       <View style={styles.segment}>
@@ -372,11 +383,18 @@ export default function CommunityScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   centered: { marginTop: 48 },
+  // One horizontal inset for every stacked block on this screen (header,
+  // segments, list content) so their left edges line up on a single rail.
+  headerWrap: {
+    paddingHorizontal: GUTTER,
+    paddingTop: theme.spacing.sm,
+  },
   segment: {
     flexDirection: "row",
     gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: GUTTER,
+    marginTop: theme.spacing.md,
+    paddingBottom: theme.spacing.sm,
   },
   segmentBtn: {
     flex: 1,
@@ -388,7 +406,7 @@ const styles = StyleSheet.create({
   segmentBtnActive: { backgroundColor: theme.colors.primary },
   segmentText: { fontSize: 13, fontWeight: "700", color: theme.colors.textMuted },
   segmentTextActive: { color: theme.colors.onPrimary },
-  listContent: { padding: 16, paddingTop: 4, paddingBottom: 32, gap: 14 },
+  listContent: { paddingHorizontal: GUTTER, paddingTop: 4, paddingBottom: 32, gap: 14 },
   shareIconBtn: { padding: 6 },
 
   // Community chat room row
