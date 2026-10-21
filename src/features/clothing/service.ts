@@ -4,6 +4,7 @@
 // that favorites/recently_viewed rows can only be touched by their owner;
 // the catalog itself is readable by any authenticated user.
 
+import { formFile } from "../../shared/lib/formFile";
 import { supabase } from "../../shared/lib/supabase";
 import { CatalogItem, ClothingItem } from "./types";
 export { uuid } from "../../shared/lib/uuid";
@@ -242,11 +243,9 @@ export async function uploadToWardrobeBucket(
   const uid = await currentUserId();
   if (!uid) throw new Error("Not signed in");
   const path = `${uid}/${Date.now()}-${name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-  const res = await fetch(uri);
-  const blob = await res.blob();
   const { data, error } = await supabase.storage
     .from("wardrobe")
-    .upload(path, blob, { contentType: mime });
+    .upload(path, formFile(uri, name, mime), { contentType: mime });
   if (error) throw error;
   // Store the private ref (bucket/uid/name) — resolved to a signed URL to render.
   return `wardrobe/${data.path}`;
