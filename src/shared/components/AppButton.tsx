@@ -89,6 +89,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
+    // Horizontal padding must live here: without it a button's width is decided
+    // purely by its label, so in a tight row (a header action beside a title)
+    // the text visually compresses instead of the button keeping its shape.
+    paddingHorizontal: theme.spacing.md,
   },
   lg: { paddingVertical: 16, borderRadius: theme.borderRadius.md, minHeight: 54 },
   md: { paddingVertical: 12, borderRadius: theme.borderRadius.md, minHeight: 46 },
@@ -101,7 +105,7 @@ const styles = StyleSheet.create({
   ghost: { backgroundColor: "transparent" },
   pressed: { opacity: 0.85 },
   disabled: { opacity: 0.45 },
-  label: { fontWeight: "700" },
+  label: { fontWeight: "700", flexShrink: 1 },
   labelLg: { fontSize: 15 },
   labelMd: { fontSize: 14 },
 });
