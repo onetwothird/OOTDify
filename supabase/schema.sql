@@ -333,8 +333,27 @@ do $$ begin
   alter table public.messages                    enable row level security;
 end $$;
 
+-- ---------------------------------------------------------------------------
+-- RLS policy helpers
+--
+-- These live in a NON-EXPOSED `private` schema, not `public`.
+--
+-- Why: RLS policies are evaluated with the invoking user's privileges, so
+-- `authenticated` must hold EXECUTE on them. But every function in `public` is
+-- also served by PostgREST at /rest/v1/rpc/<name>, which would make these
+-- SECURITY DEFINER helpers directly callable over the API. Keeping them in a
+-- schema the API does not expose preserves RLS while removing that surface.
+-- (This is the Supabase Advisor's own recommended remediation.)
+--
+-- They remain SECURITY DEFINER because each reads a table whose own RLS would
+-- hide the row being checked — e.g. a policy ON conversations may not read
+-- conversations through that table's policy, or Postgres raises infinite
+-- recursion.
+-- ---------------------------------------------------------------------------
+create schema if not exists private;
+
 -- Helper: is the current user a participant of a conversation?
-create or replace function public.is_conversation_participant(conv uuid)
+create or replace function private.is_conversation_participant(conv uuid)
 returns boolean language sql stable security definer set search_path = public as $$
   select exists (
     select 1 from public.conversation_participants
@@ -342,10 +361,8 @@ returns boolean language sql stable security definer set search_path = public as
   );
 $$;
 
--- Helper: is the current user the CREATOR of this conversation? SECURITY
--- DEFINER so the policy can read conversations.created_by without inheriting
--- that table's own participant-only SELECT policy (which would recurse).
-create or replace function public._is_conv_creator(conv uuid)
+-- Helper: is the current user the CREATOR of this conversation?
+create or replace function private._is_conv_creator(conv uuid)
 returns boolean language sql stable security definer set search_path = public as $$
   select exists (
     select 1 from public.conversations
@@ -353,10 +370,8 @@ returns boolean language sql stable security definer set search_path = public as
   );
 $$;
 
--- Helper: how many participants a conversation already has. SECURITY DEFINER
--- because a policy on conversation_participants may not query that same table
--- through its own policies — Postgres would raise infinite recursion.
-create or replace function public._conv_participant_count(conv uuid)
+-- Helper: how many participants a conversation already has.
+create or replace function private._conv_participant_count(conv uuid)
 returns integer language sql stable security definer set search_path = public as $$
   select count(*)::integer
   from public.conversation_participants
@@ -364,10 +379,7 @@ returns integer language sql stable security definer set search_path = public as
 $$;
 
 -- Helper: is this a PUBLIC GROUP ROOM (discoverable, anyone may join)?
--- SECURITY DEFINER for the same reason as _is_conv_creator: the policy that
--- calls it lives on conversations, so reading conversations through that
--- table's own SELECT policy would recurse.
-create or replace function public._is_public_conversation(conv uuid)
+create or replace function private._is_public_conversation(conv uuid)
 returns boolean language sql stable security definer set search_path = public as $$
   select exists (
     select 1 from public.conversations
@@ -415,14 +427,14 @@ create trigger messages_touch_conversation_trg
 -- DEFINER. Restrict execution to the role that actually evaluates the
 -- policies (authenticated); anon and every other role get nothing. Trigger
 -- functions never run as invokers — no role needs to call them.
-revoke execute on function public.is_conversation_participant(uuid) from public, anon;
-grant  execute on function public.is_conversation_participant(uuid) to authenticated;
-revoke execute on function public._is_conv_creator(uuid) from public, anon;
-grant  execute on function public._is_conv_creator(uuid) to authenticated;
-revoke execute on function public._conv_participant_count(uuid) from public, anon;
-grant  execute on function public._conv_participant_count(uuid) to authenticated;
-revoke execute on function public._is_public_conversation(uuid) from public, anon;
-grant  execute on function public._is_public_conversation(uuid) to authenticated;
+revoke execute on function private.is_conversation_participant(uuid) from public, anon;
+grant  execute on function private.is_conversation_participant(uuid) to authenticated;
+revoke execute on function private._is_conv_creator(uuid) from public, anon;
+grant  execute on function private._is_conv_creator(uuid) to authenticated;
+revoke execute on function private._conv_participant_count(uuid) from public, anon;
+grant  execute on function private._conv_participant_count(uuid) to authenticated;
+revoke execute on function private._is_public_conversation(uuid) from public, anon;
+grant  execute on function private._is_public_conversation(uuid) to authenticated;
 revoke execute on function public._sync_post_counts() from public, anon, authenticated;
 revoke execute on function public._touch_conversation() from public, anon, authenticated;
 
@@ -446,9 +458,9 @@ select public._apply_policy('follows_delete', 'public.follows', 'delete', '(sele
 
 -- Conversations: participants can read the container. PUBLIC rooms are readable
 -- by everyone (that is how they are discoverable); the creator may insert it.
-select public._apply_policy('conversations_select', 'public.conversations', 'select', 'public.is_conversation_participant(id) or is_public');
+select public._apply_policy('conversations_select', 'public.conversations', 'select', 'private.is_conversation_participant(id) or is_public');
 select public._apply_policy('conversations_insert', 'public.conversations', 'insert', '(select auth.uid()) = created_by');
-select public._apply_policy('conversations_update', 'public.conversations', 'update', 'public.is_conversation_participant(id)');
+select public._apply_policy('conversations_update', 'public.conversations', 'update', 'private.is_conversation_participant(id)');
 -- A room's creator may delete their own room (cascades to its messages).
 select public._apply_policy('conversations_delete', 'public.conversations', 'delete', '(select auth.uid()) = created_by');
 
@@ -459,11 +471,11 @@ select public._apply_policy('conversations_delete', 'public.conversations', 'del
 -- so the second insert sees the first. Result: a private conversation can never
 -- exceed two people, and nobody can inject themselves into a private
 -- conversation they weren't invited to.
-select public._apply_policy('conversation_participants_select', 'public.conversation_participants', 'select', 'public.is_conversation_participant(conversation_id)');
+select public._apply_policy('conversation_participants_select', 'public.conversation_participants', 'select', 'private.is_conversation_participant(conversation_id)');
 select public._apply_policy('conversation_participants_insert', 'public.conversation_participants', 'insert',
   '(user_id = (select auth.uid()) and conversation_id = ''4f544444-0000-4000-8000-00000000c0de''::uuid)
-   or (user_id = (select auth.uid()) and public._is_public_conversation(conversation_id))
-   or (public._is_conv_creator(conversation_id) and public._conv_participant_count(conversation_id) < 2)');
+   or (user_id = (select auth.uid()) and private._is_public_conversation(conversation_id))
+   or (private._is_conv_creator(conversation_id) and private._conv_participant_count(conversation_id) < 2)');
 select public._apply_policy('conversation_participants_update', 'public.conversation_participants', 'update', 'user_id = (select auth.uid())');
 select public._apply_policy('conversation_participants_delete', 'public.conversation_participants', 'delete', 'user_id = (select auth.uid()) or exists (select 1 from public.conversations c where c.id = conversation_id and c.created_by = (select auth.uid()))');
 
@@ -547,8 +559,8 @@ revoke all on public.community_directory from anon;
 grant select on public.community_directory to authenticated;
 
 -- Messages: only participants can read; only participants can send.
-select public._apply_policy('messages_select', 'public.messages', 'select', 'public.is_conversation_participant(conversation_id)');
-select public._apply_policy('messages_insert', 'public.messages', 'insert', 'public.is_conversation_participant(conversation_id) and (select auth.uid()) = sender_id');
+select public._apply_policy('messages_select', 'public.messages', 'select', 'private.is_conversation_participant(conversation_id)');
+select public._apply_policy('messages_insert', 'public.messages', 'insert', 'private.is_conversation_participant(conversation_id) and (select auth.uid()) = sender_id');
 
 -- Enable realtime for live chat + feed updates.
 do $$ begin
@@ -669,6 +681,16 @@ select public._apply_policy('avatars_read_ootdify', 'storage.objects', 'select',
 -- legacy one older checkouts still call) so neither remains executable.
 drop function if exists public._apply_policy(text, regclass, text, text, text);
 drop function if exists public._ensure_policy(text, regclass, text, text, text);
+
+-- Drop the pre-`private` copies of the policy helpers. They moved to the
+-- non-exposed `private` schema (see the note above their definitions); without
+-- these drops a database migrated from the older layout would still expose them
+-- at /rest/v1/rpc/<name>. Safe to run always: no policy references them, and
+-- `if exists` covers a database that already converged.
+drop function if exists public.is_conversation_participant(uuid);
+drop function if exists public._is_conv_creator(uuid);
+drop function if exists public._conv_participant_count(uuid);
+drop function if exists public._is_public_conversation(uuid);
 
 -- Seed catalog. Guarded so re-running this file never duplicates seed rows:
 -- `on conflict do nothing` alone cannot help because each row gets a random
