@@ -54,11 +54,6 @@ export default function WardrobeScreen() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<string | null>(null);
   const [catalogCategory, setCatalogCategory] = useState<string | null>(null);
-
-  // ---- Incremental grid rendering ------------------------------------------
-  // Each grid mounts at most GRID_PAGE cards and reveals the next page on
-  // "Show more", so a 250-row catalog never renders (and image-fetches) for
-  // every card at once.
   const [closetShown, setClosetShown] = useState(GRID_PAGE);
   const [catalogShown, setCatalogShown] = useState(GRID_PAGE);
 
@@ -261,7 +256,6 @@ export default function WardrobeScreen() {
           </>
         )}
 
-        {/* ------------------------- Browse the catalog ---------------------- */}
         <SectionHeader
           title="Browse the catalog"
           subtitle="Discover pieces to add to a look."
@@ -340,9 +334,6 @@ export default function WardrobeScreen() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Closet card: image, name, category, favorite toggle → item detail screen
-// ---------------------------------------------------------------------------
 const ClosetCard = memo(function ClosetCard({
   item,
   width,
