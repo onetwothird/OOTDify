@@ -95,7 +95,6 @@ export default function SignupScreen() {
   const passwordOk = rules.every((r) => r.ok);
   const detailsOk = fullName.trim().length >= 2 && EMAIL_RE.test(email.trim()) && passwordOk;
 
-  // ---- step transition (fade + rise, so the wizard reads as a process) ------
   const [slide] = useState(() => new Animated.Value(1));
   const transition = (next: number) => {
     Animated.timing(slide, {
@@ -140,7 +139,6 @@ export default function SignupScreen() {
     transition(Math.min(step + 1, STEPS.length - 1));
   };
 
-  // ---- photo picking (local only) ------------------------------------------
   const choosePhoto = (source: "library" | "camera") => {
     void (async () => {
       setPicking(true);
@@ -150,13 +148,10 @@ export default function SignupScreen() {
     })();
   };
 
-  // Remember the choices for the account being created — never uploaded now.
   const rememberChoice = async (accountEmail: string | null | undefined) => {
     if (!accountEmail) return;
     if (photo) await savePendingAvatar(photo.uri, accountEmail);
     else await clearPendingAvatar();
-    // The first home visit asks once for a nickname + style prefs; setting the
-    // flag here (email-tagged) is what arms that prompt for this account.
     await markOnboardingPending(accountEmail);
   };
 
