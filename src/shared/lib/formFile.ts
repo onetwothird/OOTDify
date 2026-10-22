@@ -5,9 +5,11 @@
 // passing a real Blob — or anything without `uri` — silently uploads the text
 // "[object Blob]" instead of the image bytes, while still reporting success.
 //
-// So every storage upload in this app passes this `{ uri, name, type }` shape
-// instead of a Blob. `mimeOf`/`nameOf` derive sensible defaults from the URI's
-// extension when a caller has no better information.
+// It is not enough to hand a `{ uri, name, type }` object to supabase-js: only a
+// real `FormData` takes the branch that serializes it as a file (see `formFile`
+// below). So every storage upload in this app passes the `FormData` this helper
+// builds. `mimeOf`/`nameOf` derive sensible defaults from the URI's extension
+// when a caller has no better information.
 
 const MIME_BY_EXT: Record<string, string> = {
   jpg: "image/jpeg",
@@ -33,15 +35,33 @@ export function nameOf(uri: string, fallback = "photo.jpg"): string {
 }
 
 /**
- * The object React Native's FormData can actually serialize as a file part.
- * Typed as the DOM `Blob`/`File` shape the storage client accepts, because the
- * extra `uri` field is what RN reads; the cast is the documented RN convention
- * rather than a lie about the value.
+ * A ready-to-upload `FormData` carrying one file part.
+ *
+ * This MUST be a real `FormData` instance, not the bare `{ uri, name, type }`
+ * object. supabase-js picks its upload body like this:
+ *
+ *     if (body instanceof Blob)        -> new FormData().append("", body)
+ *     else if (body instanceof FormData) -> send the FormData as-is
+ *     else                              -> send the value raw
+ *
+ * A plain object is neither, so it falls into the last branch and `fetch`
+ * stringifies it — the object's JSON (`{"uri":"file:///…","name":"…"}`) is what
+ * lands in storage, just a few hundred bytes, while the upload still reports
+ * success. RN's own `FormData.getParts()` is what understands the `uri`
+ * attribute and reads the file from disk, so the object has to be appended.
+ *
+ * `uri` may also be an http(s) URL: RN's FormData uploads a remote URI directly
+ * without downloading it first.
  */
-export function formFile(uri: string, name?: string, type?: string): Blob {
-  return {
-    uri,
-    name: name ?? nameOf(uri),
-    type: type ?? mimeOf(uri),
-  } as unknown as Blob;
+export function formFile(uri: string, name?: string, type?: string): FormData {
+  const form = new FormData();
+  form.append(
+    "file",
+    {
+      uri,
+      name: name ?? nameOf(uri),
+      type: type ?? mimeOf(uri),
+    } as unknown as Blob,
+  );
+  return form;
 }
