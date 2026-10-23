@@ -1,4 +1,4 @@
-// C:\OOTDify\src\features\community/components/PostCard.tsx
+// C:\OOTDify\src\features\community\components\PostCard.tsx
 // One post in the community feed: author (initial/avatar), the shared outfit
 // images, caption, like/comment counts, inline comments, a Message shortcut
 // to the author, and delete for the author's own posts.
@@ -23,7 +23,8 @@ import {
 import { ProfileAvatar } from "../../profile/ProfileAvatar";
 import { AppButton } from "../../../shared/components/AppButton";
 import { SmartImage } from "../../../shared/components/SmartImage";
-import { theme } from "../../../shared/config/theme";
+import { makeStyles } from "../../../shared/theme/makeStyles";
+import { useAppTheme } from "../../../shared/theme/ThemeProvider";
 import { timeAgo } from "../format";
 import {
   addComment,
@@ -50,6 +51,8 @@ export function PostCard({
   onMessage: (authorId: string) => void;
   onDelete: (post: FeedPost) => void;
 }) {
+  const styles = useStyles();
+  const theme = useAppTheme();
   const { width } = useWindowDimensions();
   const imageW = Math.max(200, width - CARD_W_SUBTRACTION);
 
@@ -266,7 +269,7 @@ export function PostCard({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme) => ({
   card: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.lg,
@@ -317,4 +320,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
-});
+}));

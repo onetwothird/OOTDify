@@ -22,7 +22,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppButton } from "../../shared/components/AppButton";
-import { theme } from "../../shared/config/theme";
+import { makeStyles } from "../../shared/theme/makeStyles";
+import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import { insertClothingItem, uploadToWardrobeBucket } from "../clothing/service";
 import { ClothingItem } from "../clothing/types";
 import { WardrobeStore } from "../wardrobe/store";
@@ -34,6 +35,8 @@ type CapturedEntry = { uri: string; category: string };
 
 export default function CaptureClothesModal() {
   const insets = useSafeAreaInsets();
+  const styles = useStyles();
+  const theme = useAppTheme();
   const isOpen = useCaptureModalStore((s) => s.isOpen);
   const close = useCaptureModalStore((s) => s.close);
 
@@ -326,7 +329,7 @@ export default function CaptureClothesModal() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme) => ({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.45)",
@@ -520,4 +523,4 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 10,
   },
-});
+}));

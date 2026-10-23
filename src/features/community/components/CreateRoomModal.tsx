@@ -1,4 +1,4 @@
-// C:\OOTDify\src\features\community/components/CreateRoomModal.tsx
+// C:\OOTDify\src\features\community\components\CreateRoomModal.tsx
 // "Create a community" — name a public group room and pick one of the fixed
 // categories (ROOM_CATEGORIES). Creating the room also joins it, so the caller
 // just navigates to the returned id. Same bottom-sheet shell as
@@ -19,7 +19,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppButton } from "../../../shared/components/AppButton";
-import { theme } from "../../../shared/config/theme";
+import { makeStyles } from "../../../shared/theme/makeStyles";
+import { useAppTheme } from "../../../shared/theme/ThemeProvider";
 import { createRoom } from "../service";
 import { ROOM_CATEGORIES } from "../types";
 
@@ -33,6 +34,8 @@ export function CreateRoomModal({
   onCreated: (roomId: string) => void;
 }) {
   const insets = useSafeAreaInsets();
+  const styles = useStyles();
+  const theme = useAppTheme();
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<string>(ROOM_CATEGORIES[0]);
   const [error, setError] = useState<string | null>(null);
@@ -162,7 +165,7 @@ export function CreateRoomModal({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme) => ({
   backdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.45)",
@@ -221,6 +224,6 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: theme.colors.primary },
   chipText: { fontSize: 13, fontWeight: "700", color: theme.colors.textMuted },
   chipTextActive: { color: theme.colors.onPrimary },
-  error: { fontSize: 13, color: theme.colors.danger ?? theme.colors.text, marginTop: 4 },
+  error: { fontSize: 13, color: theme.colors.danger, marginTop: 4 },
   submit: { marginTop: 12 },
-});
+}));

@@ -16,7 +16,9 @@ import {
 } from "react-native";
 
 import { resolveMediaUrl } from "../../../shared/lib/storageUrl";
-import { theme } from "../../../shared/config/theme";
+import { theme as staticTheme } from "../../../shared/config/theme";
+import { makeStyles } from "../../../shared/theme/makeStyles";
+import { useAppTheme } from "../../../shared/theme/ThemeProvider";
 import { SavedOutfit } from "../../clothing/service";
 import {
   clearOutfitPlan,
@@ -40,6 +42,8 @@ interface Props {
 }
 
 export function OutfitCalendar({ outfits, onOpenOutfit }: Props) {
+  const styles = useStyles();
+  const theme = useAppTheme();
   const today = useMemo(() => new Date(), []);
   const [cursor, setCursor] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
   const [plans, setPlans] = useState<Record<string, OutfitPlan>>({});
@@ -236,6 +240,7 @@ export function OutfitCalendar({ outfits, onOpenOutfit }: Props) {
                     <MiniThumb
                       imageRef={outfitThumbRef(outfitById[plan!.outfit_id!])}
                       size={30}
+                      themeColors={theme.colors}
                     />
                   ) : null}
                 </Pressable>
@@ -312,15 +317,15 @@ export function OutfitCalendar({ outfits, onOpenOutfit }: Props) {
                         pressed && { opacity: 0.9 },
                       ]}
                     >
-                      <MiniThumb imageRef={outfitThumbRef(o)} size={44} />
+                      <MiniThumb imageRef={outfitThumbRef(o)} size={44} themeColors={theme.colors} />
                       <View style={styles.pickerRowBody}>
                         <Text style={styles.pickerRowName} numberOfLines={1}>
                           {o.name || "Untitled outfit"}
                         </Text>
                         <Text style={styles.pickerRowMeta} numberOfLines={1}>
-                          {[o.occasion, `${count} item${count === 1 ? "" : "s"}`]
+                          {[o.occasion, `${count} item${count === 1 ? "" : "s"}`]}
                             .filter(Boolean)
-                            .join(" · ")}
+                            .join(" · ")
                         </Text>
                       </View>
                       {active ? (
@@ -380,7 +385,7 @@ function fromISOToLabel(iso: string): string {
 }
 
 /** Small square outfit thumbnail with a graceful placeholder. */
-function MiniThumb({ imageRef, size }: { imageRef: string | null; size: number }) {
+function MiniThumb({ imageRef, size, themeColors }: { imageRef: string | null; size: number; themeColors: typeof staticTheme.colors }) {
   // Result is keyed by the ref it was resolved for; the visible uri is derived
   // during render, so no effect has to clear stale state synchronously.
   const [resolved, setResolved] = useState<{ ref: string; uri: string | null } | null>(null);
@@ -402,13 +407,13 @@ function MiniThumb({ imageRef, size }: { imageRef: string | null; size: number }
     return <Image source={{ uri }} style={box} contentFit="cover" transition={120} />;
   }
   return (
-    <View style={[box, styles.thumbPlaceholder]}>
-      <Ionicons name="shirt-outline" size={size * 0.5} color={theme.colors.textMuted} />
+    <View style={[box, { backgroundColor: themeColors.border, alignItems: "center", justifyContent: "center" }]}>
+      <Ionicons name="shirt-outline" size={size * 0.5} color={themeColors.textMuted} />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme) => ({
   card: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.lg,
@@ -567,4 +572,4 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primary,
   },
   openBtnText: { fontSize: 14, fontWeight: "700", color: theme.colors.onPrimary },
-});
+}));

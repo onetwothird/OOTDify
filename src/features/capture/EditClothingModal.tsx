@@ -22,7 +22,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ClothingItem, OCCASIONS, SEASONS, WARDROBE_CATEGORIES } from "../clothing/types";
 import { useWardrobeStore } from "../wardrobe/store";
-import { theme } from "../../shared/config/theme";
+import { makeStyles } from "../../shared/theme/makeStyles";
+import { useAppTheme } from "../../shared/theme/ThemeProvider";
 
 interface Props {
   item: ClothingItem | null;
@@ -32,6 +33,8 @@ interface Props {
 export default function EditClothingModal({ item, onClose }: Props) {
   const insets = useSafeAreaInsets();
   const updateItem = useWardrobeStore((s) => s.updateItem);
+  const styles = useStyles();
+  const theme = useAppTheme();
 
   // Fields initialize from `item` once, via lazy initializers. The parent only
   // mounts this modal while the user is editing, so every open starts fresh and
@@ -256,6 +259,7 @@ function Field({
   children: React.ReactNode;
   containerStyle?: object;
 }) {
+  const styles = useStyles();
   return (
     <View style={[styles.field, containerStyle]}>
       <Text style={styles.fieldLabel}>{label}</Text>
@@ -265,7 +269,7 @@ function Field({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme) => ({
   overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" },
   keyboard: { justifyContent: "flex-end", maxHeight: "92%" },
   sheet: {
@@ -335,4 +339,4 @@ const styles = StyleSheet.create({
   },
   saveDisabled: { opacity: 0.5 },
   saveBtnText: { color: theme.colors.onPrimary, fontWeight: "700", fontSize: 15 },
-});
+}));

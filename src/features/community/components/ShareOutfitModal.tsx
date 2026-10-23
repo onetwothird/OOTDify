@@ -1,4 +1,4 @@
-// C:\OOTDify\src\features\community/components/ShareOutfitModal.tsx
+// C:\OOTDify\src\features\community\components\ShareOutfitModal.tsx
 // "Share a look" — pick one of your saved outfits, add a caption, post it to
 // the community feed. The service copies any private images into the public
 // community bucket; nothing in your private wardrobe becomes readable.
@@ -22,7 +22,8 @@ import { fetchSavedOutfits, SavedOutfit } from "../../clothing/service";
 import { AppButton } from "../../../shared/components/AppButton";
 import { EmptyState, ErrorState } from "../../../shared/components/StateViews";
 import { SmartImage } from "../../../shared/components/SmartImage";
-import { theme } from "../../../shared/config/theme";
+import { makeStyles } from "../../../shared/theme/makeStyles";
+import { useAppTheme } from "../../../shared/theme/ThemeProvider";
 import { supabase } from "../../../shared/lib/supabase";
 import { shareOutfit } from "../service";
 
@@ -58,6 +59,8 @@ export function ShareOutfitModal({
   onShared: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const styles = useStyles();
+  const theme = useAppTheme();
   const [outfits, setOutfits] = useState<SavedOutfit[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refs, setRefs] = useState<Map<string, string | null>>(new Map());
@@ -65,12 +68,17 @@ export function ShareOutfitModal({
   const [caption, setCaption] = useState("");
   const [sharing, setSharing] = useState(false);
 
+  const handleClose = () => {
+    setSelectedId(null);
+    setCaption("");
+    onClose();
+  };
+
   const load = useCallback(async () => {
-    setError(null);
-    setOutfits(null);
     try {
       const rows = await fetchSavedOutfits();
       setOutfits(rows);
+      setError(null);
       setRefs(await previewRefs(rows));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load your saved looks.");
@@ -78,11 +86,8 @@ export function ShareOutfitModal({
   }, []);
 
   useEffect(() => {
-    if (visible) {
-      setSelectedId(null);
-      setCaption("");
-      void load();
-    }
+    if (!visible) return;
+    void load();
   }, [visible, load]);
 
   const selected = outfits?.find((o) => o.id === selectedId) ?? null;
@@ -97,6 +102,8 @@ export function ShareOutfitModal({
         caption,
         clothingIds: selected.clothing_ids,
       });
+      setSelectedId(null);
+      setCaption("");
       onShared();
       onClose();
     } catch (e) {
@@ -110,10 +117,8 @@ export function ShareOutfitModal({
     <Modal
       visible={visible}
       animationType="slide"
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
       transparent
-      // Draw the sheet edge-to-edge so no "hole" appears over the Android
-      // status/navigation bars — the sheet's safe-area padding covers them.
       statusBarTranslucent
       navigationBarTranslucent
     >
@@ -132,7 +137,7 @@ export function ShareOutfitModal({
                 accessibilityRole="button"
                 accessibilityLabel="Close"
                 hitSlop={8}
-                onPress={onClose}
+                onPress={handleClose}
                 style={({ pressed }) => pressed && { opacity: 0.6 }}
               >
                 <Ionicons name="close" size={24} color={theme.colors.text} />
@@ -235,14 +240,12 @@ export function ShareOutfitModal({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme) => ({
   backdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.45)",
     justifyContent: "flex-end",
   },
-  // Fills the backdrop so the sheet keeps its "86% of the screen" cap while
-  // staying bottom-anchored; keyboard padding on iOS lifts the whole stack.
   sheetWrap: { flex: 1, justifyContent: "flex-end", width: "100%" },
   sheet: {
     backgroundColor: theme.colors.background,
@@ -315,4 +318,4 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 15,
   },
-});
+}));

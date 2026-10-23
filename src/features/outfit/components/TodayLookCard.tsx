@@ -19,7 +19,9 @@ import {
 } from "react-native";
 
 import { SavedOutfit } from "../../clothing/service";
-import { theme } from "../../../shared/config/theme";
+import { theme as staticTheme } from "../../../shared/config/theme";
+import { makeStyles } from "../../../shared/theme/makeStyles";
+import { useAppTheme } from "../../../shared/theme/ThemeProvider";
 import { resolveMediaUrl } from "../../../shared/lib/storageUrl";
 import { fetchClothingImageRefs, OutfitPlan } from "../planner";
 
@@ -48,6 +50,8 @@ export function TodayLookCard({
   onOpenOutfit,
   onPlanLook,
 }: Props) {
+  const styles = useStyles();
+  const theme = useAppTheme();
   const planned = Boolean(plan?.outfit_id);
 
   return (
@@ -103,7 +107,7 @@ export function TodayLookCard({
       ) : (
         <>
           <View style={styles.row}>
-            <OutfitThumb outfit={outfit} />
+            <OutfitThumb outfit={outfit} themeColors={theme.colors} />
             <View style={styles.body}>
               <Text style={styles.title} numberOfLines={1}>
                 {outfit?.name || "Planned look"}
@@ -148,7 +152,7 @@ function itemCount(outfit: SavedOutfit): string {
 }
 
 /** First piece of the look as a square thumbnail; placeholder while it loads. */
-function OutfitThumb({ outfit }: { outfit: SavedOutfit | undefined }) {
+function OutfitThumb({ outfit, themeColors }: { outfit: SavedOutfit | undefined; themeColors: typeof staticTheme.colors }) {
   const firstId = outfit?.clothing_ids?.find(Boolean) ?? null;
   const [resolved, setResolved] = useState<{ id: string; uri: string | null } | null>(null);
 
@@ -170,12 +174,20 @@ function OutfitThumb({ outfit }: { outfit: SavedOutfit | undefined }) {
 
   const uri = resolved && resolved.id === firstId ? resolved.uri : null;
 
+  const thumbStyle = {
+    width: 64,
+    height: 64,
+    borderRadius: 16,
+    backgroundColor: themeColors.surfaceAlt,
+    overflow: "hidden" as const,
+  };
+
   if (uri) {
-    return <Image source={{ uri }} style={styles.thumb} contentFit="cover" transition={150} />;
+    return <Image source={{ uri }} style={thumbStyle} contentFit="cover" transition={150} />;
   }
   return (
-    <View style={[styles.thumb, styles.thumbEmpty]}>
-      <Ionicons name="shirt-outline" size={26} color={theme.colors.textMuted} />
+    <View style={[thumbStyle, { alignItems: "center", justifyContent: "center" }]}>
+      <Ionicons name="shirt-outline" size={26} color={themeColors.textMuted} />
     </View>
   );
 }
@@ -186,17 +198,13 @@ const TODAY_LABEL = new Date().toLocaleDateString(undefined, {
   day: "numeric",
 });
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme) => ({
   card: {
     borderRadius: theme.borderRadius.lg,
     padding: 16,
-    // Sits just below the light hero, which now carries the mascot along its
-    // bottom edge — a negative offset would crop the penguin's feet.
     marginTop: 12,
     overflow: "hidden",
   },
-  // Off-iOS (and whenever Liquid Glass isn't in the build) GlassView is a plain
-  // View, so the card supplies its own opaque surface + hairline.
   cardFallback: {
     backgroundColor: theme.colors.surface,
     borderWidth: StyleSheet.hairlineWidth,
@@ -264,4 +272,4 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   ghostText: { fontSize: 13.5, fontWeight: "700", color: theme.colors.text },
-});
+}));
