@@ -14,26 +14,12 @@ import { Image } from "expo-image";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { theme } from "../../shared/config/theme";
 import { resolveMediaUrl } from "../../shared/lib/storageUrl";
 import { changeProfileAvatar, promptAvatarSource } from "./avatar";
+import { makeStyles } from "../../shared/theme/makeStyles";
+import { useAppTheme } from "../../shared/theme/ThemeProvider";
 
-export function ProfileAvatar({
-  size = 44,
-  initial,
-  avatarRef,
-  uri,
-  onChanged,
-  onPress,
-  badge = false,
-  busy: busyProp = false,
-  background = theme.colors.primary,
-  color = theme.colors.onPrimary,
-  ring,
-  badgeRing = theme.colors.surface,
-  badgeBackground = theme.colors.primary,
-  badgeColor = theme.colors.onPrimary,
-}: {
+interface Props {
   size?: number;
   initial: string;
   avatarRef: string | null;
@@ -53,7 +39,26 @@ export function ProfileAvatar({
   badgeRing?: string;
   badgeBackground?: string;
   badgeColor?: string;
-}) {
+}
+
+export function ProfileAvatar({
+  size = 44,
+  initial,
+  avatarRef,
+  uri,
+  onChanged,
+  onPress,
+  badge = false,
+  busy: busyProp = false,
+  background,
+  color,
+  ring,
+  badgeRing,
+  badgeBackground,
+  badgeColor,
+}: Props) {
+  const styles = useStyles();
+  const theme = useAppTheme();
   const [resolved, setResolved] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
 
@@ -101,6 +106,12 @@ export function ProfileAvatar({
   const badgeSize = Math.max(20, Math.round(size * 0.34));
   const initialSize = Math.round(size * 0.4);
 
+  const effectiveBackground = background ?? theme.colors.primary;
+  const effectiveColor = color ?? theme.colors.onPrimary;
+  const effectiveBadgeRing = badgeRing ?? theme.colors.surface;
+  const effectiveBadgeBackground = badgeBackground ?? theme.colors.primary;
+  const effectiveBadgeColor = badgeColor ?? theme.colors.onPrimary;
+
   const inner = (
     <View
       style={[
@@ -109,7 +120,7 @@ export function ProfileAvatar({
           width: size,
           height: size,
           borderRadius: size / 2,
-          backgroundColor: background,
+          backgroundColor: effectiveBackground,
           borderColor: ring ?? "transparent",
           borderWidth: ring ? 2 : 0,
         },
@@ -123,7 +134,7 @@ export function ProfileAvatar({
           transition={150}
         />
       ) : (
-        <Text style={[styles.initial, { color, fontSize: initialSize }]}>
+        <Text style={[styles.initial, { color: effectiveColor, fontSize: initialSize }]}>
           {initial || "?"}
         </Text>
       )}
@@ -163,19 +174,19 @@ export function ProfileAvatar({
               borderRadius: badgeSize / 2,
               right: -1,
               bottom: -1,
-              borderColor: badgeRing,
-              backgroundColor: badgeBackground,
+              borderColor: effectiveBadgeRing,
+              backgroundColor: effectiveBadgeBackground,
             },
           ]}
         >
-          <Ionicons name="camera" size={Math.round(badgeSize * 0.52)} color={badgeColor} />
+          <Ionicons name="camera" size={Math.round(badgeSize * 0.52)} color={effectiveBadgeColor} />
         </View>
       ) : null}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme) => ({
   wrap: { alignItems: "center", justifyContent: "center" },
   clip: { alignItems: "center", justifyContent: "center", overflow: "hidden" },
   initial: { fontWeight: "800" },
@@ -195,4 +206,4 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 2,
   },
-});
+}));
