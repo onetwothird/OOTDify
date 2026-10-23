@@ -27,6 +27,7 @@ import { ToastHost } from "../shared/components/ToastHost";
 import { TERMS_VERSION } from "../shared/config/legal";
 import { theme } from "../shared/config/theme";
 import { supabase } from "../shared/lib/supabase";
+import { ThemeProvider, useThemeState } from "../shared/theme/ThemeProvider";
 
 // Keep the native splash visible while the session resolves (both outcomes of
 // the loader below call hideAsync, so this can never strand the splash).
@@ -50,8 +51,20 @@ function hasCurrentConsent(session: Session | null): boolean {
 }
 
 export default function RootLayout() {
+  // ThemeProvider must be the outermost themed element so every screen below —
+  // including the auth/splash chrome — reads the same resolved palette.
+  return (
+    <ThemeProvider>
+      <RootLayoutInner />
+    </ThemeProvider>
+  );
+}
+
+function RootLayoutInner() {
   const [session, setSession] = useState<Session | null>(null);
   const [initialized, setInitialized] = useState(!AUTH_CONFIGURED);
+
+  const { theme: activeTheme, scheme, ready: themeReady } = useThemeState();
 
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
@@ -97,8 +110,8 @@ export default function RootLayout() {
 
   // Hide the native splash only after the first real frame can render.
   useEffect(() => {
-    if (initialized && fontsLoaded) SplashScreen.hideAsync().catch(() => {});
-  }, [initialized, fontsLoaded]);
+    if (initialized && fontsLoaded && themeReady) SplashScreen.hideAsync().catch(() => {});
+  }, [initialized, fontsLoaded, themeReady]);
 
   useEffect(() => {
     if (!initialized) return;
@@ -122,29 +135,35 @@ export default function RootLayout() {
     }
   }, [session, initialized, segments, router]);
 
-  if (!initialized) {
+  if (!initialized || !themeReady) {
     // Branded preloader for the window between native-splash hide and first
-    // route render (never an unbranded white flash).
+    // route render (never an unbranded white flash). Held until the saved
+    // appearance preference has been read, so a Dark-mode user never sees a
+    // light frame first.
     return (
-      <View style={styles.boot}>
+      <View style={[styles.boot, { backgroundColor: activeTheme.colors.background }]}>
         <Image
           source={require("../../assets/images/ootdify-icon.png")}
           style={styles.bootLogo}
           resizeMode="contain"
           accessibilityIgnoresInvertColors
         />
-        <ActivityIndicator color={theme.colors.textMuted} style={styles.bootSpinner} />
+        <ActivityIndicator
+          color={activeTheme.colors.textMuted}
+          style={styles.bootSpinner}
+        />
       </View>
     );
   }
 
   return (
     <SafeAreaProvider>
-      <StatusBar style="dark" />
+      {/* "auto" makes the status bar icons invert with the active palette. */}
+      <StatusBar style="auto" />
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: theme.colors.background },
+          contentStyle: { backgroundColor: activeTheme.colors.background },
         }}
       >
         <Stack.Screen name="(auth)" />
@@ -169,7 +188,8 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: theme.colors.background,
+    // backgroundColor is applied inline from the active theme (see the boot
+    // preloader) so dark mode does not flash a light page.
   },
   bootLogo: { width: 96, height: 96 },
   bootSpinner: { marginTop: theme.spacing.md },
