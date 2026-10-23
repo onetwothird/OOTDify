@@ -52,3 +52,11 @@ export const useSettingsStore = create<SettingsState>()(
     },
   ),
 );
+
+// Rehydration runs during store creation, but its promise may resolve BEFORE
+// this module finishes evaluating — in which case `onRehydrateStorage` already
+// fired and no subscriber will ever see it. Guarantee the flag is set once the
+// read settles, so the boot gate can never hang on a slow or empty storage.
+void Promise.resolve(useSettingsStore.persist.rehydrate()).finally(() => {
+  useSettingsStore.getState().setHydrated();
+});
