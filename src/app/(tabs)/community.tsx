@@ -40,7 +40,8 @@ import { ProfileAvatar } from "../../features/profile/ProfileAvatar";
 import { AppButton } from "../../shared/components/AppButton";
 import { ScreenHeader } from "../../shared/components/ScreenHeader";
 import { EmptyState, ErrorState } from "../../shared/components/StateViews";
-import { theme } from "../../shared/config/theme";
+import { makeStyles } from "../../shared/theme/makeStyles";
+import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import { supabase } from "../../shared/lib/supabase";
 import { timeAgo } from "../../features/community/format";
 import { toast } from "../../shared/lib/toast";
@@ -54,6 +55,8 @@ type Tab = "feed" | "chats";
 const GUTTER = 20;
 
 export default function CommunityScreen() {
+  const styles = useStyles();
+  const theme = useAppTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -87,7 +90,9 @@ export default function CommunityScreen() {
 
   // Refs so the realtime handler always sees fresh state without resubscribing.
   const postsRef = useRef<FeedPost[] | null>(null);
-  postsRef.current = posts;
+  useEffect(() => {
+    postsRef.current = posts;
+  }, [posts]);
 
   // Viewer identity (for "own post" rendering + messaging guards).
   useEffect(() => {
@@ -104,18 +109,20 @@ export default function CommunityScreen() {
   }, []);
 
   const loadFeed = useCallback(async () => {
-    setFeedError(null);
+
     try {
       setPosts(await fetchFeed());
+      setFeedError(null);
     } catch (e) {
       setFeedError(communityErrorMessage(e));
     }
   }, []);
 
   const loadChats = useCallback(async () => {
-    setChatsError(null);
+
     try {
       setConversations(await fetchConversations());
+      setChatsError(null);
     } catch (e) {
       setChatsError(communityErrorMessage(e));
     }
@@ -337,7 +344,7 @@ export default function CommunityScreen() {
               <EmptyState
                 icon="people-outline"
                 title="Nothing shared yet"
-                message="Be the first — tap “Share a look” up top to post a saved outfit."
+                message={"Be the first — tap \"Share a look\" up top to post a saved outfit."}
               />
             }
           />
@@ -514,11 +521,9 @@ export default function CommunityScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme) => ({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   centered: { marginTop: 48 },
-  // One horizontal inset for every stacked block on this screen (header,
-  // segments, list content) so their left edges line up on a single rail.
   headerWrap: {
     paddingHorizontal: GUTTER,
     paddingTop: theme.spacing.sm,
@@ -550,7 +555,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
-  // Community chat room row
   roomRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -575,13 +579,8 @@ const styles = StyleSheet.create({
   roomHint: { fontSize: 11.5, color: theme.colors.textMuted, marginTop: 2 },
   roomOpen: { fontSize: 13, fontWeight: "800", color: theme.colors.primary },
 
-  // Communities section (public group rooms)
-  // The Chats list header stacks several blocks; the outer list applies one
-  // `gap` between them, so each section owns its internal rhythm here.
   chatSections: { gap: theme.spacing.lg },
   section: { gap: theme.spacing.sm },
-  // Room rows sit tight to each other so they read as one list, not as loose
-  // cards interleaved with the section headings.
   rowGroup: { gap: theme.spacing.sm },
   sectionHeader: {
     flexDirection: "row",
@@ -613,7 +612,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 
-  // 1:1 chat rows
   chatRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -639,4 +637,4 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   unreadText: { fontSize: 11, fontWeight: "800", color: theme.colors.onPrimary },
-});
+}));

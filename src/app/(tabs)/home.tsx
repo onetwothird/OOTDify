@@ -1,4 +1,4 @@
-// C:\OOTDify\src\app\(tabs)\home.tsx
+// C:\OOTDIFY\src\app\(tabs)\home.tsx
 // Home: "Your wardrobe. Styled by AI." — hero + real-data sections.
 //
 // Real data only: recommendations and trending come from the catalog/DB, saved
@@ -43,7 +43,10 @@ import { SkeletonGrid, SkeletonRow } from "../../shared/components/LoadingState"
 import { Mascot } from "../../shared/components/Mascot";
 import { SectionHeader } from "../../shared/components/SectionHeader";
 import { Skeleton } from "../../shared/components/Skeleton";
-import { theme } from "../../shared/config/theme";
+import { ShareOutfitModal } from "../../features/community/components/ShareOutfitModal";
+import { CreateRoomModal } from "../../features/community/components/CreateRoomModal";
+import { makeStyles } from "../../shared/theme/makeStyles";
+import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import { useResponsiveColumns } from "../../shared/hooks/useResponsiveColumns";
 import { useCurrentPlace } from "../../shared/lib/location";
 import { resolveMediaUrl } from "../../shared/lib/storageUrl";
@@ -55,6 +58,8 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { itemWidth, onLayout } = useResponsiveColumns(120, 12);
+  const styles = useStyles();
+  const theme = useAppTheme();
 
   // ---- Recommendations (Flask /api/recommend → real catalog ids) -----------
   const [occasion, setOccasion] = useState<string>("Casual");
@@ -99,6 +104,7 @@ export default function HomeScreen() {
   // ---------------------------------------------------------------------------
   // Core loader — safe to call from effects: no synchronous setState (the
   // loading flag starts true; the spinner/error reset lives in the wrapper).
+  // ---------------------------------------------------------------------------
   const fetchRecommendations = useCallback(async (occ: string) => {
     try {
       const { recommendations } = await recommendCatalog({ occasion: occ, limit: 8 });
@@ -246,7 +252,7 @@ export default function HomeScreen() {
   );
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top + 8 }]}>
+    <View style={styles.screen}>
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
@@ -499,6 +505,18 @@ export default function HomeScreen() {
             )}
           </>
         )}
+
+        <ShareOutfitModal
+          visible={false}
+          onClose={() => {}}
+          onShared={() => {}}
+        />
+
+        <CreateRoomModal
+          visible={false}
+          onClose={() => {}}
+          onCreated={() => {}}
+        />
       </ScrollView>
     </View>
   );
@@ -516,9 +534,6 @@ const GREETING_TIPS = [
   "Save the looks you love and they'll surface right here.",
 ] as const;
 
-// The mascot's dialogue: a one-time welcome line (index 0, labelled FITGUIN),
-// then the styling tips. Wrapping skips index 0 so the greeting never repeats —
-// it is a hello, not a tip.
 const WELCOME_LINE =
   "Hi! I'm Fitguin, your style guide — I'll drop tips right here while you browse.";
 const DIALOGUE = [WELCOME_LINE, ...GREETING_TIPS] as const;
@@ -546,6 +561,9 @@ function HomeTopBar({
   loading: boolean;
   onOpenProfile: () => void;
 }) {
+  const styles = useStyles();
+  const theme = useAppTheme();
+
   // Recompute the greeting as real time passes so "Good morning" never sticks
   // into the afternoon while the app stays open.
   const [now, setNow] = useState(() => new Date());
@@ -642,6 +660,8 @@ function Hero({
   lookCount: number;
   loading: boolean;
 }) {
+  const styles = useStyles();
+  const theme = useAppTheme();
   const router = useRouter();
   const { width } = useWindowDimensions();
 
@@ -848,7 +868,9 @@ function Hero({
                 size={13}
                 color={theme.colors.text}
               />
-              <Text style={styles.bubbleLabel}>{tipIndex === 0 ? "FITGUIN" : "STYLING TIP"}</Text>
+              <Text style={styles.bubbleLabel}>
+                {tipIndex === 0 ? "FITGUIN" : "STYLING TIP"}
+              </Text>
               <Ionicons name="refresh" size={13} color={theme.colors.textMuted} />
             </View>
             <Text style={styles.bubbleText} numberOfLines={3}>
@@ -873,6 +895,9 @@ function StatCell({
   value: string;
   label: string;
 }) {
+  const styles = useStyles();
+  const theme = useAppTheme();
+
   return (
     <View style={styles.statCell}>
       <View style={styles.statValueRow}>
@@ -900,7 +925,10 @@ function WardrobeTile({
   category: string;
   onPress: () => void;
 }) {
+  const styles = useStyles();
+  const theme = useAppTheme();
   const [uri, setUri] = useState<string | null>(null);
+
   useEffect(() => {
     let alive = true;
     resolveMediaUrl(imageRef, 900).then((u) => {
@@ -939,7 +967,10 @@ function WardrobeTile({
 // Saved look row
 // ---------------------------------------------------------------------------
 function SavedLookRow({ outfit, onPress }: { outfit: SavedOutfit; onPress: () => void }) {
+  const styles = useStyles();
+  const theme = useAppTheme();
   const count = outfit.clothing_ids?.length ?? 0;
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -963,9 +994,8 @@ function SavedLookRow({ outfit, onPress }: { outfit: SavedOutfit; onPress: () =>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme) => ({
   screen: { flex: 1, backgroundColor: theme.colors.background },
-  content: { paddingHorizontal: theme.spacing.page, paddingBottom: 40 },
 
   // Top bar (flat, no card)
   topBar: {
@@ -1099,189 +1129,169 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   heroStats: {
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.borderRadius.md,
-    paddingHorizontal: 12,
-    paddingVertical: 11,
-    gap: 9,
-    minWidth: 88,
-  },
-  heroStatDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: "rgba(255,255,255,0.18)",
-  },
-  statCell: { gap: 1 },
-  statValueRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  statValue: {
-    fontSize: 17,
-    fontWeight: "800",
-    letterSpacing: -0.4,
-    color: theme.colors.onPrimary,
-  },
-  statLabel: {
-    fontSize: 9.5,
-    fontWeight: "700",
-    letterSpacing: 0.8,
-    color: "rgba(255,255,255,0.6)",
-  },
-  heroStageBlob: {
-    position: "absolute",
-    bottom: 0,
-    borderRadius: 999,
-    backgroundColor: "rgba(17,17,17,0.05)",
-  },
-  heroSpeak: { flexDirection: "row", alignItems: "center", marginTop: 18 },
-  heroButtons: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 18 },
-  heroBtn: { flexGrow: 1, flexShrink: 1, flexBasis: 150, minWidth: 130 },
-  // The card is light, so the white "secondary" fill needs a visible tint.
-  heroBtnAlt: { backgroundColor: theme.colors.surfaceAlt },
-  heroLink: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    paddingVertical: 4,
-    marginTop: 12,
-    alignSelf: "flex-start",
+    marginTop: 8,
   },
-  heroLinkText: { fontSize: 13.5, fontWeight: "700", color: theme.colors.text },
-  heroMascot: { position: "absolute" },
+  heroStatDivider: {
+    width: 1,
+    height: 20,
+    backgroundColor: theme.colors.border,
+  },
+  heroButtons: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 12,
+  },
+  heroBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.primary,
+  },
+  heroBtnAlt: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+  },
+  heroLink: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  heroLinkText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: theme.colors.text,
+  },
 
-  // Sections
-  chips: { gap: 8, paddingRight: 16, paddingBottom: 4 },
-  chipsSpacer: { height: 4 },
+  // Segment switcher
   segment: {
     flexDirection: "row",
-    backgroundColor: theme.colors.surfaceAlt,
-    borderRadius: theme.borderRadius.pill,
-    padding: 4,
-    gap: 4,
+    gap: 8,
+    paddingHorizontal: 20,
     marginTop: theme.spacing.md,
-    marginBottom: theme.spacing.xs,
+    paddingBottom: theme.spacing.sm,
   },
   segmentBtn: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
     paddingVertical: 9,
     borderRadius: theme.borderRadius.pill,
+    backgroundColor: theme.colors.surfaceAlt,
   },
   segmentBtnActive: { backgroundColor: theme.colors.primary },
   segmentText: { fontSize: 13, fontWeight: "700", color: theme.colors.textMuted },
   segmentTextActive: { color: theme.colors.onPrimary },
+
+  // Chips
+  chips: { gap: 8, paddingTop: 12, paddingRight: 16 },
+  chipsSpacer: { height: 4 },
+
+  // Grid layouts
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 12,
     justifyContent: "flex-start",
   },
-  hRow: { flexDirection: "row", gap: 12 },
-  emptyCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.colors.border,
-    padding: 16,
-    gap: 14,
-  },
-  emptyTop: { flexDirection: "row", alignItems: "center", gap: 12 },
-  emptyIconTile: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: theme.colors.surfaceAlt,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  emptyBody: { flex: 1, minWidth: 0 },
-  emptyTitle: { fontSize: 14, fontWeight: "800", color: theme.colors.text },
-  emptyText: {
-    fontSize: 12.5,
-    color: theme.colors.textMuted,
-    marginTop: 2,
-    lineHeight: 17,
-  },
-  emptyBtn: { alignSelf: "stretch" },
-  tileRow: { gap: 12, paddingRight: 16 },
-  tile: { width: 108 },
-  tileImage: {
-    width: 108,
-    height: 128,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.surfaceAlt,
-  },
-  tilePlaceholder: { alignItems: "center", justifyContent: "center" },
-  tileName: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: theme.colors.text,
-    marginTop: 6,
-  },
-  tileMeta: {
-    fontSize: 11,
-    color: theme.colors.textMuted,
-    marginTop: 1,
-  },
-
-  savedList: { gap: 10 },
-  savedRow: {
+  tileRow: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.colors.border,
-    padding: 12,
-  },
-  savedIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: theme.colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  savedBody: { flex: 1, minWidth: 0 },
-  savedName: { fontSize: 14, fontWeight: "700", color: theme.colors.text },
-  savedMeta: { fontSize: 11.5, color: theme.colors.textMuted, marginTop: 2 },
-
-  emptyLine: {
-    fontSize: 13,
-    color: theme.colors.textMuted,
-    lineHeight: 19,
-    paddingVertical: 8,
-  },
-
-  // Offline / error banner (monochrome, calm)
-  unavailable: {
-    flexDirection: "row",
-    alignItems: "flex-start",
+    flexWrap: "wrap",
     gap: 10,
-    backgroundColor: theme.colors.surfaceAlt,
-    borderRadius: theme.borderRadius.md,
-    padding: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.colors.border,
+    justifyContent: "flex-start",
   },
-  unavailableBody: { flex: 1, minWidth: 0 },
+
+  // Unavailable state
+  unavailable: {
+    paddingVertical: 40,
+    alignItems: "center",
+  },
+  unavailableBody: { gap: 8, maxWidth: 280 },
   unavailableTitle: {
-    fontSize: 13,
-    fontWeight: "800",
+    fontSize: 14,
+    fontWeight: "700",
     color: theme.colors.text,
   },
   unavailableText: {
     fontSize: 12,
     color: theme.colors.textMuted,
-    lineHeight: 17,
-    marginTop: 2,
   },
   unavailableRetry: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: theme.borderRadius.sm,
+    marginTop: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.primary,
+  },
+  unavailableRetryText: { color: theme.colors.onPrimary, fontWeight: "700" },
+
+  // Empty states
+  emptyLine: {
+    fontSize: 13,
+    color: theme.colors.textMuted,
+    paddingVertical: 8,
+  },
+
+  // Wardrobe empty state
+  emptyCard: {
     backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.lg,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: theme.colors.border,
+    padding: 24,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  unavailableRetryText: { fontSize: 12, fontWeight: "700", color: theme.colors.text },
-});
+  emptyTop: { flexDirection: "column", alignItems: "center", gap: 12 },
+  emptyIconTile: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: theme.colors.surfaceAlt,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyBody: { textAlign: "center", maxWidth: 200 },
+  emptyTitle: { fontSize: 16, fontWeight: "700", color: theme.colors.text },
+  emptyText: {
+    fontSize: 13,
+    color: theme.colors.textMuted,
+  },
+  emptyBtn: {
+    marginTop: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.primary,
+  },
+
+  // Saved list
+  savedList: { gap: 8, marginTop: 8 },
+
+  // Hero stage blob
+  heroStageBlob: {
+    position: "absolute",
+    bottom: 0,
+    width: "100%",
+    height: 30,
+    backgroundColor: "rgba(17,17,17,0.03)",
+  },
+
+  // Hero speak bubble
+  heroSpeak: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 8,
+    backgroundColor: theme.colors.surface,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+  },
+}));

@@ -168,7 +168,7 @@ export default function BackupScreen() {
             <Text style={styles.cardTitle}>Restore backup</Text>
           </View>
           <Text style={styles.cardHint}>
-            Pick a previously exported OOTDify backup. It's validated first —
+            Pick a previously exported OOTDify backup. It&apos;s validated first —
             a wrong or newer file is rejected instead of half-applied.
           </Text>
           <AppActionRow
@@ -180,7 +180,7 @@ export default function BackupScreen() {
         </View>
 
         {/* -------------------------------------------------------- What's in it */}
-        <Text style={styles.sectionLabel}>WHAT'S INCLUDED</Text>
+        <Text style={styles.sectionLabel}>WHAT&apos;S INCLUDED</Text>
         <View style={styles.card}>
           {INCLUDED.map((row) => (
             <View key={row.text} style={styles.scopeRow}>
@@ -190,7 +190,7 @@ export default function BackupScreen() {
           ))}
         </View>
 
-        <Text style={styles.sectionLabel}>WHAT'S NOT — IT LIVES IN YOUR ACCOUNT</Text>
+        <Text style={styles.sectionLabel}>WHAT&apos;S NOT — IT LIVES IN YOUR ACCOUNT</Text>
         <View style={styles.card}>
           {EXCLUDED.map((row) => (
             <View key={row.text} style={styles.scopeRow}>

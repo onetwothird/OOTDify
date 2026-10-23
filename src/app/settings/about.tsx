@@ -32,7 +32,7 @@ import {
 import { theme } from "../../shared/config/theme";
 import { toast } from "../../shared/lib/toast";
 
-type IconName = keyof typeof Ionicons.glyphMap;
+
 type TabKey = "updates" | "whatsnew" | "feedback" | "trademarks";
 
 const TABS: { key: TabKey; label: string }[] = [
@@ -216,7 +216,7 @@ export default function AboutScreen() {
             ) : null}
             <Text style={styles.smallNote}>
               Updates are delivered by the store you installed from — this app
-              checks the published listing, it doesn't install over itself.
+              checks the published listing, it doesn&apos;t install over itself.
             </Text>
           </>
         ) : null}
@@ -245,7 +245,7 @@ export default function AboutScreen() {
         {active === "feedback" ? (
           <>
             <Text style={styles.body}>
-              Tell us what worked, what didn't, or what you'd build next. The
+              Tell us what worked, what didn&apos;t, or what you&apos;d build next. The
               composer opens pre-filled with your app version and device so we
               can reproduce what you saw.
             </Text>

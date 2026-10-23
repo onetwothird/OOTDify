@@ -76,7 +76,9 @@ export default function ChatThreadScreen() {
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
-  const [title, setTitle] = useState("Chat");
+  const [title, setTitle] = useState(() =>
+    conversationId === COMMUNITY_ROOM_ID ? "Community Chat" : "Chat",
+  );
   // Set when this conversation is a public group room, so the header can show
   // its title/category and a group subtitle instead of a DM peer's.
   const [groupMeta, setGroupMeta] = useState<{ title: string; category: string | null } | null>(
@@ -125,13 +127,9 @@ export default function ChatThreadScreen() {
   }, []);
 
   useEffect(() => {
-    if (!conversationId) return;
+    if (!conversationId || conversationId === COMMUNITY_ROOM_ID) return;
     let alive = true;
-    // The pinned community room has a known title; DMs resolve the peer name.
-    if (conversationId === COMMUNITY_ROOM_ID) {
-      setTitle("Community Chat");
-      return;
-    }
+
     void (async () => {
       try {
         // A public group room is named by its own title, not by a peer.
@@ -170,7 +168,6 @@ export default function ChatThreadScreen() {
 
   const load = useCallback(async () => {
     if (!conversationId) return;
-    setError(null);
     try {
       const rows = await fetchMessages(conversationId);
       for (const m of rows) {
@@ -178,6 +175,7 @@ export default function ChatThreadScreen() {
         rememberAvatar(m.sender_id, m.senderAvatar);
       }
       setMessages(rows);
+      setError(null);
       await markConversationRead(conversationId);
     } catch (e) {
       setError(communityErrorMessage(e));

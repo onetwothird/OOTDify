@@ -9,7 +9,7 @@
 // version + timestamp are recorded in auth metadata at sign-up; the backend
 // independently rejects AI processing without that record (403 consent_required).
 import { Ionicons } from "@expo/vector-icons";
-import * as ImagePicker from "expo-image-picker";
+
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
@@ -31,7 +31,7 @@ import {
   savePendingAvatar,
   clearPendingAvatar,
 } from "../../features/profile/avatar";
-import type { PickedPhoto } from "../../features/profile/avatar";
+
 import { markOnboardingPending } from "../../features/profile/onboarding";
 import { ProfileAvatar } from "../../features/profile/ProfileAvatar";
 import { AppButton } from "../../shared/components/AppButton";
@@ -93,7 +93,7 @@ export default function SignupScreen() {
     { label: "A number", ok: /\d/.test(password) },
   ];
   const passwordOk = rules.every((r) => r.ok);
-  const detailsOk = fullName.trim().length >= 2 && EMAIL_RE.test(email.trim()) && passwordOk;
+
 
   const [slide] = useState(() => new Animated.Value(1));
   const transition = (next: number) => {

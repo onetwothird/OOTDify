@@ -33,13 +33,16 @@ import { SkeletonGrid } from "../../shared/components/LoadingState";
 import { EmptyState } from "../../shared/components/StateViews";
 import { SectionHeader } from "../../shared/components/SectionHeader";
 import { SmartImage } from "../../shared/components/SmartImage";
-import { theme } from "../../shared/config/theme";
+import { makeStyles } from "../../shared/theme/makeStyles";
+import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import { useResponsiveColumns } from "../../shared/hooks/useResponsiveColumns";
 
 // How many cards each discover grid mounts before the user taps "Show more".
 const GRID_PAGE = 24;
 
 export default function WardrobeScreen() {
+  const styles = useStyles();
+  const theme = useAppTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const openCapture = useCaptureModalStore((s) => s.open);
@@ -347,6 +350,8 @@ const ClosetCard = memo(function ClosetCard({
   onPress: () => void;
   onToggleFavorite: () => void;
 }) {
+  const styles = useStyles();
+  const theme = useAppTheme();
   return (
     <View style={[styles.closetCard, { width }]}>
       <Pressable accessibilityRole="button" onPress={onPress} style={styles.cardImageWrap}>
@@ -380,7 +385,7 @@ const ClosetCard = memo(function ClosetCard({
   );
 });
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme) => ({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   content: { paddingHorizontal: theme.spacing.page, paddingBottom: 40 },
 
@@ -513,4 +518,4 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: theme.spacing.sm,
   },
-});
+}));
