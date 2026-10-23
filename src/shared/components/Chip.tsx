@@ -2,7 +2,9 @@
 // Single selectable pill — used for occasions, categories, filters, toggles.
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text } from "react-native";
-import { theme } from "../config/theme";
+
+import { makeStyles } from "../theme/makeStyles";
+import { useAppTheme } from "../theme/ThemeProvider";
 
 interface Props {
   label: string;
@@ -12,6 +14,8 @@ interface Props {
 }
 
 export function Chip({ label, active = false, onPress, icon }: Props) {
+  const styles = useStyles();
+  const theme = useAppTheme();
   return (
     <Pressable
       accessibilityRole="button"
@@ -35,7 +39,7 @@ export function Chip({ label, active = false, onPress, icon }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme) => ({
   chip: {
     flexDirection: "row",
     alignItems: "center",
@@ -57,4 +61,4 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
   },
   textActive: { color: theme.colors.onPrimary, fontWeight: "700" },
-});
+}));
