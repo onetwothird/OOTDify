@@ -7,13 +7,19 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { theme } from "../config/theme";
+import type { Theme } from "../config/theme";
 import { ToastRecord, ToastVariant, useToastStore } from "../lib/toast";
+import { makeStyles } from "../theme/makeStyles";
+import { useAppTheme } from "../theme/ThemeProvider";
 
 // Resolved per render (not captured at module load) so the toast tinting
 // follows appearance-mode swaps of `theme.colors` instead of freezing the
-// boot palette.
-function toastMeta(variant: ToastVariant): {
+// boot palette. The palette is passed in because this is a plain function, not
+// a component, so it cannot call a hook itself.
+function toastMeta(
+  variant: ToastVariant,
+  theme: Theme,
+): {
   icon: keyof typeof Ionicons.glyphMap;
   tint: string;
 } {
@@ -30,6 +36,8 @@ function toastMeta(variant: ToastVariant): {
 }
 
 export function ToastHost() {
+  const styles = useStyles();
+  const theme = useAppTheme();
   const current = useToastStore((s) => s.current);
   const dismiss = useToastStore((s) => s.dismiss);
   const insets = useSafeAreaInsets();
@@ -73,7 +81,7 @@ export function ToastHost() {
 
   if (!shown) return null;
 
-  const meta = toastMeta(shown.variant);
+  const meta = toastMeta(shown.variant, theme);
 
   return (
     <View style={[styles.layer, { paddingTop: insets.top + 8 }]} pointerEvents="box-none">
@@ -138,7 +146,7 @@ export function ToastHost() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme) => ({
   layer: {
     position: "absolute",
     top: 0,
@@ -184,4 +192,4 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primary,
   },
   actionText: { color: theme.colors.onPrimary, fontWeight: "500", fontSize: 12.5 },
-});
+}));

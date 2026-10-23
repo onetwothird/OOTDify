@@ -9,7 +9,9 @@ import {
   View,
   ViewStyle,
 } from "react-native";
-import { theme } from "../config/theme";
+
+import { makeStyles } from "../theme/makeStyles";
+import { useAppTheme } from "../theme/ThemeProvider";
 
 interface SkeletonProps {
   width?: number | `${number}%`;
@@ -18,7 +20,9 @@ interface SkeletonProps {
   style?: StyleProp<ViewStyle>;
 }
 
-export function Skeleton({ width = "100%", height, radius = theme.borderRadius.sm, style }: SkeletonProps) {
+export function Skeleton({ width = "100%", height, radius, style }: SkeletonProps) {
+  const styles = useStyles();
+  const theme = useAppTheme();
   // Lazy-initialized in useState (not useRef().current) so no ref is read during render.
   const [pulse] = useState(() => new Animated.Value(0.45));
 
@@ -37,7 +41,7 @@ export function Skeleton({ width = "100%", height, radius = theme.borderRadius.s
     <Animated.View
       style={[
         styles.base,
-        { width, borderRadius: radius, opacity: pulse },
+        { width, borderRadius: radius ?? theme.borderRadius.sm, opacity: pulse },
         height ? { height } : null,
         style,
       ]}
@@ -53,6 +57,8 @@ export function SkeletonCard({
   width: number;
   withMeta?: boolean;
 }) {
+  const styles = useStyles();
+  const theme = useAppTheme();
   return (
     <View style={[styles.card, { width }]}>
       <Skeleton height={width / 0.8} radius={theme.borderRadius.md} />
@@ -69,21 +75,23 @@ export function SkeletonCard({
 /** Image-frame skeleton that pulses as a block (hero / results). */
 export function SkeletonBlock({
   aspectRatio = 1,
-  radius = theme.borderRadius.lg,
+  radius,
 }: {
   aspectRatio?: number;
   radius?: number;
 }) {
-  return <Skeleton style={[styles.block, { aspectRatio, borderRadius: radius }]} />;
+  const styles = useStyles();
+  const theme = useAppTheme();
+  return <Skeleton style={[styles.block, { aspectRatio, borderRadius: radius ?? theme.borderRadius.lg }]} />;
 }
 
-const styles = StyleSheet.create({
-  base: { backgroundColor: "#E4E4E4" },
-  block: { width: "100%", backgroundColor: "#E4E4E4" },
+const useStyles = makeStyles((theme) => ({
+  base: { backgroundColor: theme.colors.surfaceAlt },
+  block: { width: "100%", backgroundColor: theme.colors.surfaceAlt },
   card: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.md,
     overflow: "hidden",
   },
   cardMeta: { padding: 10, gap: 8 },
-});
+}));

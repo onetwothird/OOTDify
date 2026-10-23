@@ -2,7 +2,9 @@
 // Empty / error states with actions. No hardcoded pixel sizes.
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { theme } from "../config/theme";
+
+import { makeStyles } from "../theme/makeStyles";
+import { useAppTheme } from "../theme/ThemeProvider";
 
 export function EmptyState({
   icon = "file-tray-outline",
@@ -20,6 +22,8 @@ export function EmptyState({
   /** Tighter vertical padding, for empty states followed by more content. */
   compact?: boolean;
 }) {
+  const styles = useStyles();
+  const theme = useAppTheme();
   return (
     <View style={[styles.box, compact && styles.boxCompact]} testID="empty-state">
       <Ionicons name={icon} size={40} color={theme.colors.textMuted} />
@@ -45,6 +49,8 @@ export function ErrorState({
   message: string;
   onRetry?: () => void;
 }) {
+  const styles = useStyles();
+  const theme = useAppTheme();
   return (
     <View style={styles.box} testID="error-state">
       <Ionicons name="alert-circle-outline" size={40} color={theme.colors.textMuted} />
@@ -63,7 +69,7 @@ export function ErrorState({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme) => ({
   box: {
     alignItems: "center",
     justifyContent: "center",
@@ -92,5 +98,5 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primary,
   },
   buttonPressed: { opacity: 0.85 },
-  buttonText: { color: "#FFFFFF", fontWeight: "700", fontSize: 14 },
-});
+  buttonText: { color: theme.colors.onPrimary, fontWeight: "700", fontSize: 14 },
+}));

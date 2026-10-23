@@ -12,7 +12,9 @@ import {
   TextInputProps,
   View,
 } from "react-native";
-import { theme } from "../config/theme";
+
+import { makeStyles } from "../theme/makeStyles";
+import { useAppTheme } from "../theme/ThemeProvider";
 
 interface Props extends Omit<TextInputProps, "style"> {
   label: string;
@@ -22,6 +24,8 @@ interface Props extends Omit<TextInputProps, "style"> {
 }
 
 export function FormField({ label, icon, secure = false, ...inputProps }: Props) {
+  const styles = useStyles();
+  const theme = useAppTheme();
   const [focused, setFocused] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const iconColor = focused ? theme.colors.text : theme.colors.textMuted;
@@ -64,7 +68,7 @@ export function FormField({ label, icon, secure = false, ...inputProps }: Props)
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme) => ({
   wrap: { marginBottom: theme.spacing.md },
   label: {
     fontSize: 13,
@@ -93,4 +97,4 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     paddingVertical: 0,
   },
-});
+}));

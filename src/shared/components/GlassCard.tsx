@@ -1,8 +1,10 @@
 // src/shared/components/GlassCard.tsx
 import { StyleSheet, View, ViewProps } from "react-native";
-import { theme } from "../config/theme";
+
+import { makeStyles } from "../theme/makeStyles";
 
 export function GlassCard({ style, children, ...props }: ViewProps) {
+  const styles = useStyles();
   return (
     <View style={[styles.card, style]} {...props}>
       {children}
@@ -10,7 +12,7 @@ export function GlassCard({ style, children, ...props }: ViewProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme) => ({
   card: {
     backgroundColor: theme.colors.surface,
     borderColor: theme.colors.border,
@@ -19,4 +21,4 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
     overflow: "hidden",
   },
-});
+}));

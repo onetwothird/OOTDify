@@ -3,8 +3,10 @@
 // Each button reflects its own loading state; while either flow is running both
 // are disabled so a user can't start two OAuth sessions at once.
 import { Ionicons } from "@expo/vector-icons";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
-import { theme } from "../config/theme";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
+
+import { makeStyles } from "../theme/makeStyles";
+import { useAppTheme } from "../theme/ThemeProvider";
 
 interface SocialButtonProps {
   label: string;
@@ -15,6 +17,8 @@ interface SocialButtonProps {
 }
 
 function SocialButton({ label, icon, onPress, loading, disabled }: SocialButtonProps) {
+  const styles = useStyles();
+  const theme = useAppTheme();
   return (
     <Pressable
       accessibilityRole="button"
@@ -55,6 +59,7 @@ export function OAuthButtons({
   facebookLoading = false,
   disabled = false,
 }: Props) {
+  const styles = useStyles();
   const anyLoading = googleLoading || facebookLoading;
   return (
     <View style={styles.row}>
@@ -76,7 +81,7 @@ export function OAuthButtons({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme) => ({
   row: { flexDirection: "row", gap: theme.spacing.sm + 4 },
   button: {
     flex: 1,
@@ -93,4 +98,4 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.85 },
   disabled: { opacity: 0.5 },
   label: { fontSize: 14, fontWeight: "600", color: theme.colors.text },
-});
+}));

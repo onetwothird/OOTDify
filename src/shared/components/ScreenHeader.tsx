@@ -3,7 +3,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { theme } from "../config/theme";
+
+import { makeStyles } from "../theme/makeStyles";
+import { useAppTheme } from "../theme/ThemeProvider";
 
 interface Props {
   title: string;
@@ -12,6 +14,7 @@ interface Props {
 }
 
 export function ScreenHeader({ title, subtitle, right }: Props) {
+  const styles = useStyles();
   return (
     <View style={styles.container}>
       <View style={styles.titleBlock}>
@@ -38,6 +41,8 @@ export function HeaderIconButton({
   onPress: () => void;
   accessibilityLabel: string;
 }) {
+  const styles = useStyles();
+  const theme = useAppTheme();
   return (
     <Pressable
       accessibilityRole="button"
@@ -51,7 +56,7 @@ export function HeaderIconButton({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme) => ({
   container: {
     flexDirection: "row",
     alignItems: "center",
@@ -72,9 +77,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
     lineHeight: 18,
   },
-  // The action keeps its intrinsic size; the title block above absorbs the
-  // slack (and truncates). Without this the action gets compressed when the
-  // title and subtitle together are wide.
   right: { flexShrink: 0 },
   iconButton: { padding: 6 },
-});
+}));

@@ -5,8 +5,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { memo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { theme } from "../config/theme";
 import { SmartImage } from "./SmartImage";
+
+import { makeStyles } from "../theme/makeStyles";
+import { useAppTheme } from "../theme/ThemeProvider";
 
 export interface ClothingCardItem {
   id: string;
@@ -34,6 +36,8 @@ export const ClothingCard = memo(function ClothingCard({
   onPress,
   onToggleFavorite,
 }: Props) {
+  const styles = useStyles();
+  const theme = useAppTheme();
   const imageRef = (item.thumbnail_url || item.image_url || "") as string;
 
   return (
@@ -80,7 +84,7 @@ export const ClothingCard = memo(function ClothingCard({
   );
 });
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme) => ({
   card: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.md,
@@ -116,4 +120,4 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     flexShrink: 1,
   },
-});
+}));

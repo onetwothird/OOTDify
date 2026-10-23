@@ -15,7 +15,9 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { theme } from "../config/theme";
+
+import { makeStyles } from "../theme/makeStyles";
+import { useAppTheme } from "../theme/ThemeProvider";
 
 interface HeroProps {
   title: string;
@@ -25,6 +27,8 @@ interface HeroProps {
 }
 
 export function AuthHero({ title, subtitle, onBack }: HeroProps) {
+  const styles = useStyles();
+  const theme = useAppTheme();
   const insets = useSafeAreaInsets();
 
   return (
@@ -75,6 +79,8 @@ export function AuthCard({ children }: { children: ReactNode }) {
     return () => animation.stop();
   }, [progress]);
 
+  const styles = useStyles();
+
   return (
     <Animated.View
       style={[
@@ -97,7 +103,7 @@ export function AuthCard({ children }: { children: ReactNode }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme) => ({
   hero: {
     backgroundColor: theme.colors.primary,
     paddingHorizontal: theme.spacing.lg,
@@ -177,4 +183,4 @@ const styles = StyleSheet.create({
     shadowRadius: 24,
     elevation: 6,
   },
-});
+}));

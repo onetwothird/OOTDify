@@ -10,7 +10,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { ComponentProps, memo } from "react";
 import { StyleProp, StyleSheet, View, ViewStyle } from "react-native";
-import { theme } from "../config/theme";
+
+import { makeStyles } from "../theme/makeStyles";
+import { useAppTheme } from "../theme/ThemeProvider";
 import { useResolvedImage } from "../lib/useResolvedImage";
 
 type ImageContentFit = ComponentProps<typeof Image>["contentFit"];
@@ -34,6 +36,8 @@ export const SmartImage = memo(function SmartImage({
   accessibilityLabel,
   fallbackIcon = "image-outline",
 }: Props) {
+  const styles = useStyles();
+  const theme = useAppTheme();
   const { uri, failed, retry } = useResolvedImage(source);
 
   return (
@@ -56,7 +60,7 @@ export const SmartImage = memo(function SmartImage({
   );
 });
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme) => ({
   fill: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0 },
   fallback: {
     position: "absolute",
@@ -68,4 +72,4 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: theme.colors.primaryMuted,
   },
-});
+}));

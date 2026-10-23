@@ -3,9 +3,13 @@
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { Skeleton, SkeletonCard } from "./Skeleton";
 import { useResponsiveColumns } from "../hooks/useResponsiveColumns";
-import { theme } from "../config/theme";
+
+import { makeStyles } from "../theme/makeStyles";
+import { useAppTheme } from "../theme/ThemeProvider";
 
 export function LoadingState({ label }: { label?: string }) {
+  const styles = useStyles();
+  const theme = useAppTheme();
   return (
     <View style={styles.center} testID="loading-state">
       <ActivityIndicator color={theme.colors.primary} size="large" />
@@ -16,6 +20,7 @@ export function LoadingState({ label }: { label?: string }) {
 
 /** Grid of pulsing card skeletons while a catalog/grid loads. */
 export function SkeletonGrid({ count = 6 }: { count?: number }) {
+  const styles = useStyles();
   const { columns, itemWidth, onLayout } = useResponsiveColumns(110, 12);
   const n = count || columns;
   return (
@@ -28,6 +33,8 @@ export function SkeletonGrid({ count = 6 }: { count?: number }) {
 }
 
 export function SkeletonRow() {
+  const styles = useStyles();
+  const theme = useAppTheme();
   return (
     <View style={styles.row}>
       <Skeleton width={56} height={56} radius={theme.borderRadius.md} />
@@ -39,7 +46,7 @@ export function SkeletonRow() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme) => ({
   center: {
     flex: 1,
     alignItems: "center",
@@ -59,4 +66,4 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.md,
   },
   rowBody: { flex: 1, gap: 8 },
-});
+}));

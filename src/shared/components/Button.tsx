@@ -1,12 +1,14 @@
 // src/shared/components/Button.tsx
 import {
-    ActivityIndicator,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    TouchableOpacityProps,
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  TouchableOpacityProps,
 } from "react-native";
-import { theme } from "../config/theme";
+
+import { makeStyles } from "../theme/makeStyles";
+import { useAppTheme } from "../theme/ThemeProvider";
 
 interface ButtonProps extends TouchableOpacityProps {
   title: string;
@@ -14,6 +16,8 @@ interface ButtonProps extends TouchableOpacityProps {
 }
 
 export function Button({ title, loading, style, ...props }: ButtonProps) {
+  const styles = useStyles();
+  const theme = useAppTheme();
   return (
     <TouchableOpacity
       style={[styles.button, props.disabled && styles.disabled, style]}
@@ -21,7 +25,7 @@ export function Button({ title, loading, style, ...props }: ButtonProps) {
       {...props}
     >
       {loading ? (
-        <ActivityIndicator color="#FFF" />
+        <ActivityIndicator color={theme.colors.onPrimary} />
       ) : (
         <Text style={styles.text}>{title}</Text>
       )}
@@ -29,7 +33,7 @@ export function Button({ title, loading, style, ...props }: ButtonProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme) => ({
   button: {
     backgroundColor: theme.colors.primary,
     paddingVertical: 18,
@@ -41,9 +45,9 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   text: {
-    color: "#FFF",
+    color: theme.colors.onPrimary,
     fontSize: 16,
     fontWeight: "700",
     letterSpacing: 0.5,
   },
-});
+}));

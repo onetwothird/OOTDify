@@ -4,7 +4,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { theme } from "../config/theme";
+
+import { makeStyles } from "../theme/makeStyles";
+import { useAppTheme } from "../theme/ThemeProvider";
 
 interface Props {
   title: string;
@@ -17,6 +19,8 @@ interface Props {
 }
 
 export function SectionHeader({ title, subtitle, actionLabel, onAction, right }: Props) {
+  const styles = useStyles();
+  const theme = useAppTheme();
   return (
     <View style={styles.container}>
       <View style={styles.textBlock}>
@@ -46,7 +50,7 @@ export function SectionHeader({ title, subtitle, actionLabel, onAction, right }:
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme) => ({
   container: {
     flexDirection: "row",
     alignItems: "flex-end",
@@ -75,4 +79,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: theme.colors.primary,
   },
-});
+}));

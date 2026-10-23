@@ -9,7 +9,9 @@ import {
   Text,
   ViewStyle,
 } from "react-native";
-import { theme } from "../config/theme";
+
+import { makeStyles } from "../theme/makeStyles";
+import { useAppTheme } from "../theme/ThemeProvider";
 
 export type AppButtonVariant = "primary" | "secondary" | "ghost";
 export type AppButtonSize = "md" | "lg";
@@ -35,6 +37,8 @@ export function AppButton({
   disabled = false,
   style,
 }: Props) {
+  const styles = useStyles();
+  const theme = useAppTheme();
   const isPrimary = variant === "primary";
   const isSecondary = variant === "secondary";
   const lg = size === "lg";
@@ -83,15 +87,12 @@ export function AppButton({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme) => ({
   base: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    // Horizontal padding must live here: without it a button's width is decided
-    // purely by its label, so in a tight row (a header action beside a title)
-    // the text visually compresses instead of the button keeping its shape.
     paddingHorizontal: theme.spacing.md,
   },
   lg: { paddingVertical: 16, borderRadius: theme.borderRadius.md, minHeight: 54 },
@@ -108,4 +109,4 @@ const styles = StyleSheet.create({
   label: { fontWeight: "700", flexShrink: 1 },
   labelLg: { fontSize: 15 },
   labelMd: { fontSize: 14 },
-});
+}));
