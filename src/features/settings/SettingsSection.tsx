@@ -21,7 +21,6 @@ import { theme } from "../../shared/config/theme";
 type IconName = keyof typeof Ionicons.glyphMap;
 
 const LANGUAGE_OPTIONS: { code: LanguageCode; label: string }[] = [
-  { code: "system", label: "System" },
   { code: "en", label: "English" },
   { code: "fil", label: "Filipino" },
 ];

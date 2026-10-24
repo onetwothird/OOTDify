@@ -20,7 +20,6 @@ import {
   API_HEALTH_TIMEOUT_MS,
 } from "../shared/config/api";
 import { supabase } from "../shared/lib/supabase";
-import i18n from "../shared/lib/i18n/i18n-config";
 
 // ---------------------------------------------------------------------------
 // Error model
@@ -139,7 +138,7 @@ export async function apiRequest<T>(
   const url = `${API_BASE_URL}${path}`;
 
   const headers: Record<string, string> = {
-    "Accept-Language": i18n.locale,
+    "Accept-Language": "en",
     ...(init.headers as Record<string, string> | undefined),
   };
   if (auth) {

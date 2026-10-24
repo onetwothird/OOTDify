@@ -7,7 +7,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
-export type LanguageCode = "en" | "fil" | "system";
+export type LanguageCode = "en" | "fil";
 export type AppearanceMode = "system" | "light" | "dark";
 
 interface SettingsState {
@@ -28,7 +28,7 @@ const STORAGE_KEY = "ootdify.settings.v1";
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
-      language: "system",
+      language: "en",
       appearance: "system",
       biometricLock: false,
       hydrated: false,
