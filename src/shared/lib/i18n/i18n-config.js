@@ -1,7 +1,9 @@
-// i18n configuration using i18n-js
-import i18n from 'i18n-js';
+// i18n configuration using i18n-js v4
+import { I18n } from 'i18n-js';
 import enTranslations from './en.json';
 import filTranslations from './fil.json';
+
+const i18n = new I18n();
 
 // Setup i18n with English and Filipino
 i18n.translations = {
@@ -11,7 +13,6 @@ i18n.translations = {
 
 i18n.locale = 'en';
 i18n.defaultLocale = 'en';
-i18n.fallbacks = true;
 i18n.enableFallback = true;
 
 export default i18n;
