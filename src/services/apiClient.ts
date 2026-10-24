@@ -138,6 +138,7 @@ export async function apiRequest<T>(
   const url = `${API_BASE_URL}${path}`;
 
   const headers: Record<string, string> = {
+    "Accept-Language": "en",
     ...(init.headers as Record<string, string> | undefined),
   };
   if (auth) {

@@ -413,7 +413,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     paddingHorizontal: 16,
-    paddingBottom: insets.bottom + 8,
+    paddingBottom: 8,
     backgroundColor: theme.colors.background,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: theme.colors.border,
@@ -434,6 +434,7 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 10,
     justifyContent: "flex-start",
+  },
   buildButton: {
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -448,3 +449,4 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: theme.colors.border,
   },
+});

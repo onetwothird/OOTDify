@@ -996,6 +996,106 @@ function SavedLookRow({ outfit, onPress }: { outfit: SavedOutfit; onPress: () =>
 
 const useStyles = makeStyles((theme) => ({
   screen: { flex: 1, backgroundColor: theme.colors.background },
+  content: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 120,
+  },
+  hRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
+  },
+  heroMascot: {
+    width: 90,
+    height: 90,
+  },
+  statCell: {
+    flex: 1,
+    alignItems: "flex-start",
+    gap: 2,
+  },
+  statValueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  statValue: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: theme.colors.text,
+  },
+  statLabel: {
+    fontSize: 11,
+    color: theme.colors.textMuted,
+  },
+  tile: {
+    width: "48%",
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+    overflow: "hidden",
+    paddingBottom: 8,
+  },
+  tileImage: {
+    width: "100%",
+    height: 120,
+  },
+  tilePlaceholder: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  tileName: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: theme.colors.text,
+    paddingHorizontal: 8,
+    marginTop: 6,
+  },
+  tileMeta: {
+    fontSize: 11,
+    color: theme.colors.textMuted,
+    paddingHorizontal: 8,
+    marginTop: 2,
+  },
+  savedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  savedIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: theme.colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  savedBody: {
+    flex: 1,
+    minWidth: 0,
+  },
+  savedName: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: theme.colors.text,
+  },
+  savedMeta: {
+    fontSize: 11,
+    color: theme.colors.textMuted,
+    marginTop: 2,
+  },
 
   // Top bar (flat, no card)
   topBar: {
