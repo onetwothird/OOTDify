@@ -305,6 +305,9 @@ export function OutfitCalendar({ outfits, onOpenOutfit }: Props) {
                 {outfits.map((o) => {
                   const active = pickerOutfit?.outfit_id === o.id;
                   const count = o.clothing_ids?.length ?? 0;
+                  const meta = [o.occasion, count + " item" + (count === 1 ? "" : "s")]
+                    .filter(Boolean)
+                    .join("\u00B7");
                   return (
                     <Pressable
                       key={o.id}
@@ -323,9 +326,7 @@ export function OutfitCalendar({ outfits, onOpenOutfit }: Props) {
                           {o.name || "Untitled outfit"}
                         </Text>
                         <Text style={styles.pickerRowMeta} numberOfLines={1}>
-                          {[o.occasion, `${count} item${count === 1 ? "" : "s"}`]}
-                            .filter(Boolean)
-                            .join(" · ")
+                          {meta}
                         </Text>
                       </View>
                       {active ? (

@@ -182,9 +182,30 @@ export default function ChatThreadScreen() {
     }
   }, [conversationId, rememberAvatar]);
 
+  // Load initial messages — inline async in effect to avoid setState-in-effect lint error.
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (!conversationId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await fetchMessages(conversationId);
+        if (cancelled) return;
+        for (const m of rows) {
+          nameCache.current.set(m.sender_id, m.senderName);
+          rememberAvatar(m.sender_id, m.senderAvatar);
+        }
+        setMessages(rows);
+        setError(null);
+        await markConversationRead(conversationId);
+      } catch (e) {
+        if (cancelled) return;
+        setError(communityErrorMessage(e));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationId, rememberAvatar]);
 
   // Live messages: append (dedupe by id) and keep the newest in view.
   useEffect(() => {

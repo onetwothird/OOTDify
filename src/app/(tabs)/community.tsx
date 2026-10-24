@@ -153,17 +153,43 @@ export default function CommunityScreen() {
 
   // Load both lists on mount; reload whichever tab is visible on focus.
   useEffect(() => {
-    void loadFeed();
-    void loadChats();
-    void loadRooms();
-  }, [loadFeed, loadChats, loadRooms]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await fetchFeed();
+        if (cancelled) return;
+        setPosts(data);
+        setFeedError(null);
+      } catch (e) {
+        if (cancelled) return;
+        setFeedError(communityErrorMessage(e));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
-    if (tab === "chats") {
-      void loadChats();
-      void loadRooms();
-    }
-  }, [tab, loadChats, loadRooms]);
+    if (tab !== "chats") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [convs, roomsData] = await Promise.all([fetchConversations(), fetchPublicRooms()]);
+        if (cancelled) return;
+        setConversations(convs);
+        setRooms(roomsData);
+        setChatsError(null);
+      } catch (e) {
+        if (cancelled) return;
+        setChatsError(communityErrorMessage(e));
+        setRooms([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [tab]);
 
   // Live feed: any change (someone posts/likes/deletes) re-pulls the list.
   useEffect(() => {

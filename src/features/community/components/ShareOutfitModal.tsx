@@ -85,10 +85,26 @@ export function ShareOutfitModal({
     }
   }, []);
 
+  // Load outfits when modal becomes visible — inline async in effect to avoid setState-in-effect lint error.
   useEffect(() => {
     if (!visible) return;
-    void load();
-  }, [visible, load]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await fetchSavedOutfits();
+        if (cancelled) return;
+        setOutfits(rows);
+        setError(null);
+        setRefs(await previewRefs(rows));
+      } catch (e) {
+        if (cancelled) return;
+        setError(e instanceof Error ? e.message : "Could not load your saved looks.");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [visible]);
 
   const selected = outfits?.find((o) => o.id === selectedId) ?? null;
 
