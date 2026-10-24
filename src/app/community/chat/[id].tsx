@@ -124,16 +124,18 @@ export default function ChatThreadScreen() {
     };
   }, []);
 
+  // Resolve conversation title and peer info — inline async in effect to avoid setState-in-effect lint error.
   useEffect(() => {
     if (!conversationId) return;
     let alive = true;
-    // The pinned community room has a known title; DMs resolve the peer name.
-    if (conversationId === COMMUNITY_ROOM_ID) {
-      setTitle("Community Chat");
-      return;
-    }
-    void (async () => {
+    (async () => {
       try {
+        // The pinned community room has a known title; DMs resolve the peer name.
+        if (conversationId === COMMUNITY_ROOM_ID) {
+          if (!alive) return;
+          setTitle("Community Chat");
+          return;
+        }
         // A public group room is named by its own title, not by a peer.
         const meta = await fetchRoomMeta(conversationId);
         if (!alive) return;
@@ -184,9 +186,29 @@ export default function ChatThreadScreen() {
     }
   }, [conversationId, rememberAvatar]);
 
+  // Load initial messages — inline async in effect to avoid setState-in-effect lint error.
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (!conversationId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await fetchMessages(conversationId);
+        if (cancelled) return;
+        for (const m of rows) {
+          nameCache.current.set(m.sender_id, m.senderName);
+          rememberAvatar(m.sender_id, m.senderAvatar);
+        }
+        setMessages(rows);
+        await markConversationRead(conversationId);
+      } catch (e) {
+        if (cancelled) return;
+        setError(communityErrorMessage(e));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationId, rememberAvatar]);
 
   // Live messages: append (dedupe by id) and keep the newest in view.
   useEffect(() => {

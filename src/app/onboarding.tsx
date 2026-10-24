@@ -58,8 +58,6 @@ export default function OnboardingScreen() {
 
   // Prefill from the real profile — the field starts honest, not empty.
   const load = useCallback(async () => {
-    setLoadError(null);
-    setLoading(true);
     try {
       const { profile } = await getProfile();
       setNickname(profile.display_name ?? profile.first_name ?? "");
@@ -70,9 +68,27 @@ export default function OnboardingScreen() {
     }
   }, []);
 
+  // Load initial profile data — inline async in effect to avoid setState-in-effect lint error.
   useEffect(() => {
-    void load();
-  }, [load]);
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoading(true);
+        setLoadError(null);
+        const { profile } = await getProfile();
+        if (cancelled) return;
+        setNickname(profile.display_name ?? profile.first_name ?? "");
+      } catch (e) {
+        if (cancelled) return;
+        setLoadError(e instanceof Error ? e.message : "Could not load your profile.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Leave the screen either way: the flag clears so this never loops, and the
   // user lands back home where the app actually lives.

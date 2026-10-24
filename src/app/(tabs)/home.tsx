@@ -1,10 +1,7 @@
 // C:\OOTDify\src\app\(tabs)\home.tsx
+
 // Home: "Your wardrobe. Styled by AI." — hero + real-data sections.
-//
-// Real data only: recommendations and trending come from the catalog/DB, saved
-// looks from saved_outfits, wardrobe from clothing_items, recently viewed from
-// the user's history. When the Flask backend is down, the recommendations
-// section degrades to a friendly banner and the rest of the app keeps working.
+
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -104,7 +101,11 @@ export default function HomeScreen() {
       const { recommendations } = await recommendCatalog({ occasion: occ, limit: 8 });
       setRecommended(recommendations);
     } catch (e) {
-      setRecError(e instanceof ApiError ? e : new ApiError("unknown", "Something went wrong. Please try again.", 0, e));
+      setRecError(
+        e instanceof ApiError
+          ? e
+          : new ApiError("unknown", "Something went wrong. Please try again.", 0, e),
+      );
     } finally {
       setRecLoading(false);
     }
