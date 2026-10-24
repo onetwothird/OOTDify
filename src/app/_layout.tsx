@@ -26,7 +26,6 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ToastHost } from "../shared/components/ToastHost";
 import { TERMS_VERSION } from "../shared/config/legal";
 import { theme } from "../shared/config/theme";
-import "../shared/lib/i18n/i18n-config";
 import { supabase } from "../shared/lib/supabase";
 import { ThemeProvider, useThemeState } from "../shared/theme/ThemeProvider";
 
