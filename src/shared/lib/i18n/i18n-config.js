@@ -1,22 +1,17 @@
 // i18n configuration using i18n-js
 import i18n from 'i18n-js';
-
-// Setup i18n with English and Filipino
-i18n.locales = ['en', 'fil'];
-i18n.defaultLocale = 'en';
-
-// Load translation files
-i18n.fetchNamespaces(['en', 'fil'], function() {
-  // Translations will be loaded below
-});
-
-// Set translations from JSON files
 import enTranslations from './en.json';
 import filTranslations from './fil.json';
 
+// Setup i18n with English and Filipino
 i18n.translations = {
   en: enTranslations,
   fil: filTranslations,
 };
+
+i18n.locale = 'en';
+i18n.defaultLocale = 'en';
+i18n.fallbacks = true;
+i18n.enableFallback = true;
 
 export default i18n;

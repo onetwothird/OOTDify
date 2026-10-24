@@ -436,8 +436,8 @@
   " nyquist_criterion": "Nyquist criterion",
   " gain_crossover": "Gain crossover",
   " phase_crossover": "Phase crossover",
-  " root_locus_plot": "Root locus plot",
-  " bode_diagram": "Bode diagram",
-  " nyquist_diagram": "Nyquist diagram",
-  " root_locus_diagram": "Root locus diagram",
-];
+  "root_locus_plot": "Root locus plot",
+  "bode_diagram": "Bode diagram",
+  "nyquist_diagram": "Nyquist diagram",
+  "root_locus_diagram": "Root locus diagram"
+}
