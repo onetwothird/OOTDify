@@ -58,6 +58,8 @@ export default function OnboardingScreen() {
 
   // Prefill from the real profile — the field starts honest, not empty.
   const load = useCallback(async () => {
+    setLoadError(null);
+    setLoading(true);
     try {
       const { profile } = await getProfile();
       setNickname(profile.display_name ?? profile.first_name ?? "");
@@ -69,23 +71,8 @@ export default function OnboardingScreen() {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const { profile } = await getProfile();
-        if (cancelled) return;
-        setNickname(profile.display_name ?? profile.first_name ?? "");
-      } catch (e) {
-        if (cancelled) return;
-        setLoadError(e instanceof Error ? e.message : "Could not load your profile.");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    void load();
+  }, [load]);
 
   // Leave the screen either way: the flag clears so this never loops, and the
   // user lands back home where the app actually lives.
@@ -151,7 +138,7 @@ export default function OnboardingScreen() {
           {loading ? (
             <LoadingState label="Loading your profile" />
           ) : loadError ? (
-            <ErrorState message={loadError} onRetry={() => { setLoading(true); setLoadError(null); void load(); }} />
+            <ErrorState message={loadError} onRetry={() => void load()} />
           ) : (
             <View style={styles.card}>
               {/* Nickname — what the app calls you (home greeting, posts, chat). */}
