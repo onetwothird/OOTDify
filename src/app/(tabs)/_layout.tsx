@@ -55,7 +55,7 @@ export default function TabLayout() {
             title: "Create",
             tabBarIcon: ({ focused }) => (
               <View style={[styles.createPill, focused && styles.createPillActive]}>
-                <Ionicons name="add" size={24} color="#FFF" />
+                <Ionicons name="add" size={24} color={theme.colors.onPrimary} />
               </View>
             ),
           }}
