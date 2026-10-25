@@ -14,6 +14,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { resolveMediaUrl } from "../../../shared/lib/storageUrl";
 import { theme as staticTheme } from "../../../shared/config/theme";
@@ -44,6 +45,7 @@ interface Props {
 export function OutfitCalendar({ outfits, onOpenOutfit }: Props) {
   const styles = useStyles();
   const theme = useAppTheme();
+  const insets = useSafeAreaInsets();
   const today = useMemo(() => new Date(), []);
   const [cursor, setCursor] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
   const [plans, setPlans] = useState<Record<string, OutfitPlan>>({});
@@ -272,7 +274,7 @@ export function OutfitCalendar({ outfits, onOpenOutfit }: Props) {
         onRequestClose={() => setPickerDate(null)}
       >
         <Pressable style={styles.pickerOverlay} onPress={() => setPickerDate(null)}>
-          <Pressable style={styles.pickerSheet} onPress={(e) => e.stopPropagation()}>
+          <Pressable style={[styles.pickerSheet, { paddingBottom: Math.max(insets.bottom, 16) }]} onPress={(e) => e.stopPropagation()}>
             <View style={styles.pickerHandle} />
             <View style={styles.pickerHeader}>
               <View>
@@ -503,7 +505,6 @@ const useStyles = makeStyles((theme) => ({
     borderTopRightRadius: theme.borderRadius.xl,
     paddingHorizontal: 16,
     paddingTop: 8,
-    paddingBottom: 28,
     maxHeight: "78%",
   },
   pickerHandle: {
