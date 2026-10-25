@@ -561,7 +561,7 @@ export default function ScanScreen() {
                     style={styles.camIconBtn}
                     onPress={() => setFacing((f) => (f === "front" ? "back" : "front"))}
                   >
-                    <Ionicons name="camera-reverse-outline" size={22} color="#FFF" />
+                    <Ionicons name="camera-reverse-outline" size={22} color={theme.colors.onPrimary} />
                   </Pressable>
                 </View>
                 <Pressable
@@ -622,7 +622,7 @@ export default function ScanScreen() {
         ) : (
           <View style={styles.scanActions}>
             <Pressable accessibilityRole="button" style={styles.scanBtn} onPress={startCapture}>
-              <Ionicons name="camera-outline" size={22} color="#FFF" />
+              <Ionicons name="camera-outline" size={22} color={theme.colors.onPrimary} />
               <Text style={styles.scanBtnText}>Scan Me</Text>
             </Pressable>
             <Pressable accessibilityRole="button" style={styles.scanBtnGhost} onPress={pickPhoto}>
@@ -692,11 +692,11 @@ export default function ScanScreen() {
                     onPress={() => removeBodyPhoto(p.id)}
                     style={styles.photoDelete}
                   >
-                    <Ionicons name="trash-outline" size={14} color="#FFF" />
+                    <Ionicons name="trash-outline" size={14} color={theme.colors.onPrimary} />
                   </Pressable>
                   {selectedBodyId === p.id ? (
                     <View style={styles.photoSelectedRing}>
-                      <Ionicons name="checkmark" size={14} color="#FFF" />
+                      <Ionicons name="checkmark" size={14} color={theme.colors.onPrimary} />
                     </View>
                   ) : null}
                 </Pressable>
@@ -750,7 +750,7 @@ export default function ScanScreen() {
                     </Text>
                     {selectedClothing.has(item.id) ? (
                       <View style={styles.pickCheck}>
-                        <Ionicons name="checkmark" size={12} color="#FFF" />
+                        <Ionicons name="checkmark" size={12} color={theme.colors.onPrimary} />
                       </View>
                     ) : null}
                   </Pressable>
@@ -785,7 +785,7 @@ export default function ScanScreen() {
                   </Text>
                   {selectedClothing.has(item.id) ? (
                     <View style={styles.pickCheck}>
-                      <Ionicons name="checkmark" size={12} color="#FFF" />
+                      <Ionicons name="checkmark" size={12} color={theme.colors.onPrimary} />
                     </View>
                   ) : null}
                 </Pressable>
@@ -813,7 +813,7 @@ export default function ScanScreen() {
           >
             {creating ? (
               <View style={styles.creatingBtnRow}>
-                <ActivityIndicator color="#FFF" size="small" />
+                <ActivityIndicator color={theme.colors.onPrimary} size="small" />
                 <Text style={styles.primaryBtnText}>Creating…</Text>
               </View>
             ) : (
@@ -936,7 +936,7 @@ function StepIndicator({ current }: { current: number }) {
                 ]}
               >
                 {done ? (
-                  <Ionicons name="checkmark" size={10} color="#FFF" />
+                  <Ionicons name="checkmark" size={10} color={theme.colors.onPrimary} />
                 ) : (
                   <Text style={[styles.stepDotText, active && styles.stepDotTextActive]}>
                     {step}
@@ -1097,12 +1097,12 @@ const styles = StyleSheet.create({
   },
   stepDotDone: { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
   stepDotActive: {
-    backgroundColor: theme.colors.accent,
-    borderColor: theme.colors.accent,
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
     transform: [{ scale: 1.08 }],
   },
   stepDotText: { fontSize: 11, fontWeight: "800", color: theme.colors.textMuted },
-  stepDotTextActive: { color: "#FFF" },
+  stepDotTextActive: { color: theme.colors.onPrimary },
   stepConnector: {
     flex: 1,
     height: 2,
@@ -1163,7 +1163,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: "center",
   },
-  primaryBtnText: { color: "#FFF", fontWeight: "700", fontSize: 15 },
+  primaryBtnText: { color: theme.colors.onPrimary, fontWeight: "700", fontSize: 15 },
   btnDisabled: { opacity: 0.4 },
   flex: { flex: 1 },
   secondaryBtn: {
@@ -1202,9 +1202,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  shutterInner: { width: 56, height: 56, borderRadius: 28, backgroundColor: "#FFF" },
+  shutterInner: { width: 56, height: 56, borderRadius: 28, backgroundColor: theme.colors.surface },
   cancelCapture: { alignSelf: "center", padding: 10 },
-  cancelCaptureText: { color: "#FFF", fontWeight: "700", fontSize: 14 },
+  cancelCaptureText: { color: theme.colors.onPrimary, fontWeight: "700", fontSize: 14 },
   previewBox: { gap: 12 },
   previewImage: { width: "100%", aspectRatio: 3 / 4, borderRadius: theme.borderRadius.lg },
   previewActions: { flexDirection: "row", gap: 10 },
@@ -1220,7 +1220,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.md,
     paddingVertical: 14,
   },
-  scanBtnText: { color: "#FFF", fontWeight: "700", fontSize: 14 },
+  scanBtnText: { color: theme.colors.onPrimary, fontWeight: "700", fontSize: 14 },
   scanBtnGhost: {
     flex: 1,
     flexDirection: "row",
@@ -1308,7 +1308,7 @@ const styles = StyleSheet.create({
   segBtn: { flex: 1, paddingVertical: 8, borderRadius: theme.borderRadius.sm, alignItems: "center" },
   segBtnActive: { backgroundColor: theme.colors.primary },
   segBtnText: { fontSize: 13, fontWeight: "700", color: theme.colors.textMuted },
-  segBtnTextActive: { color: "#FFF" },
+  segBtnTextActive: { color: theme.colors.onPrimary },
   smallHint: { fontSize: 12.5, color: theme.colors.textMuted, lineHeight: 18 },
   itemGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   pickCard: {
@@ -1346,7 +1346,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 16,
   },
-  inlineCtaText: { color: "#FFF", fontWeight: "700", fontSize: 13 },
+  inlineCtaText: { color: theme.colors.onPrimary, fontWeight: "700", fontSize: 13 },
 
   // jobs
   jobCard: {
