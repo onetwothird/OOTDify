@@ -96,7 +96,7 @@ export default function EditClothingModal({ item, onClose }: Props) {
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={styles.keyboard}
         >
-          <View style={[styles.sheet, { paddingBottom: insets.bottom + 20 }]}>
+          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 4 }]}>
             <View style={styles.handle} />
             <View style={styles.header}>
               <Text style={styles.title}>Edit item</Text>
@@ -232,10 +232,10 @@ export default function EditClothingModal({ item, onClose }: Props) {
                 accessibilityRole="button"
                 onPress={save}
                 disabled={saving}
-                style={[styles.saveBtn, saving && styles.saveDisabled]}
+                style={[styles.saveBtn, saving && styles.saveDisabled, { marginBottom: 4 }]}
               >
                 {saving ? (
-                  <ActivityIndicator color="#FFF" />
+                  <ActivityIndicator color={theme.colors.onPrimary} />
                 ) : (
                   <Text style={styles.saveBtnText}>Save details</Text>
                 )}
