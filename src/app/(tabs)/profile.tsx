@@ -741,7 +741,7 @@ const styles = StyleSheet.create({
   },
   prefChipActive: { backgroundColor: theme.colors.primary },
   prefChipText: { fontSize: 12.5, fontWeight: "600", color: theme.colors.text },
-  prefChipTextActive: { color: "#FFF" },
+  prefChipTextActive: { color: theme.colors.onPrimary },
   linkRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   linkBody: { flex: 1, minWidth: 0 },
   linkLabel: { fontSize: 14, fontWeight: "700", color: theme.colors.text },
