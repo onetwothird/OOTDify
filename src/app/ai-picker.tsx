@@ -371,10 +371,10 @@ function LookCard({
         ]}
       >
         {saving ? (
-          <ActivityIndicator color="#FFF" size="small" />
+          <ActivityIndicator color={theme.colors.onPrimary} size="small" />
         ) : (
           <>
-            <Ionicons name="bookmark-outline" size={16} color="#FFF" />
+            <Ionicons name="bookmark-outline" size={16} color={theme.colors.onPrimary} />
             <Text style={styles.saveBtnText}>Save this look</Text>
           </>
         )}
@@ -475,7 +475,7 @@ const styles = StyleSheet.create({
     minHeight: 46,
   },
   saveBtnDisabled: { opacity: 0.6 },
-  saveBtnText: { color: "#FFF", fontWeight: "700", fontSize: 14 },
+  saveBtnText: { color: theme.colors.onPrimary, fontWeight: "700", fontSize: 14 },
 
   footnote: {
     fontSize: 11,
