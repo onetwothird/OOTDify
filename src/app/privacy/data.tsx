@@ -227,7 +227,7 @@ export default function PrivacyDataScreen() {
           style={styles.modalOverlay}
           onPress={() => setExportPreview(null)}
         >
-          <Pressable style={styles.modalCard} onPress={() => undefined}>
+          <Pressable style={[styles.modalCard, { marginBottom: 12 }]} onPress={() => undefined}>
             <Text style={styles.modalTitle}>Your data export</Text>
             <Text style={styles.modalSub}>{exportPreview.filename}</Text>
             <TextInput
@@ -332,6 +332,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.45)",
     justifyContent: "center",
     padding: 24,
+    paddingBottom: 36,
   },
   modalCard: {
     backgroundColor: theme.colors.surface,
@@ -357,5 +358,5 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
   },
-  modalCloseText: { color: "#FFF", fontWeight: "700", fontSize: 14 },
+  modalCloseText: { color: theme.colors.onPrimary, fontWeight: "700", fontSize: 14 },
 });
