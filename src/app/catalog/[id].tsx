@@ -197,6 +197,6 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     marginTop: 4,
   },
-  tryonBtnText: { color: "#FFF", fontWeight: "700", fontSize: 15 },
+  tryonBtnText: { color: theme.colors.onPrimary, fontWeight: "700", fontSize: 15 },
   tryonHint: { fontSize: 11.5, color: theme.colors.textMuted, textAlign: "center" },
 });
