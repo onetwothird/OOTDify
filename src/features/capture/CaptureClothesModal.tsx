@@ -164,7 +164,7 @@ export default function CaptureClothesModal() {
       onRequestClose={handleClose}
     >
       <View style={styles.overlay}>
-        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 12 }]}>
+        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
           <View style={styles.handle} />
 
           <View style={styles.header}>
@@ -300,14 +300,7 @@ export default function CaptureClothesModal() {
             </>
           )}
 
-          {entries.length === 0 ? (
-            <AppButton
-              label="Done"
-              variant="secondary"
-              onPress={handleClose}
-              style={styles.doneBtn}
-            />
-          ) : (
+          {entries.length === 0 ? null : (
             <>
               <AppButton
                 label={`Save ${entries.length} item${entries.length > 1 ? "s" : ""}`}
@@ -316,7 +309,7 @@ export default function CaptureClothesModal() {
                 disabled={!allCategorized}
                 onPress={saveEntries}
               />
-              <Text style={styles.hint}>
+              <Text style={[styles.hint, { marginBottom: 4 }]}>
                 {allCategorized
                   ? "All tagged — ready to save."
                   : "Pick a category for every photo to save."}
