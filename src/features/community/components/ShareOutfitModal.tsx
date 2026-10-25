@@ -143,7 +143,7 @@ export function ShareOutfitModal({
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={styles.sheetWrap}
         >
-          <View style={[styles.sheet, { paddingBottom: 12 + insets.bottom }]}>
+          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
             <View style={styles.handleWrap}>
               <View style={styles.handle} />
             </View>
@@ -241,6 +241,7 @@ export function ShareOutfitModal({
                     loading={sharing}
                     disabled={!selected}
                     onPress={() => void share()}
+                    style={{ marginBottom: 4 }}
                   />
                   <Text style={styles.privacyNote}>
                     The outfit images are copied to the public Community bucket. Your wardrobe
@@ -264,7 +265,7 @@ const useStyles = makeStyles((theme) => ({
   },
   sheetWrap: { flex: 1, justifyContent: "flex-end", width: "100%" },
   sheet: {
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.surface,
     borderTopLeftRadius: theme.borderRadius.xl,
     borderTopRightRadius: theme.borderRadius.xl,
     maxHeight: "86%",
