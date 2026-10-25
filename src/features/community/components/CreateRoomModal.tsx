@@ -85,7 +85,7 @@ export function CreateRoomModal({
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={styles.sheetWrap}
         >
-          <View style={[styles.sheet, { paddingBottom: 12 + insets.bottom }]}>
+          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
             <View style={styles.handleWrap}>
               <View style={styles.handle} />
             </View>
@@ -155,7 +155,7 @@ export function CreateRoomModal({
                 onPress={() => void submit()}
                 loading={creating}
                 disabled={!canCreate}
-                style={styles.submit}
+                style={[styles.submit, { marginBottom: 4 }]}
               />
             </ScrollView>
           </View>
@@ -173,7 +173,7 @@ const useStyles = makeStyles((theme) => ({
   },
   sheetWrap: { flex: 1, justifyContent: "flex-end", width: "100%" },
   sheet: {
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.surface,
     borderTopLeftRadius: theme.borderRadius.xl,
     borderTopRightRadius: theme.borderRadius.xl,
     maxHeight: "86%",
