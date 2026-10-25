@@ -769,7 +769,7 @@ function Hero({
           icon="sparkles-outline"
           variant="secondary"
           onPress={() => router.push("/(tabs)/scan")}
-          style={[styles.heroBtn, styles.heroBtnAlt]}
+          style={styles.heroBtn}
         />
       </View>
 
@@ -1135,7 +1135,7 @@ const styles = StyleSheet.create({
   heroButtons: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 18 },
   heroBtn: { flexGrow: 1, flexShrink: 1, flexBasis: 150, minWidth: 130 },
   // The card is light, so the white "secondary" fill needs a visible tint.
-  heroBtnAlt: { backgroundColor: theme.colors.surfaceAlt },
+  heroBtnAlt: { backgroundColor: theme.colors.primaryMuted },
   heroLink: {
     flexDirection: "row",
     alignItems: "center",
