@@ -200,7 +200,7 @@ const useStyles = makeStyles((theme) => ({
     bottom: 0,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(17,17,17,0.45)",
+    backgroundColor: "rgba(11,22,51,0.5)",
   },
   badge: {
     position: "absolute",
