@@ -142,6 +142,20 @@ export async function fetchFeed(limit = 50): Promise<FeedPost[]> {
   }));
 }
 
+/** The signed-in user's own posts, newest first (for their profile page). */
+export async function fetchMyPosts(limit = 30): Promise<CommunityPost[]> {
+  const uid = await currentUserId();
+  if (!uid) return [];
+  const { data, error } = await supabase
+    .from("community_posts")
+    .select("*")
+    .eq("user_id", uid)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as CommunityPost[];
+}
+
 /** Like a post. like_count is maintained by a SQL trigger. */
 export async function likePost(postId: string): Promise<void> {
   const uid = await currentUserId();
