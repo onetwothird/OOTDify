@@ -54,7 +54,13 @@
           "cameraPermission": "OOTDify uses the camera only for the profile picture you choose to take."
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "OOTDify uses Face ID only to unlock the app when you turn on biometric unlock."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
