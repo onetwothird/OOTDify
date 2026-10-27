@@ -106,7 +106,7 @@ const useStyles = makeStyles((theme) => ({
   ghost: { backgroundColor: "transparent" },
   pressed: { opacity: 0.85 },
   disabled: { opacity: 0.45 },
-  label: { fontWeight: "700", flexShrink: 1 },
+  label: { fontWeight: "600", flexShrink: 1 },
   labelLg: { fontSize: 15 },
   labelMd: { fontSize: 14 },
 }));
