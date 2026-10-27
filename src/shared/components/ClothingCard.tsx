@@ -105,7 +105,7 @@ const useStyles = makeStyles((theme) => ({
   },
   name: {
     fontSize: 13,
-    fontWeight: "700",
+    fontWeight: "600",
     color: theme.colors.text,
     lineHeight: 17,
   },
