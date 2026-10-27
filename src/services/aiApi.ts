@@ -17,6 +17,7 @@
 // (see apiClient.ts). Raw backend details never reach the UI.
 
 import { API_AI_TIMEOUT_MS, API_TIMEOUT_MS, API_BASE_URL } from "../shared/config/api";
+import { uploadPart } from "../shared/lib/formFile";
 import { shrinkForUpload } from "../shared/lib/shrinkImage";
 import {
   ApiError,
@@ -193,38 +194,6 @@ export interface PrivacySummary {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function fileMimeType(uri: string): string {
-  const ext = uri.split("?").pop()?.split(".").pop()?.toLowerCase() ?? "";
-  switch (ext) {
-    case "png":
-      return "image/png";
-    case "webp":
-      return "image/webp";
-    case "heic":
-      return "image/heic";
-    default:
-      return "image/jpeg";
-  }
-}
-
-function fileBaseName(uri: string): string {
-  const cleaned = uri.split("?")[0];
-  const name = cleaned.split("/").pop() ?? "";
-  return name && name.includes(".") ? name : `photo_${Date.now()}.jpg`;
-}
-
-function toNativeFormFile(uri: string) {
-  return {
-    uri,
-    name: fileBaseName(uri),
-    type: fileMimeType(uri),
-  } as unknown as Blob;
-}
-
-// ---------------------------------------------------------------------------
 // Analyze (stateless — nothing is persisted or retained)
 // ---------------------------------------------------------------------------
 export async function analyzeImage(
@@ -233,7 +202,7 @@ export async function analyzeImage(
   timeoutMs = API_AI_TIMEOUT_MS,
 ): Promise<{ kind: string; analysis: AnalyzeResult }> {
   const formData = new FormData();
-  formData.append("image", toNativeFormFile(await shrinkForUpload(photoUri)));
+  formData.append("image", uploadPart(await shrinkForUpload(photoUri)));
   formData.append("kind", kind);
 
   const payload = (await apiRequest<{ success: boolean; kind: string; analysis: AnalyzeResult }>(
@@ -269,7 +238,7 @@ export interface LivePose {
 
 export async function estimateLivePose(photoUri: string, timeoutMs = 8_000): Promise<LivePose> {
   const formData = new FormData();
-  formData.append("image", toNativeFormFile(await shrinkForUpload(photoUri, LIVE_POSE_SIDE)));
+  formData.append("image", uploadPart(await shrinkForUpload(photoUri, LIVE_POSE_SIDE)));
 
   const payload = await apiRequest<{
     personDetected?: boolean;
@@ -322,7 +291,7 @@ export async function isolateClothing(
   timeoutMs = API_AI_TIMEOUT_MS,
 ): Promise<ClothingIsolation & { garment: GarmentDescription | null }> {
   const formData = new FormData();
-  formData.append("image", toNativeFormFile(await shrinkForUpload(photoUri)));
+  formData.append("image", uploadPart(await shrinkForUpload(photoUri)));
 
   const payload = (await apiRequest<{
     success: boolean;
@@ -347,7 +316,7 @@ export async function uploadBodyPhoto(
   timeoutMs = API_AI_TIMEOUT_MS,
 ): Promise<{ body_photo: BodyPhoto; analysis: AnalyzeResult; signedUrl: string | null }> {
   const formData = new FormData();
-  formData.append("image", toNativeFormFile(await shrinkForUpload(photoUri)));
+  formData.append("image", uploadPart(await shrinkForUpload(photoUri)));
 
   const payload = (await apiRequest<{
     success: boolean;
@@ -447,7 +416,7 @@ async function uploadProfileImage(
   timeoutMs: number,
 ): Promise<UserProfile> {
   const formData = new FormData();
-  formData.append("image", toNativeFormFile(await shrinkForUpload(photoUri)));
+  formData.append("image", uploadPart(await shrinkForUpload(photoUri)));
 
   const payload = (await apiRequest<{ success: boolean; profile: UserProfile }>(
     path,
@@ -484,7 +453,7 @@ export async function checkProfilePhoto(
   timeoutMs = API_AI_TIMEOUT_MS,
 ): Promise<PhotoCheck> {
   const formData = new FormData();
-  formData.append("image", toNativeFormFile(await shrinkForUpload(photoUri)));
+  formData.append("image", uploadPart(await shrinkForUpload(photoUri)));
 
   const payload = (await apiRequest<{ success: boolean; check: PhotoCheck }>(
     "/api/profile/photo-check",
