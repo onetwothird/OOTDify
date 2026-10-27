@@ -9,24 +9,27 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from "react-native";
 import { AppButton } from "../../shared/components/AppButton";
 import { AuthCard, AuthHero } from "../../shared/components/AuthShell";
 import { FormField } from "../../shared/components/FormField";
-import { theme } from "../../shared/config/theme";
+import { makeStyles } from "../../shared/theme/makeStyles";
+import type { Theme } from "../../shared/config/theme";
+import { useT } from "../../shared/i18n/useT";
 import { supabase } from "../../shared/lib/supabase";
 
 export default function ForgotPasswordScreen() {
+  const styles = useStyles();
+  const { t } = useT();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleReset = async () => {
     if (loading) return;
     if (!email) {
-      Alert.alert("Email required", "Please enter your email address.");
+      Alert.alert(t("auth.forgot_password.missing.title"), t("auth.forgot_password.missing.message"));
       return;
     }
 
@@ -34,10 +37,10 @@ export default function ForgotPasswordScreen() {
     const { error } = await supabase.auth.resetPasswordForEmail(email);
 
     if (error) {
-      Alert.alert("Could not send link", error.message);
+      Alert.alert(t("auth.forgot_password.failed.title"), error.message);
     } else {
-      Alert.alert("Check your inbox", "We sent you a password reset link.", [
-        { text: "OK", onPress: () => router.back() },
+      Alert.alert(t("auth.forgot_password.sent.title"), t("auth.forgot_password.sent.message"), [
+        { text: t("auth.forgot_password.sent.ok"), onPress: () => router.back() },
       ]);
     }
     setLoading(false);
@@ -56,18 +59,18 @@ export default function ForgotPasswordScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <AuthHero
-            title="Reset password"
-            subtitle="We'll email you a secure link to set a new one."
+            title={t("auth.forgot_password.title")}
+            subtitle={t("auth.forgot_password.subtitle")}
             onBack={() => router.back()}
           />
 
           <AuthCard>
             <FormField
-              label="Email address"
+              label={t("auth.common.email_label")}
               icon="mail-outline"
               value={email}
               onChangeText={setEmail}
-              placeholder="you@example.com"
+              placeholder={t("auth.common.email_placeholder")}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
@@ -79,7 +82,7 @@ export default function ForgotPasswordScreen() {
             />
 
             <AppButton
-              label="Send reset link"
+              label={t("auth.forgot_password.submit")}
               onPress={handleReset}
               loading={loading}
               disabled={loading}
@@ -88,8 +91,7 @@ export default function ForgotPasswordScreen() {
           </AuthCard>
 
           <Text style={styles.note}>
-            The link expires shortly. If it doesn&apos;t arrive, check your spam
-            folder before requesting another.
+            {t("auth.forgot_password.note")}
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -97,7 +99,7 @@ export default function ForgotPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme: Theme) => ({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   flex: { flex: 1 },
   scroll: {
@@ -115,4 +117,4 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: theme.colors.textMuted,
   },
-});
+}));
