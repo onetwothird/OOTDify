@@ -19,7 +19,7 @@ from typing import Dict, List, Optional
 from flask import Blueprint, jsonify, request, send_file
 
 from config import Config
-from services import image_service, storage_service
+from services import cloudinary_service, image_service, storage_service
 from services.auth_service import require_auth, require_user
 from services.body_analysis import analyze_body_image
 from services.ratelimit import default_limits, rate_limit, upload_limits
@@ -133,6 +133,54 @@ def update_profile_route():
     )
     logger.info("Profile updated for user %s (%s)", user["id"], ", ".join(allowed))
     return jsonify(success=True, profile=rows[0] if rows else get_profile(user["id"]))
+
+
+# --------------------------------------------------------------------------
+# Profile photo (Cloudinary)
+# --------------------------------------------------------------------------
+@users_bp.post("/api/profile/avatar")
+@require_auth
+@upload_limits("avatar_upload")
+def upload_avatar_route():
+    """Validate an avatar, host it on Cloudinary and save its URL on the profile.
+
+    The profile row only changes after the upload succeeded, so a failed
+    upload never leaves a broken ref behind. The temp file is always deleted.
+    """
+    user = require_user()
+
+    if "image" not in request.files:
+        return jsonify(success=False, error="No image part in request."), 400
+
+    temp_path = None
+    try:
+        temp_path = image_service.ingest_upload(
+            request.files["image"],
+            Config.UPLOAD_FOLDER,
+            max_bytes=Config.MAX_CONTENT_LENGTH,
+        )
+        url = cloudinary_service.upload_avatar(user["id"], temp_path)
+        ensure_profile(user["id"])
+        rows = (
+            get_supabase()
+            .table("user_profiles")
+            .update({"avatar_url": url, "updated_at": "now()"})
+            .eq("user_id", user["id"])
+            .execute()
+            .data
+        )
+        return jsonify(success=True, profile=rows[0] if rows else get_profile(user["id"]))
+    except ValueError as exc:
+        return jsonify(success=False, error=str(exc)), 400
+    except cloudinary_service.CloudinaryNotConfiguredError:
+        logger.error("Avatar upload attempted but Cloudinary is not configured")
+        return jsonify(success=False, error="Profile photo uploads are not available right now."), 503
+    except Exception:
+        logger.exception("Avatar upload failed")
+        return jsonify(success=False, error="Could not upload your photo. Please try again."), 500
+    finally:
+        if temp_path is not None:
+            image_service.cleanup(temp_path)
 
 
 # --------------------------------------------------------------------------
@@ -370,7 +418,8 @@ def delete_account():
     """Permanently delete the account and ALL of the user's data.
 
     Order matters (so nothing orphaned survives):
-      1. Private storage objects (body photos, wardrobe, try-ons, avatar).
+      1. Private storage objects (body photos, wardrobe, try-ons, avatar),
+         in Supabase Storage and on Cloudinary.
       2. DB rows across every user-owned table.
       3. The Supabase Auth user (cascades anything remaining).
     """
@@ -379,6 +428,7 @@ def delete_account():
     try:
         # 1. Storage
         storage_service.delete_user_storage(uid)
+        cloudinary_service.delete_user_media(uid)
 
         # 2. Rows (best-effort explicit; cascades from auth.users cover the rest)
         for table in (

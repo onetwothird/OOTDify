@@ -1,8 +1,9 @@
 // C:\OOTDify\src\features\profile\avatar.ts
-// Profile-picture helpers: pick a photo → upload to the PRIVATE `avatars`
-// bucket (owner-only RLS) → persist the ref on the user's profile row through
-// the backend. Nothing here fabricates an image: the stored ref only changes
-// when the upload and the profile PATCH both succeed.
+// Profile-picture helpers: pick a photo → send it to the backend, which hosts
+// it on Cloudinary and saves the HTTPS URL on the user's profile row. Older
+// avatars stored as `avatars/<uid>/…` Supabase refs keep rendering through
+// resolveMediaUrl(). Nothing here fabricates an image: the stored ref only
+// changes when the backend upload succeeds.
 //
 // Two ages of photo exist:
 //   * signed in  → `changeProfileAvatar` uploads immediately (used by Profile).
@@ -14,8 +15,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import { Alert } from "react-native";
 
-import { updateProfile } from "../../services/aiApi";
-import { formFile } from "../../shared/lib/formFile";
+import { uploadProfileAvatar } from "../../services/aiApi";
 import { supabase } from "../../shared/lib/supabase";
 import { toast } from "../../shared/lib/toast";
 
@@ -44,21 +44,17 @@ async function currentUserId(): Promise<string | null> {
   return data.user?.id ?? null;
 }
 
-/** Upload a local image URI to `avatars/<uid>/…`; returns the stored ref. */
+/**
+ * Upload a local image as the profile photo; returns the stored ref.
+ * The backend hosts it on Cloudinary and saves the HTTPS URL on the profile
+ * row in the same request, so no separate profile PATCH is needed.
+ */
 export async function uploadAvatar(uri: string): Promise<string> {
   const uid = await currentUserId();
   if (!uid) throw new Error("Not signed in");
-  const objectPath = `${uid}/avatar-${Date.now()}.jpg`;
-  // Pass RN's { uri, name, type } file shape, never a Blob: a Blob has no `uri`
-  // and RN's FormData would upload its string form instead of the bytes.
-  const { data, error } = await supabase.storage
-    .from("avatars")
-    .upload(objectPath, formFile(uri, `avatar-${Date.now()}.jpg`, "image/jpeg"), {
-      contentType: "image/jpeg",
-      upsert: true,
-    });
-  if (error) throw error;
-  return `avatars/${data.path}`;
+  const profile = await uploadProfileAvatar(uri);
+  if (!profile.avatar_url) throw new Error("The photo was uploaded but not saved.");
+  return profile.avatar_url;
 }
 
 /** True when the local file is still readable (cache may be reclaimed). */
@@ -156,12 +152,11 @@ export async function changeProfileAvatar(source: AvatarSource): Promise<string 
   const picked = await pickAvatarPhoto(source);
   if (!picked) return null;
 
-  toast.loading("Updating profile photo", "Uploading to your private area…");
+  toast.loading("Updating profile photo", "Uploading your photo…");
   try {
     const ref = await uploadAvatar(picked.uri);
-    const profile = await updateProfile({ avatar_url: ref });
     toast.success("Profile photo updated", "Looking good.");
-    return profile.avatar_url ?? ref;
+    return ref;
   } catch (e) {
     toast.error(
       "Couldn't update your photo",
@@ -173,7 +168,7 @@ export async function changeProfileAvatar(source: AvatarSource): Promise<string 
 
 /** The chooser shown when an avatar is tapped. */
 export function promptAvatarSource(onPick: (source: AvatarSource) => void) {
-  Alert.alert("Profile photo", "Your photo stays in your private account area.", [
+  Alert.alert("Profile photo", "Your photo appears on your profile and in Community.", [
     { text: "Take photo", onPress: () => onPick("camera") },
     { text: "Choose from library", onPress: () => onPick("library") },
     { text: "Cancel", style: "cancel" },
@@ -267,9 +262,8 @@ export async function applyPendingAvatar(): Promise<string | null> {
 
   try {
     const ref = await uploadAvatar(pending.uri);
-    const profile = await updateProfile({ avatar_url: ref });
     await clearPendingAvatar();
-    return profile.avatar_url ?? ref;
+    return ref;
   } catch {
     // Transient: keep it and try again on a later launch.
     return null;

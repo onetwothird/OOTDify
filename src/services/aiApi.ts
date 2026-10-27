@@ -239,6 +239,41 @@ export async function analyzeImage(
 }
 
 // ---------------------------------------------------------------------------
+// Clothing isolation (stateless — nothing is persisted)
+// ---------------------------------------------------------------------------
+// Cuts the main garment out of a capture photo onto a white background. When
+// the backend can't trust its cut-out, `ok` is false, `reason` says why and no
+// image comes back — the caller keeps the original photo.
+export type IsolationReason = "no_object" | "fills_frame" | "multiple_objects" | "processing_failed";
+
+export interface ClothingIsolation {
+  ok: boolean;
+  reason: IsolationReason | null;
+  coverage: number | null;
+  /** Base64 JPEG of the cut-out; null when `ok` is false. */
+  image_base64: string | null;
+}
+
+export async function isolateClothing(
+  photoUri: string,
+  timeoutMs = API_AI_TIMEOUT_MS,
+): Promise<ClothingIsolation> {
+  const formData = new FormData();
+  formData.append("image", toNativeFormFile(photoUri));
+
+  const payload = (await apiRequest<{ success: boolean; isolation: ClothingIsolation }>(
+    "/api/clothing/isolate",
+    { method: "POST", body: formData },
+    { timeoutMs },
+  )) as unknown;
+  const isolation = (payload as { isolation?: ClothingIsolation }).isolation;
+  if (!isolation) {
+    throw new ApiError("invalid-response", "The AI service returned an unexpected response.", 200, payload);
+  }
+  return isolation;
+}
+
+// ---------------------------------------------------------------------------
 // Body photos (private; owned by the signed-in user only)
 // ---------------------------------------------------------------------------
 export async function uploadBodyPhoto(
@@ -308,6 +343,30 @@ export async function updateProfile(
   const payload = (await apiRequest<{ success: boolean; profile: UserProfile }>(
     "/api/profile",
     { method: "PATCH", body: JSON.stringify(fields) },
+  )) as unknown;
+  const p = payload as { profile?: UserProfile };
+  if (!p.profile) {
+    throw new ApiError("invalid-response", "The AI service returned an unexpected response.", 200, payload);
+  }
+  return p.profile;
+}
+
+// ---------------------------------------------------------------------------
+// Profile photo upload
+// ---------------------------------------------------------------------------
+// The backend hosts the photo on Cloudinary and saves its HTTPS URL as the
+// profile's avatar_url in one step; the updated profile comes back.
+export async function uploadProfileAvatar(
+  photoUri: string,
+  timeoutMs = API_AI_TIMEOUT_MS,
+): Promise<UserProfile> {
+  const formData = new FormData();
+  formData.append("image", toNativeFormFile(photoUri));
+
+  const payload = (await apiRequest<{ success: boolean; profile: UserProfile }>(
+    "/api/profile/avatar",
+    { method: "POST", body: formData },
+    { timeoutMs },
   )) as unknown;
   const p = payload as { profile?: UserProfile };
   if (!p.profile) {

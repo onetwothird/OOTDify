@@ -1,7 +1,9 @@
 // C:\OOTDify\src\features\capture\CaptureClothesModal.tsx
-// Capture flow: take/choose photos → upload to the PRIVATE `wardrobe` bucket →
-// insert real rows into public.clothing_items. No scanner stub, no local-only
-// items, no fake detection. The user picks the category; we never guess.
+// Capture flow: take/choose photos → auto-isolate the garment (backend cut-out,
+// reviewed per photo, original kept when the cut-out isn't trustworthy) →
+// upload to the PRIVATE `wardrobe` bucket → insert real rows into
+// public.clothing_items. No scanner stub, no local-only items, no fake
+// detection. The user picks the category; we never guess.
 //
 // PRIVACY: the camera permission is requested only when the user taps
 // "Camera" (with the context copy below). Library picks use the system photo
@@ -11,6 +13,7 @@ import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Modal,
   Pressable,
@@ -25,14 +28,31 @@ import { AppButton } from "../../shared/components/AppButton";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import { useT } from "../../shared/i18n/useT";
+import { uuid } from "../../shared/lib/uuid";
 import { insertClothingItem, uploadToWardrobeBucket } from "../clothing/service";
 import { ClothingItem } from "../clothing/types";
 import { WardrobeStore } from "../wardrobe/store";
 import { useCaptureModalStore } from "./captureModalStore";
+import { isolateCapturedPhoto, type IsolationOutcome } from "./isolate";
 
 const CATEGORIES = ["Tops", "Bottoms", "Outerwear", "Shoes", "Dresses", "Bags", "Accessories"];
 
-type CapturedEntry = { uri: string; category: string };
+type CapturedEntry = {
+  /** Stable key: photos can be removed while isolation is still running. */
+  id: string;
+  /** The photo exactly as the user took/picked it. */
+  uri: string;
+  category: string;
+  isolation: "pending" | IsolationOutcome;
+  /** Save the cut-out (when there is one) instead of the original. */
+  useCutout: boolean;
+};
+
+/** The image that will be saved (and is shown) for this entry. */
+const activeUri = (e: CapturedEntry) =>
+  e.useCutout && e.isolation !== "pending" && e.isolation.status === "isolated"
+    ? e.isolation.uri
+    : e.uri;
 
 export default function CaptureClothesModal() {
   const insets = useSafeAreaInsets();
@@ -56,7 +76,27 @@ export default function CaptureClothesModal() {
   };
 
   const addUris = (uris: string[]) => {
-    setEntries((prev) => [...prev, ...uris.map((uri) => ({ uri, category: "" }))]);
+    const added: CapturedEntry[] = uris.map((uri) => ({
+      id: uuid(),
+      uri,
+      category: "",
+      isolation: "pending",
+      useCutout: true,
+    }));
+    setEntries((prev) => [...prev, ...added]);
+    // Isolate every new photo automatically; the user reviews the result
+    // (and can switch back to the original) before anything is saved.
+    for (const entry of added) {
+      void isolateCapturedPhoto(entry.uri).then((outcome) => {
+        setEntries((prev) =>
+          prev.map((e) => (e.id === entry.id ? { ...e, isolation: outcome } : e)),
+        );
+      });
+    }
+  };
+
+  const toggleCutout = (index: number) => {
+    setEntries((prev) => prev.map((e, i) => (i === index ? { ...e, useCutout: !e.useCutout } : e)));
   };
 
   const takePhoto = async () => {
@@ -104,6 +144,7 @@ export default function CaptureClothesModal() {
   };
 
   const allCategorized = entries.length > 0 && entries.every((e) => e.category);
+  const isolating = entries.some((e) => e.isolation === "pending");
 
   const saveEntries = async () => {
     if (!entries.length) {
@@ -118,7 +159,7 @@ export default function CaptureClothesModal() {
         if (!entry.category) {
           throw new Error(t("capture.error.missing_category"));
         }
-        const storageRef = await uploadToWardrobeBucket(entry.uri, `item-${Date.now()}.jpg`, "image/jpeg");
+        const storageRef = await uploadToWardrobeBucket(activeUri(entry), `item-${Date.now()}.jpg`, "image/jpeg");
         const row = await insertClothingItem({
           name: entry.category,
           category: entry.category,
@@ -238,10 +279,10 @@ export default function CaptureClothesModal() {
                 {entries.map((entry, idx) => {
                   const chosen = Boolean(entry.category);
                   return (
-                    <View key={`${entry.uri}-${idx}`} style={styles.itemCard}>
+                    <View key={entry.id} style={styles.itemCard}>
                       <View style={styles.itemImageWrap}>
                         <Image
-                          source={{ uri: entry.uri }}
+                          source={{ uri: activeUri(entry) }}
                           style={styles.itemImage}
                           contentFit="cover"
                           transition={150}
@@ -263,6 +304,8 @@ export default function CaptureClothesModal() {
                         <Text style={[styles.itemLabel, !chosen && styles.itemLabelMuted]}>
                           {chosen ? tl("category", entry.category) : t("capture.choose_category")}
                         </Text>
+                        <IsolationStatus entry={entry} onToggle={() => toggleCutout(idx)} />
+
                         <ScrollView
                           horizontal
                           showsHorizontalScrollIndicator={false}
@@ -307,19 +350,73 @@ export default function CaptureClothesModal() {
                 label={t("capture.save", { count: entries.length })}
                 icon="checkmark"
                 loading={processing}
-                disabled={!allCategorized}
+                disabled={!allCategorized || isolating}
                 onPress={saveEntries}
               />
               <Text style={[styles.hint, { marginBottom: 4 }]}>
-                {allCategorized
-                  ? t("capture.hint.ready")
-                  : t("capture.hint.incomplete")}
+                {isolating
+                  ? t("capture.hint.isolating")
+                  : allCategorized
+                    ? t("capture.hint.ready")
+                    : t("capture.hint.incomplete")}
               </Text>
             </>
           )}
         </View>
       </View>
     </Modal>
+  );
+}
+
+/** One line under each photo: isolation progress, result, or why it was skipped. */
+function IsolationStatus({ entry, onToggle }: { entry: CapturedEntry; onToggle: () => void }) {
+  const styles = useStyles();
+  const theme = useAppTheme();
+  const { t } = useT();
+  const outcome = entry.isolation;
+
+  if (outcome === "pending") {
+    return (
+      <View style={styles.isoRow}>
+        <ActivityIndicator size="small" color={theme.colors.textMuted} />
+        <Text style={styles.isoText}>{t("capture.isolate.pending")}</Text>
+      </View>
+    );
+  }
+  if (outcome.status === "isolated") {
+    return (
+      <Pressable
+        accessibilityRole="switch"
+        accessibilityState={{ checked: entry.useCutout }}
+        hitSlop={6}
+        onPress={onToggle}
+        style={styles.isoRow}
+      >
+        <Ionicons
+          name={entry.useCutout ? "cut-outline" : "image-outline"}
+          size={14}
+          color={theme.colors.text}
+        />
+        <Text style={styles.isoText}>
+          {entry.useCutout ? t("capture.isolate.using_cutout") : t("capture.isolate.using_original")}
+        </Text>
+        <Text style={styles.isoLink}>
+          {entry.useCutout ? t("capture.isolate.use_original") : t("capture.isolate.use_cutout")}
+        </Text>
+      </Pressable>
+    );
+  }
+  const reason =
+    outcome.status === "kept" && outcome.reason
+      ? t(`capture.isolate.reason.${outcome.reason}`)
+      : t("capture.isolate.reason.unavailable");
+  return (
+    <View style={styles.isoRow}>
+      <Ionicons name="information-circle-outline" size={14} color={theme.colors.textMuted} />
+      <Text style={styles.isoText} numberOfLines={2}>
+        {t("capture.isolate.kept", { reason })}
+      </Text>
+    </View>
   );
 }
 
@@ -466,6 +563,19 @@ const useStyles = makeStyles((theme) => ({
     marginBottom: 8,
   },
   itemLabelMuted: { color: theme.colors.textMuted, fontWeight: "700" },
+  isoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 8,
+  },
+  isoText: { flexShrink: 1, fontSize: 11.5, color: theme.colors.textMuted },
+  isoLink: {
+    fontSize: 11.5,
+    fontWeight: "800",
+    color: theme.colors.text,
+    textDecorationLine: "underline",
+  },
   chipRow: { gap: 6, paddingRight: 4 },
   chip: {
     flexDirection: "row",
