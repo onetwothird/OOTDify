@@ -1,7 +1,9 @@
 // C:\OOTDify\src\features\community\components\CreateRoomModal.tsx
-// "Create a community" — name a public group room and pick one of the fixed
-// categories (ROOM_CATEGORIES). Creating the room also joins it, so the caller
-// just navigates to the returned id. Uses the shared Sheet shell.
+// "Create a community" — name a public group room, give it an icon (photo,
+// preset or initials) and pick one of the fixed categories (ROOM_CATEGORIES).
+// Creating the room also joins it, so the caller just navigates to the
+// returned id. A photo uploads once the room exists; if that alone fails the
+// room is still created and the toast says how to retry. Uses the Sheet shell.
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
@@ -10,8 +12,11 @@ import { Sheet } from "../../../shared/components/Sheet";
 import { makeStyles } from "../../../shared/theme/makeStyles";
 import { useAppTheme } from "../../../shared/theme/ThemeProvider";
 import { useT } from "../../../shared/i18n/useT";
+import { toast } from "../../../shared/lib/toast";
+import { uploadRoomIcon } from "../../../services/aiApi";
 import { createRoom } from "../service";
 import { ROOM_CATEGORIES } from "../types";
+import { RoomIconPicker, type RoomIconChoice } from "./RoomIconPicker";
 
 export function CreateRoomModal({
   visible,
@@ -27,6 +32,7 @@ export function CreateRoomModal({
   const { t } = useT();
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<string>(ROOM_CATEGORIES[0]);
+  const [icon, setIcon] = useState<RoomIconChoice>({ kind: "initials" });
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -36,6 +42,7 @@ export function CreateRoomModal({
   const reset = () => {
     setTitle("");
     setCategory(ROOM_CATEGORIES[0]);
+    setIcon({ kind: "initials" });
     setError(null);
   };
 
@@ -50,7 +57,18 @@ export function CreateRoomModal({
     setCreating(true);
     setError(null);
     try {
-      const roomId = await createRoom({ title: trimmed, category });
+      const roomId = await createRoom({
+        title: trimmed,
+        category,
+        iconPreset: icon.kind === "preset" ? icon.preset : null,
+      });
+      if (icon.kind === "photo") {
+        try {
+          await uploadRoomIcon(roomId, icon.uri);
+        } catch {
+          toast.error(t("community.room_icon.error"), t("community.room_icon.upload_failed"));
+        }
+      }
       reset();
       onCreated(roomId);
     } catch (e) {
@@ -95,6 +113,14 @@ export function CreateRoomModal({
         returnKeyType="done"
         onSubmitEditing={() => void submit()}
         autoCapitalize="sentences"
+      />
+
+      <Text style={styles.groupLabel}>{t("community.room_icon.label")}</Text>
+      <RoomIconPicker
+        title={trimmed || t("community.create_room.name_placeholder")}
+        value={icon}
+        onChange={setIcon}
+        disabled={creating}
       />
 
       <Text style={styles.groupLabel}>{t("community.create_room.category_label")}</Text>
