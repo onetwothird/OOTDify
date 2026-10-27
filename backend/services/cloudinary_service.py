@@ -84,7 +84,7 @@ def verify_credentials() -> str | None:
 
 
 # Every per-user category; account deletion removes each by prefix.
-_CATEGORIES = ("avatars", "covers")
+_CATEGORIES = ("avatars", "covers", "rooms")
 
 
 def _user_prefix(category: str, user_id: str) -> str:
@@ -124,6 +124,15 @@ def upload_cover(user_id: str, local_path: str | Path) -> str:
     """Upload a validated local image as the user's profile cover; returns its HTTPS URL."""
     # A full-width banner: 1600px wide covers every phone and tablet.
     return _upload("covers", user_id, local_path, 1600, 900)
+
+
+def upload_room_icon(user_id: str, local_path: str | Path) -> str:
+    """Upload a community room's icon; returns its HTTPS URL.
+
+    Stored under the uploader's (the room creator's) prefix so deleting their
+    account removes it with the rest of their media.
+    """
+    return _upload("rooms", user_id, local_path, 512, 512)
 
 
 def delete_user_media(user_id: str) -> None:

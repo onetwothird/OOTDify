@@ -24,6 +24,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PostCard } from "../../features/community/components/PostCard";
 import { ShareOutfitModal } from "../../features/community/components/ShareOutfitModal";
 import { CreateRoomModal } from "../../features/community/components/CreateRoomModal";
+import { RoomIcon } from "../../features/community/components/RoomIcon";
 import {
   communityErrorMessage,
   deletePost,
@@ -464,11 +465,11 @@ export default function CommunityScreen() {
                           disabled={busy}
                           style={({ pressed }) => [styles.chatRow, pressed && { opacity: 0.85 }]}
                         >
-                          <View style={styles.roomIcon}>
-                            <Text style={styles.roomIconText}>
-                              {room.title.slice(0, 2).toUpperCase()}
-                            </Text>
-                          </View>
+                          <RoomIcon
+                            title={room.title}
+                            iconUrl={room.iconUrl}
+                            iconPreset={room.iconPreset}
+                          />
                           <View style={styles.chatBody}>
                             <Text style={styles.chatName} numberOfLines={1}>
                               {room.title}

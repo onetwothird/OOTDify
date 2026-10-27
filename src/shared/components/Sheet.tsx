@@ -167,7 +167,8 @@ export function Sheet({
 const useStyles = makeStyles((theme) => ({
   root: { flex: 1, justifyContent: "flex-end" },
   // A dimming scrim is the one place a translucent fill is the point.
-  backdrop: { backgroundColor: "rgba(0,0,0,0.5)" },
+  // Navy, not black: the dim matches the penguin palette in both modes.
+  backdrop: { backgroundColor: "rgba(11,22,51,0.55)" },
   sheet: {
     maxHeight: "90%",
     backgroundColor: theme.colors.surface,

@@ -433,6 +433,8 @@ export async function startDirectConversation(otherUserId: string): Promise<stri
 export async function createRoom(input: {
   title: string;
   category: string;
+  /** A preset icon key; a photo is uploaded separately once the room exists. */
+  iconPreset?: string | null;
 }): Promise<string> {
   const uid = await currentUserId();
   if (!uid) throw new Error("Not signed in");
@@ -446,6 +448,7 @@ export async function createRoom(input: {
     created_by: uid,
     title,
     category: input.category,
+    icon_preset: input.iconPreset ?? null,
     is_public: true,
   });
   if (cErr) throw cErr;
@@ -467,7 +470,7 @@ export async function fetchPublicRooms(): Promise<CommunityRoom[]> {
 
   const { data, error } = await supabase
     .from("conversations")
-    .select("id, title, category, created_by, created_at, updated_at")
+    .select("id, title, category, created_by, icon_url, icon_preset, created_at, updated_at")
     .eq("is_public", true)
     .not("title", "is", null)
     .order("updated_at", { ascending: false })
@@ -478,6 +481,8 @@ export async function fetchPublicRooms(): Promise<CommunityRoom[]> {
     title: string | null;
     category: string | null;
     created_by: string | null;
+    icon_url: string | null;
+    icon_preset: string | null;
     created_at: string;
     updated_at: string;
   }[];
@@ -513,6 +518,8 @@ export async function fetchPublicRooms(): Promise<CommunityRoom[]> {
     title: r.title ?? "Untitled community",
     category: r.category ?? "Casual",
     createdBy: r.created_by,
+    iconUrl: r.icon_url,
+    iconPreset: r.icon_preset,
     memberCount: countByRoom.get(r.id) ?? 0,
     joined: joined.has(r.id),
     createdAt: r.created_at,
@@ -531,22 +538,51 @@ export async function joinRoom(roomId: string): Promise<void> {
   if (error && error.code !== "23505") throw error;
 }
 
-/** Room metadata for the chat header (title + category), or null for a DM. */
-/** Room metadata for the chat header (title + category), or null for a DM. */
+/** Room metadata for the chat header, or null for a DM. */
 export async function fetchRoomMeta(roomId: string): Promise<{
   title: string | null;
   category: string | null;
   isPublic: boolean;
+  createdBy: string | null;
+  iconUrl: string | null;
+  iconPreset: string | null;
 } | null> {
   const { data, error } = await supabase
     .from("conversations")
-    .select("title, category, is_public")
+    .select("title, category, is_public, created_by, icon_url, icon_preset")
     .eq("id", roomId)
     .maybeSingle();
   if (error) throw error;
   if (!data) return null;
-  const row = data as { title: string | null; category: string | null; is_public: boolean };
-  return { title: row.title, category: row.category, isPublic: row.is_public };
+  const row = data as {
+    title: string | null;
+    category: string | null;
+    is_public: boolean;
+    created_by: string | null;
+    icon_url: string | null;
+    icon_preset: string | null;
+  };
+  return {
+    title: row.title,
+    category: row.category,
+    isPublic: row.is_public,
+    createdBy: row.created_by,
+    iconUrl: row.icon_url,
+    iconPreset: row.icon_preset,
+  };
+}
+
+/**
+ * Switch a room to a preset icon, or to its initials with null. Clears any
+ * photo. A database trigger lets only the room's creator do this; photos go
+ * through uploadRoomIcon (backend) instead.
+ */
+export async function setRoomIconPreset(roomId: string, preset: string | null): Promise<void> {
+  const { error } = await supabase
+    .from("conversations")
+    .update({ icon_preset: preset, icon_url: null })
+    .eq("id", roomId);
+  if (error) throw error;
 }
 
 /** The viewer's conversations with last message + unread count, most recent first. */

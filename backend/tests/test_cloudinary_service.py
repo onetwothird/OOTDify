@@ -99,7 +99,7 @@ class TestDeleteUserMedia:
             lambda prefix, **kw: seen.append(prefix),
         )
         cloudinary_service.delete_user_media("user-1")
-        assert seen == ["ootdify/avatars/user-1/", "ootdify/covers/user-1/"]
+        assert seen == ["ootdify/avatars/user-1/", "ootdify/covers/user-1/", "ootdify/rooms/user-1/"]
 
     def test_unconfigured_is_noop(self, unconfigured, monkeypatch):
         def boom(*a, **k):
@@ -125,3 +125,20 @@ class TestVerifyCredentials:
 
     def test_unconfigured_says_so(self, unconfigured):
         assert "not configured" in cloudinary_service.verify_credentials()
+
+
+class TestUploadRoomIcon:
+    def test_uploads_under_the_owner_rooms_prefix(self, configured, monkeypatch):
+        calls = {}
+
+        def fake_upload(path, **kwargs):
+            calls.update(kwargs)
+            return {"secure_url": "https://res.cloudinary.com/demo/room.jpg"}
+
+        monkeypatch.setattr(cloudinary_service.cloudinary.uploader, "upload", fake_upload)
+        url = cloudinary_service.upload_room_icon("user-1", "/tmp/x.jpg")
+        assert url.endswith("room.jpg")
+        assert calls["public_id"].startswith("ootdify/rooms/user-1/")
+
+    def test_account_deletion_covers_room_icons(self):
+        assert "rooms" in cloudinary_service._CATEGORIES
