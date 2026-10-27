@@ -11,6 +11,10 @@ export default function TabLayout() {
   const { t } = useT();
   const theme = useAppTheme();
   const styles = useStyles();
+  // Same colors as tabBarActive/InactiveTintColor below. Derived here because
+  // SDK 58 types the tab bar's `color` as ColorValue (string | number | null),
+  // which Ionicons' `color` prop does not accept.
+  const tint = (focused: boolean) => (focused ? theme.colors.primary : theme.colors.textMuted);
 
   return (
     <>
@@ -37,8 +41,8 @@ export default function TabLayout() {
           name="home"
           options={{
             title: t("tab.home"),
-            tabBarIcon: ({ color, focused }) => (
-              <Ionicons name={focused ? "home" : "home-outline"} size={24} color={color} />
+            tabBarIcon: ({ focused }) => (
+              <Ionicons name={focused ? "home" : "home-outline"} size={24} color={tint(focused)} />
             ),
           }}
         />
@@ -46,8 +50,8 @@ export default function TabLayout() {
           name="discover"
           options={{
             title: t("tab.wardrobe"),
-            tabBarIcon: ({ color, focused }) => (
-              <Ionicons name={focused ? "shirt" : "shirt-outline"} size={24} color={color} />
+            tabBarIcon: ({ focused }) => (
+              <Ionicons name={focused ? "shirt" : "shirt-outline"} size={24} color={tint(focused)} />
             ),
           }}
         />
@@ -66,8 +70,8 @@ export default function TabLayout() {
           name="outfits"
           options={{
             title: t("tab.outfits"),
-            tabBarIcon: ({ color, focused }) => (
-              <Ionicons name={focused ? "grid" : "grid-outline"} size={24} color={color} />
+            tabBarIcon: ({ focused }) => (
+              <Ionicons name={focused ? "grid" : "grid-outline"} size={24} color={tint(focused)} />
             ),
           }}
         />
@@ -75,11 +79,11 @@ export default function TabLayout() {
           name="community"
           options={{
             title: t("tab.community"),
-            tabBarIcon: ({ color, focused }) => (
+            tabBarIcon: ({ focused }) => (
               <Ionicons
                 name={focused ? "people" : "people-outline"}
                 size={24}
-                color={color}
+                color={tint(focused)}
               />
             ),
           }}
