@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  LayoutChangeEvent,
   Platform,
   Pressable,
   ScrollView,
@@ -52,6 +53,19 @@ const COLORS = ["Black", "White", "Neutral", "Pastel", "Bold", "Earthy"];
 const SIZES = ["XS", "S", "M", "L", "XL"];
 const GENDERS = ["men", "women", "unisex"] as const;
 
+type SectionKey = "you" | "style" | "settings" | "privacy";
+
+const SECTIONS: {
+  key: SectionKey;
+  icon: keyof typeof Ionicons.glyphMap;
+  labelKey: TranslationKey;
+}[] = [
+  { key: "you", icon: "person-outline", labelKey: "profile.nav.you" },
+  { key: "style", icon: "color-palette-outline", labelKey: "profile.nav.style" },
+  { key: "settings", icon: "settings-outline", labelKey: "profile.nav.settings" },
+  { key: "privacy", icon: "shield-checkmark-outline", labelKey: "profile.nav.privacy" },
+];
+
 /** Plain-language explanation for a failed photo check. */
 function photoCheckReason(reason: string | null, t: I18n["t"]): string {
   switch (reason) {
@@ -78,6 +92,21 @@ export default function ProfileScreen() {
   const openCapture = useCaptureModalStore((s) => s.open);
   const { width } = useWindowDimensions();
   const condensed = width < 380;
+
+  // State, not refs: the scroller is kept via a callback ref and section
+  // offsets come from layout callbacks.
+  const [scroller, setScroller] = useState<{
+    scrollTo: (options: { y: number; animated?: boolean }) => void;
+  } | null>(null);
+  const [sectionY, setSectionY] = useState<Partial<Record<SectionKey, number>>>({});
+  const markSection = (key: SectionKey) => (e: LayoutChangeEvent) => {
+    const y = e.nativeEvent.layout.y;
+    setSectionY((prev) => (prev[key] === y ? prev : { ...prev, [key]: y }));
+  };
+  const jumpTo = (key: SectionKey) => {
+    const y = sectionY[key];
+    if (y !== undefined) scroller?.scrollTo({ y: Math.max(0, y - 8), animated: true });
+  };
 
   const [email, setEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -237,6 +266,7 @@ export default function ProfileScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
+        ref={setScroller}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -252,6 +282,26 @@ export default function ProfileScreen() {
           <ErrorState message={error} onRetry={load} />
         ) : (
           <>
+            {/* Jump bar: the profile is long, so each part is one tap away. */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.jumpBar}
+            >
+              {SECTIONS.map((s) => (
+                <Pressable
+                  key={s.key}
+                  accessibilityRole="button"
+                  onPress={() => jumpTo(s.key)}
+                  style={({ pressed }) => [styles.jumpChip, pressed && { opacity: 0.7 }]}
+                >
+                  <Ionicons name={s.icon} size={15} color={theme.colors.text} />
+                  <Text style={styles.jumpChipText}>{t(s.labelKey)}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+
+            <View style={styles.group} onLayout={markSection("you")}>
             {/* Identity hero */}
             <View style={styles.heroCard}>
               <View style={[styles.heroBlob, styles.heroBlobA]} pointerEvents="none" />
@@ -289,6 +339,22 @@ export default function ProfileScreen() {
                     <Text style={styles.heroActionText}>{t("profile.change_photo.label_short")}</Text>
                   </Pressable>
                 </View>
+              </View>
+
+              <View style={styles.statsRow}>
+                {[
+                  { n: stylesSel.size, label: t("profile.stats.styles") },
+                  { n: colorsSel.size, label: t("profile.stats.colors") },
+                  { n: sizesSel.size, label: t("profile.stats.sizes") },
+                  { n: occasionsSel.size, label: t("profile.stats.occasions") },
+                ].map((s) => (
+                  <View key={s.label} style={styles.stat}>
+                    <Text style={styles.statNumber}>{s.n}</Text>
+                    <Text style={styles.statLabel} numberOfLines={1}>
+                      {s.label}
+                    </Text>
+                  </View>
+                ))}
               </View>
             </View>
 
@@ -398,8 +464,10 @@ export default function ProfileScreen() {
                 </View>
               </View>
             </View>
+            </View>
 
             {/* Preferences */}
+            <View style={styles.group} onLayout={markSection("style")}>
             <SectionLabel text={t("profile.style.label")} />
             <View style={styles.card}>
               <PrefGroup
@@ -457,7 +525,9 @@ export default function ProfileScreen() {
               disabled={!dirty && !firstName.trim() && !lastName.trim()}
               onPress={save}
             />
+            </View>
 
+            <View style={styles.group} onLayout={markSection("settings")}>
             {/* AI service status (real /health probe) */}
             <SectionLabel text={t("profile.ai_service.label")} />
             <View style={styles.card}>
@@ -503,7 +573,9 @@ export default function ProfileScreen() {
 
             {/* Settings — Profile is the settings hub */}
             <SettingsSection />
+            </View>
 
+            <View style={styles.group} onLayout={markSection("privacy")}>
             {/* Privacy & legal */}
             <SectionLabel text={t("profile.privacy.label")} />
             <View style={styles.card}>
@@ -543,6 +615,7 @@ export default function ProfileScreen() {
               <Ionicons name="log-out-outline" size={18} color={theme.colors.danger} />
               <Text style={styles.signOutText}>{t("profile.sign_out")}</Text>
             </Pressable>
+            </View>
           </>
         )}
       </ScrollView>
@@ -630,7 +703,31 @@ function LinkRow({
 
 const useStyles = makeStyles((theme: Theme) => ({
   screen: { flex: 1, backgroundColor: theme.colors.background },
-  content: { paddingHorizontal: 16, paddingBottom: 40, gap: 12 },
+  content: { paddingHorizontal: 16, paddingBottom: 40, gap: 24 },
+  group: { gap: 12 },
+  jumpBar: { gap: 8, paddingRight: 16 },
+  jumpChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: theme.borderRadius.pill,
+    backgroundColor: theme.colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+  },
+  jumpChipText: { fontSize: 13, fontWeight: "700", color: theme.colors.text },
+  statsRow: {
+    flexDirection: "row",
+    marginTop: 16,
+    paddingTop: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: theme.colors.onPrimarySubtle,
+  },
+  stat: { flex: 1, alignItems: "center", gap: 2 },
+  statNumber: { fontSize: 20, fontWeight: "800", color: theme.colors.onPrimary },
+  statLabel: { fontSize: 11.5, fontWeight: "600", color: theme.colors.onPrimaryMuted },
   sectionLabelRow: {
     flexDirection: "row",
     alignItems: "center",
