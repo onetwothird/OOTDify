@@ -15,6 +15,13 @@ import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import { useCaptureModalStore } from "./captureModalStore";
 
 const FAB = 58;
+const SMALL = 46;
+const GAP = 12;
+const FAB_TOP_MARGIN = 4;
+/** From the stack's bottom to the Settings slot, where the choices begin. */
+const SETTINGS_LIFT = FAB + FAB_TOP_MARGIN + GAP;
+/** How far Settings drops to land on the centre of +. */
+const TUCK = SETTINGS_LIFT + SMALL / 2 - FAB / 2;
 
 type Action = { key: string; icon: keyof typeof Ionicons.glyphMap; label: string; run: () => void };
 
@@ -42,7 +49,7 @@ export function CreateMenu({
     }
     const anim = Animated.timing(progress, {
       toValue: open ? 1 : 0,
-      duration: open ? 240 : 180,
+      duration: open ? 320 : 220,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     });
@@ -76,17 +83,27 @@ export function CreateMenu({
         />
       </Animated.View>
 
-      <Animated.View style={[styles.stack, { bottom, transform: [{ translateY: slide }] }]} pointerEvents="box-none">
+      {/* The choices sit where Settings was, rising out of + one after another,
+          nearest first. A sibling of the stack (not a child) so every row stays
+          inside a touchable parent on Android. */}
+      <Animated.View
+        style={[styles.actions, { bottom: bottom + SETTINGS_LIFT, transform: [{ translateY: slide }] }]}
+        pointerEvents="box-none"
+      >
         {actions.map((action, i) => {
-          // The nearest choice arrives first; each sits a little further out.
-          const rise = (actions.length - i) * 14;
+          const fromFab = actions.length - 1 - i;
+          const start = fromFab * 0.15;
+          const enter = { inputRange: [start, start + 0.55], extrapolate: "clamp" as const };
           return (
             <Animated.View
               key={action.key}
               pointerEvents={open ? "auto" : "none"}
               style={{
-                opacity: progress,
-                transform: [{ translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [rise, 0] }) }],
+                opacity: progress.interpolate({ ...enter, outputRange: [0, 1] }),
+                transform: [
+                  { translateY: progress.interpolate({ ...enter, outputRange: [18 + fromFab * 14, 0] }) },
+                  { scale: progress.interpolate({ ...enter, outputRange: [0.85, 1] }) },
+                ],
               }}
             >
               <Pressable
@@ -102,11 +119,21 @@ export function CreateMenu({
             </Animated.View>
           );
         })}
+      </Animated.View>
 
-        {/* Settings rides above +, out of the way while the menu is open. */}
+      <Animated.View style={[styles.stack, { bottom, transform: [{ translateY: slide }] }]} pointerEvents="box-none">
+        {/* Settings tucks into + while the menu is open: it drops onto the
+            button, spins a quarter turn and shrinks away, then returns. */}
         <Animated.View
           pointerEvents={open ? "none" : "auto"}
-          style={{ opacity: progress.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) }}
+          style={{
+            opacity: progress.interpolate({ inputRange: [0, 0.5], outputRange: [1, 0], extrapolate: "clamp" }),
+            transform: [
+              { translateY: progress.interpolate({ inputRange: [0, 0.6], outputRange: [0, TUCK], extrapolate: "clamp" }) },
+              { rotate: progress.interpolate({ inputRange: [0, 0.6], outputRange: ["0deg", "-90deg"], extrapolate: "clamp" }) },
+              { scale: progress.interpolate({ inputRange: [0, 0.6], outputRange: [1, 0.4], extrapolate: "clamp" }) },
+            ],
+          }}
         >
           <Pressable
             accessibilityRole="button"
@@ -144,7 +171,13 @@ const useStyles = makeStyles((theme) => ({
     position: "absolute",
     right: theme.spacing.page,
     alignItems: "flex-end",
-    gap: 12,
+    gap: GAP,
+  },
+  actions: {
+    position: "absolute",
+    right: theme.spacing.page,
+    alignItems: "flex-end",
+    gap: GAP,
   },
   pressed: { opacity: 0.8 },
   action: {
@@ -158,10 +191,10 @@ const useStyles = makeStyles((theme) => ({
     color: theme.colors.text,
   },
   actionIcon: {
-    width: 46,
-    height: 46,
-    marginRight: (FAB - 46) / 2,
-    borderRadius: 23,
+    width: SMALL,
+    height: SMALL,
+    marginRight: (FAB - SMALL) / 2,
+    borderRadius: SMALL / 2,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: theme.colors.surface,
@@ -169,10 +202,10 @@ const useStyles = makeStyles((theme) => ({
     borderColor: theme.colors.border,
   },
   settingsBtn: {
-    width: 46,
-    height: 46,
-    marginRight: (FAB - 46) / 2,
-    borderRadius: 23,
+    width: SMALL,
+    height: SMALL,
+    marginRight: (FAB - SMALL) / 2,
+    borderRadius: SMALL / 2,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: theme.colors.surface,
@@ -188,7 +221,7 @@ const useStyles = makeStyles((theme) => ({
     width: FAB,
     height: FAB,
     borderRadius: FAB / 2,
-    marginTop: 4,
+    marginTop: FAB_TOP_MARGIN,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: theme.colors.primary,
