@@ -4,9 +4,9 @@ Guidance for AI agents working in this repository. Read this before writing code
 
 ## Expo HAS CHANGED
 
-Read the exact versioned docs at https://docs.expo.dev/versions/v56.0.0/ before
-writing any code. Do not assume patterns from older Expo SDKs; verify against the
-versioned docs for this project's SDK.
+Read the versioned docs for the SDK in `package.json` (`expo` dependency,
+currently SDK 58): https://docs.expo.dev/versions/v58.0.0/. Do not assume
+patterns from older Expo SDKs.
 
 ## Repository conventions
 
@@ -25,10 +25,13 @@ versioned docs for this project's SDK.
 ## Verification (before finishing work)
 
 ```bash
-npx tsc --noEmit        # TypeScript
-npm test                # Jest (outfit generator + compatibility)
-cd backend && python -m pytest -q
+npx tsc --noEmit                                  # TypeScript
+npm test                                          # Jest
+npm run lint                                      # ESLint: 0 errors required
+cd backend && .venv/Scripts/python -m pytest -q   # backend (macOS/Linux: .venv/bin/python)
 ```
+
+The backend must run from `backend/.venv`; system Python lacks its packages.
 
 ## Commit style
 
