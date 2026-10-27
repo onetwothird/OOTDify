@@ -426,7 +426,7 @@ export default function ChatThreadScreen() {
             </View>
           ) : messages === null && !error ? (
             <View style={styles.stateFill}>
-              <ActivityIndicator color={theme.colors.primary} />
+              <ActivityIndicator color={theme.colors.brand} />
             </View>
           ) : error ? (
             <View style={styles.stateFill}>
