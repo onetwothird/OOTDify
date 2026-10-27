@@ -287,12 +287,12 @@ export default function OutfitsScreen() {
                 ]}
               >
                 <View style={[styles.actionIcon, styles.actionIconPrimary]}>
-                  <Ionicons name="add" size={20} color={theme.colors.onPrimary} />
+                  <Ionicons name="add" size={20} color={theme.colors.onFeature} />
                 </View>
-                <Text style={[styles.actionTitle, { color: theme.colors.onPrimary }]}>
+                <Text style={[styles.actionTitle, { color: theme.colors.onFeature }]}>
                   {t("outfits.action.build")}
                 </Text>
-                <Text style={[styles.actionHint, { color: theme.colors.onPrimaryMuted }]}>
+                <Text style={[styles.actionHint, { color: theme.colors.onFeatureMuted }]}>
                   {t("outfits.action.build_hint")}
                 </Text>
               </Pressable>
@@ -688,7 +688,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: theme.colors.border,
   },
-  actionTilePrimary: { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
+  actionTilePrimary: { backgroundColor: theme.colors.feature, borderColor: theme.colors.feature },
   actionIcon: {
     width: 34,
     height: 34,
@@ -698,7 +698,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     marginBottom: 8,
     backgroundColor: theme.colors.surfaceAlt,
   },
-  actionIconPrimary: { backgroundColor: theme.colors.onPrimarySubtle },
+  actionIconPrimary: { backgroundColor: theme.colors.onFeatureSubtle },
   actionTitle: { fontSize: 15, fontWeight: "700", color: theme.colors.text },
   actionHint: { fontSize: 12, lineHeight: 16, color: theme.colors.textMuted },
   sectionLabel: {

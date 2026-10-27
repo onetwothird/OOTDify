@@ -472,17 +472,25 @@ function Hero({ pieceCount, lookCount, loading }: { pieceCount: number; lookCoun
   const mascot = Math.round(Math.min(Math.max(cardW * 0.5, 128), 300));
   const mascotLane = Math.round(mascot * 0.72);
 
-  const DIALOGUE = [
-    t("home.hero.dialogue.welcome"),
-    t("home.hero.dialogue.tip1"),
-    t("home.hero.dialogue.tip2"),
-    t("home.hero.dialogue.tip3"),
-    t("home.hero.dialogue.tip4"),
-  ] as const;
+  // Penggi's lines: a hello first, then small talk alternating with styling
+  // tips, looping (the hello is only said once).
+  const DIALOGUE: { text: string; tip: boolean }[] = [
+    { text: t("home.hero.dialogue.welcome"), tip: false },
+    { text: t("home.hero.dialogue.chat1"), tip: false },
+    { text: t("home.hero.dialogue.tip1"), tip: true },
+    { text: t("home.hero.dialogue.chat2"), tip: false },
+    { text: t("home.hero.dialogue.tip2"), tip: true },
+    { text: t("home.hero.dialogue.chat3"), tip: false },
+    { text: t("home.hero.dialogue.tip3"), tip: true },
+    { text: t("home.hero.dialogue.chat4"), tip: false },
+    { text: t("home.hero.dialogue.tip4"), tip: true },
+    { text: t("home.hero.dialogue.chat5"), tip: false },
+  ];
 
   const [tipIndex, setTipIndex] = useState(0);
   const [typed, setTyped] = useState(0);
-  const tip = DIALOGUE[tipIndex];
+  const line = DIALOGUE[tipIndex];
+  const tip = line.text;
 
   useEffect(() => {
     const done = typed >= tip.length;
@@ -570,6 +578,7 @@ function Hero({ pieceCount, lookCount, loading }: { pieceCount: number; lookCoun
         <View style={{ width: mascotLane }} pointerEvents="none" />
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel={t("home.hero.dialogue.a11y", { text: tip })}
           onPress={() => {
             setTyped(0);
             setTipIndex((i) => (i + 1 >= DIALOGUE.length ? 1 : i + 1));
@@ -579,8 +588,14 @@ function Hero({ pieceCount, lookCount, loading }: { pieceCount: number; lookCoun
           <View style={styles.bubbleTail} pointerEvents="none" />
           <View style={styles.bubble}>
             <View style={styles.bubbleHead}>
-              <Ionicons name={tipIndex === 0 ? "sparkles" : "bulb-outline"} size={13} color={theme.colors.text} />
-              <Text style={styles.bubbleLabel}>{tipIndex === 0 ? t("home.hero.badge") : t("home.hero.dialogue.label")}</Text>
+              <Text style={styles.bubbleName}>{t("home.hero.badge")}</Text>
+              {line.tip ? (
+                <View style={styles.bubbleTipPill}>
+                  <Ionicons name="bulb-outline" size={11} color={theme.colors.onPrimary} />
+                  <Text style={styles.bubbleTipText}>{t("home.hero.dialogue.label")}</Text>
+                </View>
+              ) : null}
+              <View style={styles.bubbleSpacer} />
               <Ionicons name="refresh" size={13} color={theme.colors.textMuted} />
             </View>
             <Text style={styles.bubbleText} numberOfLines={3}>
@@ -697,7 +712,19 @@ const useStyles = makeStyles((theme: Theme) => ({
   bubbleTail: { position: "absolute", left: -7, top: 24, width: 14, height: 14, backgroundColor: theme.colors.surface, borderLeftWidth: 1.5, borderBottomWidth: 1.5, borderColor: theme.colors.text, transform: [{ rotate: "45deg" }] },
   bubble: { backgroundColor: theme.colors.surface, borderRadius: theme.borderRadius.md, borderWidth: 1.5, borderColor: theme.colors.text, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 12 },
   bubbleHead: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6 },
-  bubbleLabel: { flex: 1, fontSize: 11.5, fontWeight: "600", color: theme.colors.textMuted },
+  // Penggi's name, like a sender name in a chat.
+  bubbleName: { fontSize: 13, fontWeight: "700", color: theme.colors.brand },
+  bubbleTipPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: theme.borderRadius.pill,
+    backgroundColor: theme.colors.primary,
+  },
+  bubbleTipText: { fontSize: 11, fontWeight: "600", color: theme.colors.onPrimary },
+  bubbleSpacer: { flex: 1 },
   bubbleText: { fontSize: 12.5, lineHeight: 18, fontWeight: "600", color: theme.colors.text, minHeight: 54 },
   bubbleCaret: { color: theme.colors.text, fontWeight: "600" },
   hero: { backgroundColor: theme.colors.surface, borderRadius: 28, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.border, padding: 20, marginTop: theme.spacing.sm, overflow: "hidden", shadowColor: "#000", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.07, shadowRadius: 22, elevation: 4 },

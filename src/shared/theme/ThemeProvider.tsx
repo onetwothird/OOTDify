@@ -77,7 +77,7 @@ export function ForcedSchemeProvider({
     () => ({
       theme: themeForScheme(scheme),
       scheme,
-      preference: parent?.preference ?? "system",
+      preference: parent?.preference ?? "light",
       ready: parent?.ready ?? true,
     }),
     [scheme, parent?.preference, parent?.ready],
@@ -104,7 +104,7 @@ export function useThemeState(): ThemeContextValue {
     ctx ?? {
       theme: lightTheme,
       scheme: "light",
-      preference: "system",
+      preference: "light",
       ready: true,
     }
   );
