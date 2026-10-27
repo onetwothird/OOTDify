@@ -113,14 +113,14 @@ const useStyles = makeStyles((theme) => ({
   brandName: {
     color: theme.colors.text,
     fontSize: 16,
-    fontWeight: "800",
+    fontWeight: "700",
     letterSpacing: -0.2,
   },
   heroTitle: {
     color: theme.colors.text,
     fontSize: 34,
     lineHeight: 40,
-    fontWeight: "800",
+    fontWeight: "700",
     letterSpacing: -1,
     marginTop: theme.spacing.xl,
   },
