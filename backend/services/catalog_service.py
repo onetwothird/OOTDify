@@ -65,3 +65,52 @@ def catalog_stats(rows: Sequence[dict]) -> Dict[str, int]:
         key = str(row.get("category") or "Other")
         stats[key] = stats.get(key, 0) + 1
     return stats
+
+
+# --------------------------------------------------------------------------
+# The user's own closet (public.clothing_items) as recommendation candidates
+# --------------------------------------------------------------------------
+DEFAULT_CLOSET_LIMIT = 500
+
+
+def closet_row_to_candidate(row: dict) -> dict:
+    """A `clothing_items` row in the candidate shape the scorer/composer read.
+
+    Closet rows store one colour and one size as text and have no gender, so
+    they are normalized to the catalog's list fields. Missing values become
+    empty lists, never placeholders.
+    """
+    category = row.get("category") or None
+    color = row.get("color")
+    size = row.get("size")
+    return {
+        "id": str(row.get("id")),
+        "name": row.get("name") or category or "Item",
+        "category": category,
+        "subcategory": None,
+        "gender": "unisex",
+        "color": [color] if color else [],
+        "sizes": [size] if size else [],
+        "style": row.get("style") or None,
+        "brand": row.get("brand") or None,
+        "occasion": list(row.get("occasion") or []),
+        "image_url": row.get("image_url") or None,
+        "source": "closet",
+    }
+
+
+def load_closet_candidates(user_id: str, limit: int = DEFAULT_CLOSET_LIMIT) -> List[dict]:
+    """The given user's closet items as candidates (service-role, owner-scoped).
+
+    `user_id` must come from the validated session token, never the request.
+    """
+    result = (
+        get_supabase()
+        .table("clothing_items")
+        .select("id, name, category, color, size, style, brand, occasion, image_url")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+        .limit(max(1, int(limit)))
+        .execute()
+    )
+    return [closet_row_to_candidate(row) for row in result.data or []]
