@@ -274,7 +274,7 @@ export function ShareOutfitModal({
 const useStyles = makeStyles((theme) => ({
   groupLabel: {
     fontSize: 13,
-    fontWeight: "700",
+    fontWeight: "600",
     color: theme.colors.text,
     marginTop: 4,
   },
@@ -299,7 +299,7 @@ const useStyles = makeStyles((theme) => ({
   },
   thumbEmpty: { alignItems: "center", justifyContent: "center" },
   outfitBody: { flex: 1, minWidth: 0 },
-  outfitName: { fontSize: 14, fontWeight: "700", color: theme.colors.text },
+  outfitName: { fontSize: 14, fontWeight: "600", color: theme.colors.text },
   outfitMeta: { fontSize: 11.5, color: theme.colors.textMuted, marginTop: 2 },
   captionInput: {
     minHeight: 96,
@@ -330,7 +330,7 @@ const useStyles = makeStyles((theme) => ({
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.background,
   },
-  photoAddText: { fontSize: 11.5, fontWeight: "700", color: theme.colors.text },
+  photoAddText: { fontSize: 11.5, fontWeight: "600", color: theme.colors.text },
   photoRemove: {
     position: "absolute",
     top: 5,
