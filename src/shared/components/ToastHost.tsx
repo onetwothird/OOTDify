@@ -29,7 +29,7 @@ function toastMeta(
     case "error":
       return { icon: "alert-circle", tint: theme.colors.danger };
     case "info":
-      return { icon: "information-circle", tint: theme.colors.primary };
+      return { icon: "information-circle", tint: theme.colors.brand };
     case "loading":
       return { icon: "sync", tint: theme.colors.textMuted };
   }
@@ -191,5 +191,5 @@ const useStyles = makeStyles((theme) => ({
     borderRadius: theme.borderRadius.pill,
     backgroundColor: theme.colors.brand,
   },
-  actionText: { color: theme.colors.onPrimary, fontWeight: "500", fontSize: 12.5 },
+  actionText: { color: theme.colors.onBrand, fontWeight: "500", fontSize: 12.5 },
 }));
