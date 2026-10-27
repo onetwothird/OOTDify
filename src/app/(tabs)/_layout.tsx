@@ -1,39 +1,57 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Tabs, useRouter } from "expo-router";
+import { Tabs, usePathname, useRouter } from "expo-router";
 import { useEffect } from "react";
 import { Alert, BackHandler, Platform, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import CaptureClothesModal from "../../features/capture/CaptureClothesModal";
+import { withAuthRedirectHeld } from "../../shared/lib/authRedirectHold";
 import { supabase } from "../../shared/lib/supabase";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import type { Theme } from "../../shared/config/theme";
 import { useT } from "../../shared/i18n/useT";
 
+// Icon (24) + label + gaps; the Create pill (30 tall + 2 margin) fits inside.
+const TAB_BAR_CONTENT = 52;
+
 export default function TabLayout() {
   const { t } = useT();
   const theme = useAppTheme();
   const styles = useStyles();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  // Phones without a home indicator still get a little breathing room.
+  const bottomInset = Math.max(insets.bottom, 8);
 
-  // Back at the root of the signed-in app would drop the user out of it (or
-  // back onto the auth screens). Ask whether they mean to log out instead.
+  // Back on Home would drop the user out of the signed-in app (onto the blank
+  // boot route still underneath, or out of the app). Ask whether they mean to
+  // log out instead. Other tabs keep the normal back-to-Home behaviour, and
+  // screens pushed over the tabs (item, profile page…) have their own paths.
+  // `router.canGoBack()` can't decide this: the boot route below the tabs
+  // makes it true even on Home.
+  const pathname = usePathname();
   useEffect(() => {
+    if (pathname !== "/home") return;
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (router.canGoBack()) return false;
       Alert.alert(t("auth.exit.title"), t("auth.exit.message"), [
         { text: t("auth.exit.stay"), style: "cancel" },
         {
           text: t("auth.exit.confirm"),
           style: "destructive",
           onPress: () => {
-            void supabase.auth.signOut();
+            // Straight to sign-in; the hold keeps the root gate from also
+            // pushing the landing page on the signed-out session.
+            void withAuthRedirectHeld(async () => {
+              await supabase.auth.signOut();
+              router.replace("/login");
+            });
           },
         },
       ]);
       return true;
     });
     return () => sub.remove();
-  }, [router, t]);
+  }, [pathname, router, t]);
   // Same colors as tabBarActive/InactiveTintColor below. Derived here because
   // SDK 58 types the tab bar's `color` as ColorValue (string | number | null),
   // which Ionicons' `color` prop does not accept.
@@ -48,11 +66,16 @@ export default function TabLayout() {
           tabBarActiveTintColor: theme.colors.primary,
           tabBarInactiveTintColor: theme.colors.textMuted,
           tabBarLabelStyle: styles.tabLabel,
+          // Sized from the real bottom inset so icons and labels sit above the
+          // iPhone home indicator instead of being squeezed into it (the extra
+          // top padding otherwise comes out of the default height).
           tabBarStyle: {
             backgroundColor: theme.colors.surface,
             borderTopWidth: 0.5,
             borderTopColor: theme.colors.border,
             paddingTop: 6,
+            paddingBottom: bottomInset,
+            height: TAB_BAR_CONTENT + 6 + bottomInset,
             ...Platform.select({
               android: { elevation: 12 },
               ios: undefined,
