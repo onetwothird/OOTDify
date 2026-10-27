@@ -28,6 +28,15 @@ export type ThemeColors = {
   warning: string;
   danger: string;
   onPrimary: string;
+  // Tints of onPrimary pre-blended onto `primary` (opaque hex, so every token
+  // stays a plain colour): secondary type such as emails, labels, timestamps.
+  onPrimaryMuted: string;
+  // Hairlines and translucent buttons on `primary` fills.
+  onPrimarySubtle: string;
+  // Barely-there decoration (blobs, glows) on `primary` fills.
+  onPrimaryFaint: string;
+  // Barely-there decoration (blobs, glows) on `surface` / `background`.
+  textFaint: string;
 };
 
 export const lightColors: ThemeColors = {
@@ -49,6 +58,10 @@ export const lightColors: ThemeColors = {
   warning: "#A35C2A",
   danger: "#B23A2E",
   onPrimary: "#FFFFFF",
+  onPrimaryMuted: "#B8B8B8",
+  onPrimarySubtle: "#373737",
+  onPrimaryFaint: "#1D1D1D",
+  textFaint: "#F5F5F5",
 };
 
 // Dark palette: the same monochrome editorial system, inverted. Not a naive
@@ -77,6 +90,11 @@ export const darkColors: ThemeColors = {
   // Text/iconography drawn ON `primary` fills. In dark mode `primary` is light,
   // so this must be dark to stay readable (it is the inverse of light mode).
   onPrimary: "#111111",
+  // Same roles as light mode: dark ink blended onto the light primary.
+  onPrimaryMuted: "#595959",
+  onPrimarySubtle: "#D3D3D3",
+  onPrimaryFaint: "#E7E7E7",
+  textFaint: "#252525",
 };
 
 export const theme = {
