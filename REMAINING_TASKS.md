@@ -39,31 +39,37 @@ needs a signed-in request.
   - `413` → still too large; lower `MAX_UPLOAD_SIDE` or raise `MAX_CONTENT_LENGTH`.
   - `500` → paste the traceback that follows it.
 
-## 3. AI live try-on — FEATURE_GUIDE #4 (not started in code)
+## 3. AI live try-on — FEATURE_GUIDE #4 (built on `feat/live-tryon`, not checked on a phone)
 
-Decided: **live 2D overlay** (not true 3D AR). Research done; nothing written yet.
+Live **2D overlay**, built per
+[docs/superpowers/plans/2026-10-27-live-tryon-overlay.md](./docs/superpowers/plans/2026-10-27-live-tryon-overlay.md).
+Scan → select exactly one garment → **Try it live** opens `/tryon/live`: full-screen
+camera, the garment hung from your pose points (chalk ticks show which ones),
+about 1–2 updates per second. The photo try-on stays the real result.
 
-- Pose model returns 17 COCO keypoints (`backend/services/pose_service.py`,
-  `KEYPOINT_NAMES`), ~30–50 ms/frame at 320 px on CPU → expect ~1–2 overlay
-  updates/sec over the network.
-- **Backend:** new stateless endpoint, e.g. `POST /api/tryon/live/pose`
-  (`require_auth` + `require_consent`), runs pose at 320 px, returns only
-  normalized keypoints, stores nothing. Needs its **own rate limit**
-  (e.g. 240/min) — `/api/pose` uses `upload_limits` (15/hour) and would block a
-  live loop within seconds.
-- **App:** new screen (e.g. `src/app/tryon/live.tsx` + `src/features/tryon/ar/`):
-  - `CameraView` + a loop of `takePictureAsync({ quality: 0.3, shutterSound: false })`
-    → shrink to ~480 px → POST → keypoints.
-  - Draw the garment image (`expo-image`, absolutely positioned, animated between
-    updates). Tops/outerwear/dresses: shoulders → hips (dresses → knees);
-    bottoms: hips → ankles; shoes/bags/accessories: show "not supported yet".
-  - Front camera: preview is mirrored but the photo is not → flip x.
-  - Map photo coords to the preview with the same "cover" crop the preview uses.
-  - Label it honestly as a preview ("placed on your pose points, not a
-    realistic render"). The existing async photo try-on stays for final results.
-- Entry points: Scan screen (selected garment) and/or catalog/wardrobe item "Try it on".
+- **Backend:** `POST /api/tryon/live/pose`. Stateless, pose at 320 px, nearest
+  person only, keypoints normalized 0..1, its own limit (240/min).
+- **App:** `src/features/tryon/ar/` (geometry, loop, status, overlay, chalk marks)
+  and `src/app/tryon/live.tsx`. Tops/outerwear: shoulders → hips; dresses → knees;
+  bottoms: hips → ankles; shoes/bags/accessories say "not supported".
+- Verified: `tsc` clean, Jest 95/95, backend pytest 91/91, lint 0 errors,
+  Android bundle builds.
+
+- [ ] On a phone (`npx expo start -c`), signed in:
+  - [ ] Front camera: the garment sits on you, not mirrored to the other side.
+  - [ ] Back camera (someone else in frame): same.
+  - [ ] A top, a dress and a pair of bottoms each land on the right body span.
+  - [ ] A shoe shows "Live preview works with tops, outerwear, dresses and bottoms."
+  - [ ] Walk partly out of frame → "Step back so your … are in view."
+  - [ ] Airplane mode → garment fades, "Connection lost. Retrying…"; back online recovers.
+  - [ ] Leave the screen → Railway access log stops showing `/api/tryon/live/pose`.
+  - [ ] Tune the garment proportions in `overlayGeometry.ts` (width ×1.5, 12% above
+        the top anchors) if it looks too wide or short.
+- [ ] Railway (optional; defaults apply): `RATE_LIMIT_LIVE_MAX=240`,
+      `RATE_LIMIT_LIVE_WINDOW=60`, `LIVE_POSE_IMAGE_SIZE=320`.
 - Smooth ~30 fps tracking would need on-device pose (vision-camera frame
-  processors + a TFLite/MediaPipe model) → a dev build, not Expo Go. Out of scope for v1.
+  processors + a TFLite/MediaPipe model), which means a dev build, not Expo Go.
+  Out of scope for v1.
 
 ## 4. Waiting on your input (FEATURE_GUIDE)
 

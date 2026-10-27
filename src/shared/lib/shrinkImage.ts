@@ -13,21 +13,22 @@ export const MAX_UPLOAD_SIDE = 1600;
 const JPEG_QUALITY = 0.8;
 
 /**
- * Returns the uri of a JPEG no larger than MAX_UPLOAD_SIDE on its longest
- * side. Falls back to the original uri if the photo can't be processed, so a
- * manipulator failure never blocks an upload the backend could still accept.
+ * Returns the uri of a JPEG no larger than `maxSide` (default MAX_UPLOAD_SIDE)
+ * on its longest side. Falls back to the original uri if the photo can't be
+ * processed, so a manipulator failure never blocks an upload the backend
+ * could still accept.
  */
-export async function shrinkForUpload(uri: string): Promise<string> {
+export async function shrinkForUpload(uri: string, maxSide = MAX_UPLOAD_SIDE): Promise<string> {
   try {
     const context = ImageManipulator.manipulate(uri);
     const original = await context.renderAsync();
     const longest = Math.max(original.width, original.height);
     let image = original;
-    if (longest > MAX_UPLOAD_SIDE) {
+    if (longest > maxSide) {
       context.resize(
         original.width >= original.height
-          ? { width: MAX_UPLOAD_SIDE }
-          : { height: MAX_UPLOAD_SIDE },
+          ? { width: maxSide }
+          : { height: maxSide },
       );
       image = await context.renderAsync();
     }

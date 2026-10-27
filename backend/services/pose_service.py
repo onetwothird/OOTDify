@@ -81,6 +81,35 @@ class PoseResult:
         }
 
 
+def normalize_keypoints(keypoints: List[dict], width: int, height: int) -> List[dict]:
+    """Pixel keypoints → 0..1 of the image size (clamped, 4 decimals)."""
+    def unit(value: float, size: int) -> float:
+        return round(min(1.0, max(0.0, value / size)), 4) if size > 0 else 0.0
+
+    return [
+        {**kp, "x": unit(kp["x"], width), "y": unit(kp["y"], height)}
+        for kp in keypoints
+    ]
+
+
+def largest_pose(poses: List[PersonPose]) -> Optional[PersonPose]:
+    """The person whose keypoints span the largest area (nearest the camera).
+
+    Falls back to the first pose when no pose spans a measurable area.
+    """
+    def area(pose: PersonPose) -> float:
+        if len(pose.keypoints) < 2:
+            return 0.0
+        xs = [kp["x"] for kp in pose.keypoints]
+        ys = [kp["y"] for kp in pose.keypoints]
+        return (max(xs) - min(xs)) * (max(ys) - min(ys))
+
+    if not poses:
+        return None
+    best = max(poses, key=area)
+    return best if area(best) > 0 else poses[0]
+
+
 class PoseService:
     def __init__(
         self,
@@ -127,15 +156,20 @@ class PoseService:
         image_path: str | Path,
         save_annotated: bool = False,
         output_dir: Optional[str | Path] = None,
+        image_size: Optional[int] = None,
     ) -> PoseResult:
-        """Run pose inference; returns per-person keypoints (+ optional preview)."""
+        """Run pose inference; returns per-person keypoints (+ optional preview).
+
+        `image_size` overrides the configured inference size for one call
+        (the live preview runs smaller than /api/pose).
+        """
         started = time.perf_counter()
         try:
             results = self.model.predict(
                 source=str(image_path),
                 conf=self.conf_threshold,
                 iou=self.iou_threshold,
-                imgsz=self.image_size,
+                imgsz=image_size or self.image_size,
                 device=self.device,
                 verbose=False,
             )

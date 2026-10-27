@@ -76,6 +76,8 @@ class Config:
     POSE_IOU = float(os.getenv("POSE_IOU", "0.45"))
     POSE_IMAGE_SIZE = int(os.getenv("POSE_IMAGE_SIZE", "640"))
     POSE_DEVICE = os.getenv("POSE_DEVICE", "cpu")
+    # Live try-on preview runs pose on small, frequent snapshots.
+    LIVE_POSE_IMAGE_SIZE = int(os.getenv("LIVE_POSE_IMAGE_SIZE", "320"))
 
     # ---------------------------- Segmentation -----------------------------
     # yolov8n-seg.pt is downloaded automatically on first load.
@@ -149,6 +151,9 @@ class Config:
     RATE_LIMIT_UPLOAD_WINDOW = int(os.getenv("RATE_LIMIT_UPLOAD_WINDOW", "3600"))
     RATE_LIMIT_ACCOUNT_MAX = int(os.getenv("RATE_LIMIT_ACCOUNT_MAX", "10"))
     RATE_LIMIT_ACCOUNT_WINDOW = int(os.getenv("RATE_LIMIT_ACCOUNT_WINDOW", "3600"))
+    # Live try-on preview loop (~2 snapshots/sec), per minute.
+    RATE_LIMIT_LIVE_MAX = int(os.getenv("RATE_LIMIT_LIVE_MAX", "240"))
+    RATE_LIMIT_LIVE_WINDOW = int(os.getenv("RATE_LIMIT_LIVE_WINDOW", "60"))
 
     # ------------------------------ Helpers -------------------------------
     @classmethod

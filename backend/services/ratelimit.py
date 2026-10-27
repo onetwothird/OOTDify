@@ -54,14 +54,24 @@ def _identity() -> str:
     return user["id"] if isinstance(user, dict) and user.get("id") else (request.remote_addr or "unknown")
 
 
-def rate_limit(max_requests: int, window_seconds: int, rule: str) -> Callable:
-    """Decorator that applies a sliding-window limit to a route."""
+def rate_limit(
+    max_requests: int | Callable[[], int],
+    window_seconds: int | Callable[[], int],
+    rule: str,
+) -> Callable:
+    """Decorator that applies a sliding-window limit to a route.
+
+    The limits may be callables, read on every request (so config overrides
+    apply without re-importing the route module).
+    """
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
+            limit = max_requests() if callable(max_requests) else max_requests
+            window = window_seconds() if callable(window_seconds) else window_seconds
             try:
-                check_rate_limit(rule, max_requests, window_seconds, _identity())
+                check_rate_limit(rule, limit, window, _identity())
             except RateLimitExceeded as exc:
                 logger.warning("Rate limit hit on %s (%s)", rule, _identity())
                 return (
@@ -84,3 +94,8 @@ def default_limits(rule: str) -> Callable:
 def upload_limits(rule: str) -> Callable:
     """Strict limit for image uploads / processing endpoints (per hour)."""
     return rate_limit(Config.RATE_LIMIT_UPLOAD_MAX, Config.RATE_LIMIT_UPLOAD_WINDOW, rule)
+
+
+def live_limits(rule: str) -> Callable:
+    """Per-minute limit for the live try-on preview loop (stateless pose)."""
+    return rate_limit(lambda: Config.RATE_LIMIT_LIVE_MAX, lambda: Config.RATE_LIMIT_LIVE_WINDOW, rule)

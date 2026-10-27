@@ -886,5 +886,23 @@ export const fil: Record<keyof typeof en, string> = {
   "scan.job_status.processing": "Pinoproseso",
   "scan.job_status.completed": "Tapos na",
   "scan.job_status.failed": "Nabigo",
-  "scan.item_fallback": "Item"
+  "scan.item_fallback": "Item",
+
+  // Live try-on preview
+  "scan.tryon.live": "Subukan nang live",
+  "tryon.live.title": "Subukan nang live",
+  "tryon.live.disclaimer": "Preview lang. Inilalagay ang damit sa mga pose point mo, hindi ito makatotohanang larawan.",
+  "tryon.live.unsupported": "Gumagana ang live preview sa tops, outerwear, dresses at bottoms.",
+  "tryon.live.no_pose.upper": "Umatras nang kaunti para makita ang balikat at balakang mo.",
+  "tryon.live.no_pose.dress": "Umatras nang kaunti para makita ang balikat at tuhod mo.",
+  "tryon.live.no_pose.lower": "Umatras nang kaunti para makita ang balakang at bukung-bukong mo.",
+  "tryon.live.starting": "Hinahanap ka sa frame…",
+  "tryon.live.lost": "Nawala ang koneksyon. Sinusubukang muli…",
+  "tryon.live.rate_limited": "Mas madalang muna ang pag-update.",
+  "tryon.live.signed_out": "Mag-sign in ulit para patuloy na magamit ang live preview.",
+  "tryon.live.full_tryon": "Gumawa ng buong try-on",
+  "tryon.live.back_a11y": "Bumalik sa try-on",
+  "tryon.live.flip_a11y": "Palitan ang camera",
+  "tryon.live.permission": "Payagan ang camera para makita ito sa iyo.",
+  "tryon.live.grant": "Payagan ang camera"
 };

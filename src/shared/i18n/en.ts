@@ -883,5 +883,23 @@ export const en = {
   "scan.job_status.processing": "Processing",
   "scan.job_status.completed": "Completed",
   "scan.job_status.failed": "Failed",
-  "scan.item_fallback": "Item"
+  "scan.item_fallback": "Item",
+
+  // Live try-on preview
+  "scan.tryon.live": "Try it live",
+  "tryon.live.title": "Try it live",
+  "tryon.live.disclaimer": "Preview only. The garment is placed on your pose points, not rendered realistically.",
+  "tryon.live.unsupported": "Live preview works with tops, outerwear, dresses and bottoms.",
+  "tryon.live.no_pose.upper": "Step back so your shoulders and hips are in view.",
+  "tryon.live.no_pose.dress": "Step back so your shoulders and knees are in view.",
+  "tryon.live.no_pose.lower": "Step back so your hips and ankles are in view.",
+  "tryon.live.starting": "Looking for you in the frame…",
+  "tryon.live.lost": "Connection lost. Retrying…",
+  "tryon.live.rate_limited": "Updating less often for a moment.",
+  "tryon.live.signed_out": "Sign in again to keep using the live preview.",
+  "tryon.live.full_tryon": "Create full try-on",
+  "tryon.live.back_a11y": "Back to try-on",
+  "tryon.live.flip_a11y": "Switch camera",
+  "tryon.live.permission": "Allow camera access to see this on you.",
+  "tryon.live.grant": "Allow camera"
 } as const;
