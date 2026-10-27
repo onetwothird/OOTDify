@@ -1,7 +1,3 @@
-// C:\OOTDify\src\app\(tabs)\discover.tsx
-// Wardrobe: your private closet (real clothing_items rows, RLS owner-only) with
-// search, category filters, favorites, and item details — plus the shared
-// catalog to browse below. "Capture" opens the photo-capture modal.
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { memo, useCallback, useMemo, useRef, useState } from "react";
@@ -36,8 +32,8 @@ import { SmartImage } from "../../shared/components/SmartImage";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import { useResponsiveColumns } from "../../shared/hooks/useResponsiveColumns";
+import { useT } from "../../shared/i18n/useT";
 
-// How many cards each discover grid mounts before the user taps "Show more".
 const GRID_PAGE = 24;
 
 export default function WardrobeScreen() {
@@ -47,23 +43,20 @@ export default function WardrobeScreen() {
   const router = useRouter();
   const openCapture = useCaptureModalStore((s) => s.open);
   const { itemWidth, onLayout } = useResponsiveColumns(110, 12);
+  const { t, tl } = useT();
 
-  // ---- My closet (real, owner-scoped) --------------------------------------
   const closet = useWardrobeStore((s) => s.items);
   const closetLoading = useWardrobeStore((s) => s.loading);
   const closetError = useWardrobeStore((s) => s.error);
 
-  // ---- Filters -------------------------------------------------------------
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<string | null>(null);
   const [catalogCategory, setCatalogCategory] = useState<string | null>(null);
   const [closetShown, setClosetShown] = useState(GRID_PAGE);
   const [catalogShown, setCatalogShown] = useState(GRID_PAGE);
 
-  // ---- Item favorites (target_type = "item") --------------------------------
   const [favIds, setFavIds] = useState<Set<string>>(new Set());
   const [favReady, setFavReady] = useState(false);
-
   const firstFocus = useRef(true);
 
   const catalogs = useCatalog(catalogCategory ?? undefined);
@@ -82,7 +75,6 @@ export default function WardrobeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      // Refresh on every focus so captures/edits made elsewhere show up.
       if (firstFocus.current) {
         firstFocus.current = false;
         void loadCloset();
@@ -126,7 +118,6 @@ export default function WardrobeScreen() {
         return next;
       });
       void (isFav ? removeItemFavorite(item.id) : addItemFavorite(item.id)).catch(() => {
-        // Roll back the optimistic toggle.
         setFavIds((prev) => {
           const next = new Set(prev);
           if (isFav) next.add(item.id);
@@ -153,16 +144,13 @@ export default function WardrobeScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* ------------------------- Header + add ------------------------- */}
         <View style={styles.headerRow}>
           <View style={styles.headerBlock}>
-            <Text style={styles.headerTitle}>My Wardrobe</Text>
-            <Text style={styles.headerSubtitle}>
-              Your pieces, stored privately.
-            </Text>
+            <Text style={styles.headerTitle}>{t("discover.wardrobe.title")}</Text>
+            <Text style={styles.headerSubtitle}>{t("discover.wardrobe.subtitle")}</Text>
           </View>
           <AppButton
-            label="Add"
+            label={t("discover.wardrobe.add")}
             size="md"
             icon="add"
             onPress={openCapture}
@@ -170,14 +158,13 @@ export default function WardrobeScreen() {
           />
         </View>
 
-        {/* ------------------------- Search ------------------------- */}
         <View style={styles.searchBox}>
           <Ionicons name="search-outline" size={17} color={theme.colors.textMuted} />
           <TextInput
             style={styles.searchInput}
             value={query}
             onChangeText={setQuery}
-            placeholder="Search name, color, brand, tag…"
+            placeholder={t("discover.search.placeholder")}
             placeholderTextColor={theme.colors.textMuted}
             autoCapitalize="none"
             autoCorrect={false}
@@ -190,20 +177,14 @@ export default function WardrobeScreen() {
           ) : null}
         </View>
 
-        {/* ------------------------- Category filter ------------------------- */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chips}
-        >
-          <Chip label="All" active={filter === null} onPress={() => setFilter(null)} />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+          <Chip label={t("discover.filter.all")} active={filter === null} onPress={() => setFilter(null)} />
           {WARDROBE_CATEGORIES.map((cat) => (
-            <Chip key={cat} label={cat} active={cat === filter} onPress={() => setFilter(cat)} />
+            <Chip key={cat} label={tl("category", cat)} active={cat === filter} onPress={() => setFilter(cat)} />
           ))}
         </ScrollView>
         <View style={styles.chipsSpacer} />
 
-        {/* ------------------------- Closet grid ------------------------- */}
         {closetLoading && closet.length === 0 ? (
           <SkeletonGrid />
         ) : closetError ? (
@@ -218,16 +199,16 @@ export default function WardrobeScreen() {
           <EmptyState
             compact
             icon="shirt-outline"
-            title="Your wardrobe is empty"
-            message="Tap Add above to capture photos of your pieces and build a private, searchable closet."
+            title={t("discover.wardrobe.empty.title")}
+            message={t("discover.wardrobe.empty.message")}
           />
         ) : filteredCloset.length === 0 ? (
           <EmptyState
             compact
             icon="filter-outline"
-            title="Nothing matches"
-            message="Try a different search or clear the category filter."
-            actionLabel="Clear filters"
+            title={t("discover.wardrobe.empty.filter.title")}
+            message={t("discover.wardrobe.empty.filter.message")}
+            actionLabel={t("discover.wardrobe.clear_filters")}
             onAction={() => {
               setQuery("");
               setFilter(null);
@@ -250,7 +231,7 @@ export default function WardrobeScreen() {
             {filteredCloset.length > closetShown ? (
               <View style={styles.moreWrap}>
                 <Chip
-                  label={`Show more (${filteredCloset.length - closetShown} more)`}
+                  label={t("discover.show_more", { count: filteredCloset.length - closetShown })}
                   icon="chevron-down"
                   onPress={() => setClosetShown((n) => n + GRID_PAGE)}
                 />
@@ -260,19 +241,15 @@ export default function WardrobeScreen() {
         )}
 
         <SectionHeader
-          title="Browse the catalog"
-          subtitle="Discover pieces to add to a look."
+          title={t("discover.catalog.title")}
+          subtitle={t("discover.catalog.subtitle")}
         />
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chips}
-        >
-          <Chip label="All" active={catalogCategory === null} onPress={() => setCatalogCategory(null)} />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+          <Chip label={t("discover.filter.all")} active={catalogCategory === null} onPress={() => setCatalogCategory(null)} />
           {CATALOG_CATEGORIES.map((cat) => (
             <Chip
               key={cat}
-              label={cat}
+              label={tl("category", cat)}
               active={cat === catalogCategory}
               onPress={() => setCatalogCategory(cat)}
             />
@@ -291,7 +268,7 @@ export default function WardrobeScreen() {
             onAction={() => void catalogs.refetch()}
           />
         ) : catalogs.items.length === 0 ? (
-          <Text style={styles.smallNote}>No catalog items in this category yet.</Text>
+          <Text style={styles.smallNote}>{t("discover.catalog.empty")}</Text>
         ) : (
           <>
             <View style={styles.grid} onLayout={onLayout}>
@@ -309,7 +286,7 @@ export default function WardrobeScreen() {
             {catalogs.items.length > catalogShown ? (
               <View style={styles.moreWrap}>
                 <Chip
-                  label={`Show more (${catalogs.items.length - catalogShown} more)`}
+                  label={t("discover.show_more", { count: catalogs.items.length - catalogShown })}
                   icon="chevron-down"
                   onPress={() => setCatalogShown((n) => n + GRID_PAGE)}
                 />
@@ -318,18 +295,13 @@ export default function WardrobeScreen() {
           </>
         )}
 
-        {/* ------------------------- Shopping import (honest roadmap) -------- */}
         <View style={styles.importCard}>
           <View style={styles.importIcon}>
             <Ionicons name="bag-handle-outline" size={20} color={theme.colors.onPrimary} />
           </View>
           <View style={styles.importBody}>
-            <Text style={styles.importTitle}>Import from shopping platforms</Text>
-            <Text style={styles.importText}>
-              Shopee & TikTok Shop imports are on the roadmap. When a provider is
-              added, you&apos;ll be able to bring products in by official link or
-              product photo — no scraping, ever.
-            </Text>
+            <Text style={styles.importTitle}>{t("discover.import.title")}</Text>
+            <Text style={styles.importText}>{t("discover.import.message")}</Text>
           </View>
         </View>
       </ScrollView>
@@ -388,134 +360,29 @@ const ClosetCard = memo(function ClosetCard({
 const useStyles = makeStyles((theme) => ({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   content: { paddingHorizontal: theme.spacing.page, paddingBottom: 40 },
-
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: theme.spacing.md,
-    marginTop: theme.spacing.sm,
-  },
+  headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: theme.spacing.md, marginTop: theme.spacing.sm },
   headerBlock: { flex: 1, minWidth: 0 },
-  headerTitle: {
-    fontSize: theme.typography.hero.fontSize,
-    fontWeight: "800",
-    letterSpacing: -0.5,
-    color: theme.colors.text,
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    color: theme.colors.textMuted,
-    marginTop: 2,
-  },
+  headerTitle: { fontSize: theme.typography.hero.fontSize, fontWeight: "800", letterSpacing: -0.5, color: theme.colors.text },
+  headerSubtitle: { fontSize: 13, color: theme.colors.textMuted, marginTop: 2 },
   addBtn: { paddingHorizontal: 16 },
-
-  searchBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: theme.colors.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.colors.border,
-    borderRadius: theme.borderRadius.md,
-    paddingHorizontal: 12,
-    marginTop: theme.spacing.md,
-  },
-  searchInput: {
-    flex: 1,
-    paddingVertical: 12,
-    fontSize: 14,
-    color: theme.colors.text,
-    fontWeight: "500",
-  },
-
+  searchBox: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: theme.colors.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.border, borderRadius: theme.borderRadius.md, paddingHorizontal: 12, marginTop: theme.spacing.md },
+  searchInput: { flex: 1, paddingVertical: 12, fontSize: 14, color: theme.colors.text, fontWeight: "500" },
   chips: { gap: 8, paddingTop: 12, paddingRight: 16 },
   chipsSpacer: { height: 4 },
-
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-    justifyContent: "flex-start",
-  },
-
-  closetCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.md,
-    overflow: "hidden",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.colors.border,
-  },
-  cardImageWrap: {
-    width: "100%",
-    aspectRatio: 0.85,
-    backgroundColor: theme.colors.surfaceAlt,
-    position: "relative",
-  },
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: 12, justifyContent: "flex-start" },
+  closetCard: { backgroundColor: theme.colors.surface, borderRadius: theme.borderRadius.md, overflow: "hidden", borderWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.border },
+  cardImageWrap: { width: "100%", aspectRatio: 0.85, backgroundColor: theme.colors.surfaceAlt, position: "relative" },
   closetImage: { width: "100%", height: "100%" },
   closetImagePlaceholder: undefined as any,
-  heartButton: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "rgba(20,20,20,0.45)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  heartButton: { position: "absolute", top: 8, right: 8, width: 28, height: 28, borderRadius: 14, backgroundColor: "rgba(20,20,20,0.45)", alignItems: "center", justifyContent: "center" },
   cardMeta: { padding: 8 },
-  closetName: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: theme.colors.text,
-  },
-  closetMeta: {
-    fontSize: 11,
-    color: theme.colors.textMuted,
-    marginTop: 2,
-  },
-
-  importCard: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-    backgroundColor: theme.colors.surfaceAlt,
-    borderRadius: theme.borderRadius.md,
-    padding: 14,
-    marginTop: theme.spacing.section,
-  },
-  importIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: theme.colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 2,
-  },
+  closetName: { fontSize: 13, fontWeight: "700", color: theme.colors.text },
+  closetMeta: { fontSize: 11, color: theme.colors.textMuted, marginTop: 2 },
+  importCard: { flexDirection: "row", alignItems: "flex-start", gap: 12, backgroundColor: theme.colors.surfaceAlt, borderRadius: theme.borderRadius.md, padding: 14, marginTop: theme.spacing.section },
+  importIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: theme.colors.primary, alignItems: "center", justifyContent: "center", marginTop: 2 },
   importBody: { flex: 1, minWidth: 0 },
-  importTitle: {
-    fontSize: 13.5,
-    fontWeight: "800",
-    color: theme.colors.text,
-  },
-  importText: {
-    fontSize: 12,
-    lineHeight: 17,
-    color: theme.colors.textMuted,
-    marginTop: 3,
-  },
-
-  smallNote: {
-    fontSize: 13,
-    color: theme.colors.textMuted,
-    paddingVertical: 8,
-  },
-
-  moreWrap: {
-    alignItems: "center",
-    paddingVertical: theme.spacing.sm,
-  },
+  importTitle: { fontSize: 13.5, fontWeight: "800", color: theme.colors.text },
+  importText: { fontSize: 12, lineHeight: 17, color: theme.colors.textMuted, marginTop: 3 },
+  smallNote: { fontSize: 13, color: theme.colors.textMuted, paddingVertical: 8 },
+  moreWrap: { alignItems: "center", paddingVertical: theme.spacing.sm },
 }));
