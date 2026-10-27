@@ -187,7 +187,7 @@ export default function CaptureClothesModal() {
         });
         saved.push(row);
       } catch (e) {
-        console.warn("Failed to save captured item:", e);
+        console.warn("Failed to save captured item:", e instanceof Error ? `${e.name}: ${e.message}` : e);
         failed += 1;
       }
     }
