@@ -235,7 +235,7 @@ export function PostCard({
       {commentsOpen ? (
         <View style={styles.comments}>
           {loadingComments ? (
-            <ActivityIndicator size="small" color={theme.colors.primary} />
+            <ActivityIndicator size="small" color={theme.colors.brand} />
           ) : commentsError ? (
             <Text style={styles.commentsError}>{commentsError}</Text>
           ) : comments && comments.length ? (
