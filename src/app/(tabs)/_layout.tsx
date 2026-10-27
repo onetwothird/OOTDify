@@ -1,15 +1,17 @@
-// C:\OOTDify\src\app\(tabs)\_layout.tsx
-// Five tabs: Home · Wardrobe · Create (AI) · Outfits · Community.
-// The central Create tab carries stronger visual emphasis (raised pill).
-// Profile is intentionally NOT a tab — it's the settings hub, reachable from
-// the Home header avatar (route kept alive with href: null).
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
-import { Platform, StyleSheet, View } from "react-native";
+import { Platform, View } from "react-native";
 import CaptureClothesModal from "../../features/capture/CaptureClothesModal";
-import { theme } from "../../shared/config/theme";
+import { useAppTheme } from "../../shared/theme/ThemeProvider";
+import { makeStyles } from "../../shared/theme/makeStyles";
+import type { Theme } from "../../shared/config/theme";
+import { useT } from "../../shared/i18n/useT";
 
 export default function TabLayout() {
+  const { t } = useT();
+  const theme = useAppTheme();
+  const styles = useStyles();
+
   return (
     <>
       <Tabs
@@ -21,7 +23,7 @@ export default function TabLayout() {
           tabBarLabelStyle: styles.tabLabel,
           tabBarStyle: {
             backgroundColor: theme.colors.surface,
-            borderTopWidth: StyleSheet.hairlineWidth,
+            borderTopWidth: 0.5,
             borderTopColor: theme.colors.border,
             paddingTop: 6,
             ...Platform.select({
@@ -34,7 +36,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="home"
           options={{
-            title: "Home",
+            title: t("tab.home"),
             tabBarIcon: ({ color, focused }) => (
               <Ionicons name={focused ? "home" : "home-outline"} size={24} color={color} />
             ),
@@ -43,7 +45,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="discover"
           options={{
-            title: "Wardrobe",
+            title: t("tab.wardrobe"),
             tabBarIcon: ({ color, focused }) => (
               <Ionicons name={focused ? "shirt" : "shirt-outline"} size={24} color={color} />
             ),
@@ -52,7 +54,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="scan"
           options={{
-            title: "Create",
+            title: t("tab.create"),
             tabBarIcon: ({ focused }) => (
               <View style={[styles.createPill, focused && styles.createPillActive]}>
                 <Ionicons name="add" size={24} color={theme.colors.onPrimary} />
@@ -63,7 +65,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="outfits"
           options={{
-            title: "Outfits",
+            title: t("tab.outfits"),
             tabBarIcon: ({ color, focused }) => (
               <Ionicons name={focused ? "grid" : "grid-outline"} size={24} color={color} />
             ),
@@ -72,7 +74,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="community"
           options={{
-            title: "Community",
+            title: t("tab.community"),
             tabBarIcon: ({ color, focused }) => (
               <Ionicons
                 name={focused ? "people" : "people-outline"}
@@ -92,7 +94,7 @@ export default function TabLayout() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme: Theme) => ({
   tabLabel: { fontSize: 10, fontWeight: "500", marginTop: 2 },
   createPill: {
     width: 46,
@@ -101,12 +103,9 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primary,
     alignItems: "center",
     justifyContent: "center",
-    // Slight lift so the AI action stands out from the other tabs.
     marginBottom: 2,
   },
   createPillActive: {
-    // Focus is carried by the label highlight + a subtle lift; the pill stays
-    // cobalt so orange never becomes a second brand color.
     transform: [{ scale: 1.06 }],
   },
-});
+}));
