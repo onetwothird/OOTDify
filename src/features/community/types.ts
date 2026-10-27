@@ -91,6 +91,10 @@ export interface CommunityRoom {
   title: string;
   category: string;
   createdBy: string | null;
+  /** Cloudinary URL of the room's photo, if it has one. */
+  iconUrl: string | null;
+  /** Preset icon key (see roomIcons.ts); used when there is no photo. */
+  iconPreset: string | null;
   memberCount: number;
   /** True when the viewer is already a member (show "Open" vs "Join"). */
   joined: boolean;
