@@ -40,6 +40,8 @@ import {
 } from "../../../features/community/service";
 import type { ChatMessageEntry } from "../../../features/community/types";
 import { clockLabel, dayLabel } from "../../../features/community/format";
+import { EditRoomIconSheet } from "../../../features/community/components/EditRoomIconSheet";
+import { RoomIcon } from "../../../features/community/components/RoomIcon";
 import { ProfileAvatar } from "../../../features/profile/ProfileAvatar";
 import { ErrorState } from "../../../shared/components/StateViews";
 import { HeaderIconButton } from "../../../shared/components/ScreenHeader";
@@ -83,9 +85,15 @@ export default function ChatThreadScreen() {
   const [title, setTitle] = useState(() => t("community.chat.title.default"));
   // Set when this conversation is a public group room, so the header can show
   // its title/category and a group subtitle instead of a DM peer's.
-  const [groupMeta, setGroupMeta] = useState<{ title: string; category: string | null } | null>(
-    null,
-  );
+  const [groupMeta, setGroupMeta] = useState<{
+    title: string;
+    category: string | null;
+    /** True when the viewer created the room, so they may change its icon. */
+    mine: boolean;
+    iconUrl: string | null;
+    iconPreset: string | null;
+  } | null>(null);
+  const [editingIcon, setEditingIcon] = useState(false);
   // The DM peer's id, kept so the header avatar can resolve alongside them.
   const [peerId, setPeerId] = useState<string | null>(null);
   // Resolved display names in state, so a late realtime name resolution
@@ -144,7 +152,15 @@ export default function ChatThreadScreen() {
         const meta = await fetchRoomMeta(conversationId);
         if (!alive) return;
         if (meta?.isPublic && meta.title) {
-          setGroupMeta({ title: meta.title, category: meta.category });
+          const { data: session } = await supabase.auth.getSession();
+          if (!alive) return;
+          setGroupMeta({
+            title: meta.title,
+            category: meta.category,
+            mine: Boolean(meta.createdBy) && meta.createdBy === session?.session?.user?.id,
+            iconUrl: meta.iconUrl,
+            iconPreset: meta.iconPreset,
+          });
           setTitle(meta.title);
           return;
         }
@@ -353,17 +369,34 @@ export default function ChatThreadScreen() {
           <Ionicons name="arrow-back" size={22} color={theme.colors.text} />
         </Pressable>
         <View style={styles.headerIdentity}>
-          <ProfileAvatar
-            size={38}
-            initial={headerInitial}
-            avatarRef={
-              conversationId === COMMUNITY_ROOM_ID
-                ? null
-                : peerId
-                  ? avatars[peerId] ?? null
-                  : null
-            }
-          />
+          {groupMeta ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t("community.room_icon.change_a11y")}
+              disabled={!groupMeta.mine}
+              onPress={() => setEditingIcon(true)}
+              style={({ pressed }) => pressed && { opacity: 0.8 }}
+            >
+              <RoomIcon
+                size={38}
+                title={groupMeta.title}
+                iconUrl={groupMeta.iconUrl}
+                iconPreset={groupMeta.iconPreset}
+              />
+            </Pressable>
+          ) : (
+            <ProfileAvatar
+              size={38}
+              initial={headerInitial}
+              avatarRef={
+                conversationId === COMMUNITY_ROOM_ID
+                  ? null
+                  : peerId
+                    ? avatars[peerId] ?? null
+                    : null
+              }
+            />
+          )}
           <View style={styles.headerTexts}>
             <Text style={styles.headerTitle} numberOfLines={1}>
               {title}
@@ -559,6 +592,16 @@ export default function ChatThreadScreen() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+      {groupMeta?.mine && conversationId ? (
+        <EditRoomIconSheet
+          visible={editingIcon}
+          onClose={() => setEditingIcon(false)}
+          roomId={conversationId}
+          title={groupMeta.title}
+          current={{ iconUrl: groupMeta.iconUrl, iconPreset: groupMeta.iconPreset }}
+          onSaved={(next) => setGroupMeta((m) => (m ? { ...m, ...next } : m))}
+        />
+      ) : null}
     </View>
   );
 }
