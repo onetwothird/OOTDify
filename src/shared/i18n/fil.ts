@@ -50,7 +50,7 @@ export const fil: Record<keyof typeof en, string> = {
   "auth.login.title": "Maligayang pagbabalik",
   "auth.login.subtitle": "Mag-log in para ipagpatuloy kung saan ka tumigil.",
   "auth.exit.title": "Mag-log out?",
-  "auth.exit.message": "Naka-sign in ka. Aalis ka sa OOTDify kapag bumalik ka pa. Gusto mo bang mag-log out?",
+  "auth.exit.message": "Gusto mo bang mag-log out? Babalik ka sa sign-in screen.",
   "auth.exit.stay": "Manatiling naka-sign in",
   "auth.exit.confirm": "Mag-log out",
   "auth.login.password_placeholder": "Ang iyong password",
