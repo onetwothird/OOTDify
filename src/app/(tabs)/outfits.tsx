@@ -264,36 +264,45 @@ export default function OutfitsScreen() {
                 ? t("outfits.calendar.subtitle")
                 : t("outfits.subtitle")
           }
-          right={
-            builderMode ? null : (
-              <View style={styles.headerActions}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t("outfits.action.build_a11y")}
-                  hitSlop={6}
-                  onPress={() => setBuilderMode(true)}
-                  style={({ pressed }) => [styles.headerAction, pressed && { opacity: 0.7 }]}
-                >
-                  <Ionicons name="add-circle-outline" size={20} color={theme.colors.primary} />
-                  <Text style={styles.headerActionText}>{t("outfits.action.build")}</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t("outfits.action.ai_picker")}
-                  hitSlop={6}
-                  onPress={() => router.push("/ai-picker")}
-                  style={({ pressed }) => [styles.headerAction, pressed && { opacity: 0.7 }]}
-                >
-                  <Ionicons name="sparkles-outline" size={20} color={theme.colors.primary} />
-                  <Text style={styles.headerActionText}>{t("outfits.action.ai_picker")}</Text>
-                </Pressable>
-              </View>
-            )
-          }
         />
 
         {!builderMode ? (
           <>
+            <View style={styles.actionRow}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t("outfits.action.build_a11y")}
+                onPress={() => setBuilderMode(true)}
+                style={({ pressed }) => [
+                  styles.actionTile,
+                  styles.actionTilePrimary,
+                  pressed && { opacity: 0.85 },
+                ]}
+              >
+                <View style={[styles.actionIcon, styles.actionIconPrimary]}>
+                  <Ionicons name="add" size={20} color={theme.colors.onPrimary} />
+                </View>
+                <Text style={[styles.actionTitle, { color: theme.colors.onPrimary }]}>
+                  {t("outfits.action.build")}
+                </Text>
+                <Text style={[styles.actionHint, { color: theme.colors.onPrimaryMuted }]}>
+                  {t("outfits.action.build_hint")}
+                </Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t("outfits.action.ai_picker")}
+                onPress={() => router.push("/ai-picker")}
+                style={({ pressed }) => [styles.actionTile, pressed && { opacity: 0.85 }]}
+              >
+                <View style={styles.actionIcon}>
+                  <Ionicons name="sparkles" size={18} color={theme.colors.text} />
+                </View>
+                <Text style={styles.actionTitle}>{t("outfits.action.ai_picker")}</Text>
+                <Text style={styles.actionHint}>{t("outfits.action.ai_hint")}</Text>
+              </Pressable>
+            </View>
+
             <View style={styles.segment}>
               <Pressable
                 accessibilityRole="button"
@@ -660,19 +669,30 @@ function SavedOutfitCard({
 const useStyles = makeStyles((theme: Theme) => ({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   content: { paddingHorizontal: 16, paddingBottom: 40, gap: 12 },
-  headerActions: { flexDirection: "row", gap: 14, alignItems: "center" },
-  headerAction: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingVertical: 7,
-    paddingHorizontal: 11,
-    borderRadius: theme.borderRadius.pill,
+  actionRow: { flexDirection: "row", gap: 12 },
+  actionTile: {
+    flex: 1,
+    minWidth: 0,
+    padding: 14,
+    gap: 3,
+    borderRadius: theme.borderRadius.lg,
     backgroundColor: theme.colors.surface,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: theme.colors.border,
   },
-  headerActionText: { fontSize: 12.5, fontWeight: "700", color: theme.colors.primary },
+  actionTilePrimary: { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
+  actionIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  actionIconPrimary: { backgroundColor: theme.colors.onPrimarySubtle },
+  actionTitle: { fontSize: 15, fontWeight: "800", color: theme.colors.text },
+  actionHint: { fontSize: 12, lineHeight: 16, color: theme.colors.textMuted },
   sectionLabel: {
     fontSize: 11,
     fontWeight: "800",
