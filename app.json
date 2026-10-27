@@ -60,6 +60,12 @@
         {
           "faceIDPermission": "OOTDify uses Face ID only to unlock the app when you turn on biometric unlock."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#3A5A96"
+        }
       ]
     ],
     "experiments": {
