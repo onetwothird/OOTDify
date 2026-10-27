@@ -19,6 +19,7 @@ import {
   API_TIMEOUT_MS,
   API_HEALTH_TIMEOUT_MS,
 } from "../shared/config/api";
+import { parseRetryAfter } from "../shared/lib/retryAfter";
 import { supabase } from "../shared/lib/supabase";
 
 // ---------------------------------------------------------------------------
@@ -40,6 +41,8 @@ export class ApiError extends Error {
   readonly kind: ApiErrorKind;
   readonly status: number;
   readonly payload: unknown;
+  /** Seconds to wait before retrying, from a 429's `Retry-After` header. */
+  retryAfterSeconds?: number;
 
   constructor(kind: ApiErrorKind, message: string, status = 0, payload: unknown = null) {
     super(message);
@@ -189,7 +192,11 @@ export async function apiRequest<T>(
         : raw.status >= 500
           ? "server"
           : "http";
-    throw toFriendlyError(kind, raw.status, payload);
+    const err = toFriendlyError(kind, raw.status, payload);
+    if (raw.status === 429) {
+      err.retryAfterSeconds = parseRetryAfter(raw.headers.get("Retry-After"));
+    }
+    throw err;
   }
 
   // 2xx — hand the (possibly null) payload to the caller, which validates shape.
