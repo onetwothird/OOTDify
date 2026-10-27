@@ -24,16 +24,21 @@ import { useWardrobeStore } from "../../features/wardrobe/store";
 import { AppButton } from "../../shared/components/AppButton";
 import { Chip } from "../../shared/components/Chip";
 import { SkeletonGrid } from "../../shared/components/LoadingState";
+import { ScreenHeader } from "../../shared/components/ScreenHeader";
 import { EmptyState } from "../../shared/components/StateViews";
 import { SmartImage } from "../../shared/components/SmartImage";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import { useResponsiveColumns } from "../../shared/hooks/useResponsiveColumns";
 import { useT } from "../../shared/i18n/useT";
+import { useHideOnScroll, useTabBarSpace } from "../../shared/navigation/useTabChrome";
 
 const GRID_PAGE = 24;
 
 export default function WardrobeScreen() {
+  // The tab bar slides away while scrolling down; content clears it at the end.
+  const hideOnScroll = useHideOnScroll();
+  const tabBarSpace = useTabBarSpace();
   const styles = useStyles();
   const theme = useAppTheme();
   const insets = useSafeAreaInsets();
@@ -103,23 +108,27 @@ export default function WardrobeScreen() {
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 8 }]}>
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        {...hideOnScroll}
       >
-        <View style={styles.headerRow}>
-          <View style={styles.headerBlock}>
-            <Text style={styles.headerTitle}>{t("discover.wardrobe.title")}</Text>
-            <Text style={styles.headerSubtitle}>{t("discover.wardrobe.subtitle")}</Text>
-          </View>
-          <AppButton
-            label={t("discover.wardrobe.add")}
-            size="md"
-            icon="add"
-            onPress={openCapture}
-            style={styles.addBtn}
-          />
-        </View>
+        <ScreenHeader
+          variant="tab"
+          icon="shirt"
+          title={t("discover.wardrobe.title")}
+          subtitle={t("discover.wardrobe.subtitle")}
+          meta={closet.length > 0 ? t("discover.wardrobe.count", { count: closet.length }) : undefined}
+          right={
+            <AppButton
+              label={t("discover.wardrobe.add")}
+              size="md"
+              icon="add"
+              onPress={openCapture}
+              style={styles.addBtn}
+            />
+          }
+        />
 
         <View style={styles.searchBox}>
           <Ionicons name="search-outline" size={17} color={theme.colors.textMuted} />
@@ -153,9 +162,10 @@ export default function WardrobeScreen() {
         ) : closetError ? (
           <EmptyState
             icon="cloud-offline-outline"
-            title="Couldn't load your wardrobe"
+            title={t("discover.wardrobe.error.title")}
             message={closetError}
-            actionLabel="Try again"
+            actionLabel={t("common.retry")}
+            actionIcon="refresh"
             onAction={() => void loadCloset()}
           />
         ) : closet.length === 0 ? (
@@ -164,6 +174,9 @@ export default function WardrobeScreen() {
             icon="shirt-outline"
             title={t("discover.wardrobe.empty.title")}
             message={t("discover.wardrobe.empty.message")}
+            actionLabel={t("discover.wardrobe.empty.action")}
+            actionIcon="camera-outline"
+            onAction={openCapture}
           />
         ) : filteredCloset.length === 0 ? (
           <EmptyState
@@ -172,6 +185,7 @@ export default function WardrobeScreen() {
             title={t("discover.wardrobe.empty.filter.title")}
             message={t("discover.wardrobe.empty.filter.message")}
             actionLabel={t("discover.wardrobe.clear_filters")}
+            actionIcon="close"
             onAction={() => {
               setQuery("");
               setFilter(null);
@@ -268,16 +282,12 @@ const ClosetCard = memo(function ClosetCard({
 const useStyles = makeStyles((theme) => ({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   content: { paddingHorizontal: theme.spacing.page, paddingBottom: 40 },
-  headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: theme.spacing.md, marginTop: theme.spacing.sm },
-  headerBlock: { flex: 1, minWidth: 0 },
-  headerTitle: { fontSize: theme.typography.hero.fontSize, fontWeight: "800", letterSpacing: -0.5, color: theme.colors.text },
-  headerSubtitle: { fontSize: 13, color: theme.colors.textMuted, marginTop: 2 },
-  addBtn: { paddingHorizontal: 16 },
   searchBox: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: theme.colors.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.border, borderRadius: theme.borderRadius.md, paddingHorizontal: 12, marginTop: theme.spacing.md },
   searchInput: { flex: 1, paddingVertical: 12, fontSize: 14, color: theme.colors.text, fontWeight: "500" },
   chips: { gap: 8, paddingTop: 12, paddingRight: 16 },
   chipsSpacer: { height: 4 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 12, justifyContent: "flex-start" },
+  addBtn: { paddingHorizontal: 16 },
   closetCard: { backgroundColor: theme.colors.surface, borderRadius: theme.borderRadius.md, overflow: "hidden", borderWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.border },
   cardImageWrap: { width: "100%", aspectRatio: 0.85, backgroundColor: theme.colors.surfaceAlt, position: "relative" },
   closetImage: { width: "100%", height: "100%" },
