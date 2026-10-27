@@ -25,7 +25,7 @@ export function Button({ title, loading, style, ...props }: ButtonProps) {
       {...props}
     >
       {loading ? (
-        <ActivityIndicator color={theme.colors.onPrimary} />
+        <ActivityIndicator color={theme.colors.onBrand} />
       ) : (
         <Text style={styles.text}>{title}</Text>
       )}
@@ -35,7 +35,7 @@ export function Button({ title, loading, style, ...props }: ButtonProps) {
 
 const useStyles = makeStyles((theme) => ({
   button: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.brand,
     paddingVertical: 18,
     borderRadius: theme.borderRadius.md,
     alignItems: "center",
@@ -45,7 +45,7 @@ const useStyles = makeStyles((theme) => ({
     opacity: 0.5,
   },
   text: {
-    color: theme.colors.onPrimary,
+    color: theme.colors.onBrand,
     fontSize: 16,
     fontWeight: "700",
     letterSpacing: 0.5,
