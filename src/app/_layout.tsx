@@ -158,8 +158,8 @@ function RootLayoutInner() {
 
   return (
     <SafeAreaProvider>
-      {/* "auto" makes the status bar icons invert with the active palette. */}
-      <StatusBar style="auto" />
+      {/* Follow the app's own Appearance setting, not just the OS one. */}
+      <StatusBar style={scheme === "dark" ? "light" : "dark"} />
       <Stack
         screenOptions={{
           headerShown: false,
