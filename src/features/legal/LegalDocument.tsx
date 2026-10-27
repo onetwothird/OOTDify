@@ -173,7 +173,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   title: {
     fontSize: 22,
     lineHeight: 27,
-    fontWeight: "800",
+    fontWeight: "700",
     letterSpacing: -0.5,
     textAlign: "center",
     color: theme.colors.text,
@@ -199,11 +199,11 @@ const useStyles = makeStyles((theme: Theme) => ({
     width: NUMBER_COL,
     fontSize: 15,
     lineHeight: 20,
-    fontWeight: "800",
+    fontWeight: "700",
     color: theme.colors.textMuted,
   },
   clauseBody: { flex: 1, minWidth: 0, gap: 6 },
-  h: { fontSize: 15, lineHeight: 20, fontWeight: "800", color: theme.colors.text },
+  h: { fontSize: 15, lineHeight: 20, fontWeight: "700", color: theme.colors.text },
   p: { fontSize: 13.5, lineHeight: 21, color: theme.colors.text },
   reviewFlag: {
     marginTop: 16,
