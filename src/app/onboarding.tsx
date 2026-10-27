@@ -28,7 +28,10 @@ import { clearOnboardingPending } from "../features/profile/onboarding";
 import { AppButton } from "../shared/components/AppButton";
 import { ErrorState } from "../shared/components/StateViews";
 import { LoadingState } from "../shared/components/LoadingState";
-import { theme } from "../shared/config/theme";
+import { useAppTheme } from "../shared/theme/ThemeProvider";
+import { makeStyles } from "../shared/theme/makeStyles";
+import type { Theme } from "../shared/config/theme";
+import { useT } from "../shared/i18n/useT";
 import { toast } from "../shared/lib/toast";
 import { getProfile, updateProfile } from "../services/aiApi";
 
@@ -47,6 +50,9 @@ function toggle(set: Set<string>, key: string): Set<string> {
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const theme = useAppTheme();
+  const styles = useStyles();
+  const { t } = useT();
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -62,11 +68,11 @@ export default function OnboardingScreen() {
       const { profile } = await getProfile();
       setNickname(profile.display_name ?? profile.first_name ?? "");
     } catch (e) {
-      setLoadError(e instanceof Error ? e.message : "Could not load your profile.");
+      setLoadError(e instanceof Error ? e.message : t("onboarding.error.load"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   // Load initial profile data — inline async in effect to avoid setState-in-effect lint error.
   useEffect(() => {
@@ -80,7 +86,7 @@ export default function OnboardingScreen() {
         setNickname(profile.display_name ?? profile.first_name ?? "");
       } catch (e) {
         if (cancelled) return;
-        setLoadError(e instanceof Error ? e.message : "Could not load your profile.");
+        setLoadError(e instanceof Error ? e.message : t("onboarding.error.load"));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -88,7 +94,7 @@ export default function OnboardingScreen() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [t]);
 
   // Leave the screen either way: the flag clears so this never loops, and the
   // user lands back home where the app actually lives.
@@ -110,17 +116,17 @@ export default function OnboardingScreen() {
         preferred_colors: Array.from(colorsSel),
         preferred_occasions: Array.from(occasionsSel),
       });
-      toast.success("All set", "Your picks now shape what OOTDify suggests.");
+      toast.success(t("onboarding.toast.saved.title"), t("onboarding.toast.saved.message"));
       await finish(() => router.replace("/(tabs)/home"));
     } catch (e) {
       toast.error(
-        "Couldn't save yet",
-        `${e instanceof Error ? e.message : "Please try again."} You can set these in Profile anytime.`,
+        t("onboarding.toast.save_error.title"),
+        `${e instanceof Error ? e.message : t("auth.common.try_again")}${t("onboarding.toast.save_error.hint")}`,
       );
     } finally {
       setSaving(false);
     }
-  }, [nickname, stylesSel, colorsSel, occasionsSel, finish, router]);
+  }, [nickname, stylesSel, colorsSel, occasionsSel, finish, router, t]);
 
   const skip = useCallback(() => {
     void finish(() => router.replace("/(tabs)/home"));
@@ -144,27 +150,26 @@ export default function OnboardingScreen() {
             <View style={styles.headBadge}>
               <Ionicons name="sparkles" size={18} color={theme.colors.onPrimary} />
             </View>
-            <Text style={styles.headTitle}>Make it yours</Text>
+            <Text style={styles.headTitle}>{t("onboarding.head.title")}</Text>
             <Text style={styles.headSubtitle}>
-              Tell Fitguin a little about your taste — the first suggestions will already feel
-              like yours. This takes about ten seconds.
+              {t("onboarding.head.subtitle")}
             </Text>
           </View>
 
           {loading ? (
-            <LoadingState label="Loading your profile" />
+            <LoadingState label={t("onboarding.loading")} />
           ) : loadError ? (
             <ErrorState message={loadError} onRetry={() => void load()} />
           ) : (
             <View style={styles.card}>
               {/* Nickname — what the app calls you (home greeting, posts, chat). */}
               <View style={styles.field}>
-                <Text style={styles.fieldLabel}>WHAT SHOULD WE CALL YOU?</Text>
+                <Text style={styles.fieldLabel}>{t("onboarding.nickname.label")}</Text>
                 <TextInput
                   style={styles.input}
                   value={nickname}
                   onChangeText={setNickname}
-                  placeholder="Your nickname"
+                  placeholder={t("onboarding.nickname.placeholder")}
                   placeholderTextColor={theme.colors.textMuted}
                   maxLength={40}
                   autoCorrect={false}
@@ -173,28 +178,29 @@ export default function OnboardingScreen() {
               </View>
 
               <PrefGroup
-                label="STYLES YOU LIKE"
-                hint="Pick any that feel like you."
+                label={t("onboarding.styles.label")}
+                hint={t("onboarding.styles.hint")}
                 options={STYLES}
                 selected={stylesSel}
                 onToggle={(k) => setStylesSel((s) => toggle(s, k))}
               />
               <PrefGroup
-                label="FAVOURITE COLOURS"
+                label={t("onboarding.colors.label")}
                 options={COLORS}
                 selected={colorsSel}
                 onToggle={(k) => setColorsSel((s) => toggle(s, k))}
               />
               <PrefGroup
-                label="OCCASIONS"
-                hint="Where do you dress up for?"
+                label={t("onboarding.occasions.label")}
+                hint={t("onboarding.occasions.hint")}
                 options={OCCASIONS}
                 selected={occasionsSel}
                 onToggle={(k) => setOccasionsSel((s) => toggle(s, k))}
+                translatePrefix="occasion"
               />
 
               <AppButton
-                label="Save and continue"
+                label={t("onboarding.save")}
                 onPress={() => void save()}
                 loading={saving}
                 disabled={busy}
@@ -207,7 +213,7 @@ export default function OnboardingScreen() {
                 hitSlop={8}
                 style={({ pressed }) => [styles.skipRow, pressed && { opacity: 0.7 }]}
               >
-                <Text style={styles.skipText}>Maybe later — I&apos;ll set this up in Profile</Text>
+                <Text style={styles.skipText}>{t("onboarding.skip")}</Text>
               </Pressable>
             </View>
           )}
@@ -225,13 +231,17 @@ function PrefGroup({
   options,
   selected,
   onToggle,
+  translatePrefix,
 }: {
   label: string;
   hint?: string;
   options: readonly string[];
   selected: Set<string>;
   onToggle: (key: string) => void;
+  translatePrefix?: string;
 }) {
+  const styles = useStyles();
+  const { tl } = useT();
   return (
     <View style={styles.prefGroup}>
       <Text style={styles.prefLabel}>{label}</Text>
@@ -248,7 +258,7 @@ function PrefGroup({
               style={[styles.prefChip, active && styles.prefChipActive]}
             >
               <Text style={[styles.prefChipText, active && styles.prefChipTextActive]}>
-                {opt}
+                {translatePrefix ? tl(translatePrefix, opt) : opt}
               </Text>
             </Pressable>
           );
@@ -258,7 +268,7 @@ function PrefGroup({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme: Theme) => ({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   flex: { flex: 1 },
   content: {
@@ -349,4 +359,4 @@ const styles = StyleSheet.create({
   saveBtn: { marginTop: 2 },
   skipRow: { alignItems: "center", paddingVertical: 6 },
   skipText: { fontSize: 13, fontWeight: "600", color: theme.colors.textMuted },
-});
+}));
