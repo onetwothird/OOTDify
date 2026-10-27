@@ -17,7 +17,6 @@
 // documents are exempt from the signed-out redirect.
 import { Session } from "@supabase/supabase-js";
 import { Stack, useRouter, useSegments } from "expo-router";
-import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold } from "@expo-google-fonts/inter";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
@@ -67,13 +66,8 @@ function RootLayoutInner() {
 
   const { theme: activeTheme, scheme, ready: themeReady } = useThemeState();
 
-  const [fontsLoaded] = useFonts({
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-    Inter_700Bold,
-    Inter_800ExtraBold,
-  });
+  // Text uses the platform system font (San Francisco on iOS, Roboto on
+  // Android), so there are no font files to wait for at startup.
 
   const segments = useSegments();
   const router = useRouter();
@@ -111,8 +105,8 @@ function RootLayoutInner() {
 
   // Hide the native splash only after the first real frame can render.
   useEffect(() => {
-    if (initialized && fontsLoaded && themeReady) SplashScreen.hideAsync().catch(() => {});
-  }, [initialized, fontsLoaded, themeReady]);
+    if (initialized && themeReady) SplashScreen.hideAsync().catch(() => {});
+  }, [initialized, themeReady]);
 
   useEffect(() => {
     if (!initialized) return;
