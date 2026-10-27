@@ -36,14 +36,20 @@ import type { TranslationKey } from "../../shared/i18n/translate";
 import { toast } from "../../shared/lib/toast";
 
 
-type TabKey = "updates" | "whatsnew" | "feedback" | "trademarks";
+type TabKey = "about" | "trademarks" | "updates" | "whatsnew" | "feedback";
 
-const TABS: { key: TabKey; labelKey: TranslationKey }[] = [
+// Two groups share this route: "About" and "Updates & feedback". Settings links
+// into one group, and the screen only shows that group's tabs and title.
+const ABOUT_TABS: { key: TabKey; labelKey: TranslationKey }[] = [
+  { key: "about", labelKey: "settings.about_screen.tab.about" },
+  { key: "trademarks", labelKey: "settings.about_screen.tab.trademarks" },
+];
+const UPDATE_TABS: { key: TabKey; labelKey: TranslationKey }[] = [
   { key: "updates", labelKey: "settings.about_screen.tab.updates" },
   { key: "whatsnew", labelKey: "settings.about_screen.tab.whatsnew" },
   { key: "feedback", labelKey: "settings.about_screen.tab.feedback" },
-  { key: "trademarks", labelKey: "settings.about_screen.tab.trademarks" },
 ];
+const ALL_TABS = [...ABOUT_TABS, ...UPDATE_TABS];
 
 /** Optional support address: expo.extra.supportEmail in app.json, if set. */
 function supportEmail(): string {
@@ -89,9 +95,11 @@ export default function AboutScreen() {
   const { t } = useT();
   const params = useLocalSearchParams<{ tab?: string }>();
   const requested = typeof params.tab === "string" ? params.tab : "";
-  const active: TabKey = TABS.some((tab) => tab.key === requested)
+  const active: TabKey = ALL_TABS.some((tab) => tab.key === requested)
     ? (requested as TabKey)
-    : "updates";
+    : "about";
+  const isUpdates = UPDATE_TABS.some((tab) => tab.key === active);
+  const tabs = isUpdates ? UPDATE_TABS : ABOUT_TABS;
 
   const [checking, setChecking] = useState(false);
   const [checkResult, setCheckResult] = useState<UpdateCheckResult | null>(null);
@@ -143,7 +151,9 @@ export default function AboutScreen() {
         >
           <Ionicons name="arrow-back" size={22} color={theme.colors.text} />
         </Pressable>
-        <Text style={styles.navTitle}>{t("settings.about_screen.title")}</Text>
+        <Text style={styles.navTitle}>
+          {isUpdates ? t("settings.about_screen.updates_title") : t("settings.about_screen.title")}
+        </Text>
         <View style={{ width: 34 }} />
       </View>
 
@@ -166,7 +176,7 @@ export default function AboutScreen() {
 
         {/* ------------------------------------------- Segmented tabs */}
         <View style={styles.segment} accessibilityRole="tablist">
-          {TABS.map((tab) => {
+          {tabs.map((tab) => {
             const selected = active === tab.key;
             return (
               <Pressable
@@ -192,6 +202,13 @@ export default function AboutScreen() {
             );
           })}
         </View>
+
+        {active === "about" ? (
+          <View style={styles.card}>
+            <SectionHead icon="information-circle-outline" title="OOTDify" />
+            <Text style={styles.body}>{t("settings.about_screen.about.body")}</Text>
+          </View>
+        ) : null}
 
         {active === "updates" ? (
           <View style={styles.card}>
@@ -306,6 +323,7 @@ export default function AboutScreen() {
 }
 
 const TAB_ICONS: Record<TabKey, keyof typeof Ionicons.glyphMap> = {
+  about: "information-circle-outline",
   updates: "cloud-download-outline",
   whatsnew: "sparkles-outline",
   feedback: "chatbox-ellipses-outline",
