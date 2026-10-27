@@ -43,7 +43,7 @@ export function SectionHeader({ title, subtitle, actionLabel, onAction, right }:
           style={({ pressed }) => [styles.action, pressed && { opacity: 0.6 }]}
         >
           <Text style={styles.actionText}>{actionLabel}</Text>
-          <Ionicons name="chevron-forward" size={15} color={theme.colors.primary} />
+          <Ionicons name="chevron-forward" size={15} color={theme.colors.brand} />
         </Pressable>
       ) : null}
     </View>
@@ -77,6 +77,6 @@ const useStyles = makeStyles((theme) => ({
   actionText: {
     fontSize: 13,
     fontWeight: "600",
-    color: theme.colors.primary,
+    color: theme.colors.brand,
   },
 }));
