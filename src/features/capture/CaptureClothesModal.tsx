@@ -437,13 +437,11 @@ const useStyles = makeStyles((theme) => ({
     marginBottom: 8,
   },
   listHeadText: {
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 1,
+    fontSize: 12.5,
+    fontWeight: "600",
     color: theme.colors.textMuted,
-    textTransform: "uppercase",
   },
-  clearAll: { fontSize: 12.5, fontWeight: "700", color: theme.colors.primary },
+  clearAll: { fontSize: 12.5, fontWeight: "600", color: theme.colors.primary },
 
   itemsList: { flexShrink: 1 },
   itemsListContent: { gap: 10, paddingBottom: 4 },
@@ -474,7 +472,7 @@ const useStyles = makeStyles((theme) => ({
     alignItems: "center",
     justifyContent: "center",
   },
-  itemIndexText: { fontSize: 10.5, fontWeight: "800", color: "#FFFFFF" },
+  itemIndexText: { fontSize: 10.5, fontWeight: "700", color: "#FFFFFF" },
   removeBadge: {
     position: "absolute",
     top: -6,
@@ -489,11 +487,11 @@ const useStyles = makeStyles((theme) => ({
   itemBody: { flex: 1, minWidth: 0, justifyContent: "center" },
   itemLabel: {
     fontSize: 12.5,
-    fontWeight: "800",
+    fontWeight: "700",
     color: theme.colors.text,
     marginBottom: 8,
   },
-  itemLabelMuted: { color: theme.colors.textMuted, fontWeight: "700" },
+  itemLabelMuted: { color: theme.colors.textMuted, fontWeight: "600" },
   isoRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -503,7 +501,7 @@ const useStyles = makeStyles((theme) => ({
   isoText: { flexShrink: 1, fontSize: 11.5, color: theme.colors.textMuted },
   isoLink: {
     fontSize: 11.5,
-    fontWeight: "800",
+    fontWeight: "700",
     color: theme.colors.text,
     textDecorationLine: "underline",
   },
@@ -530,12 +528,12 @@ const useStyles = makeStyles((theme) => ({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.brand,
     borderRadius: theme.borderRadius.md,
     paddingVertical: 13,
     minHeight: 46,
   },
-  captureBtnText: { color: theme.colors.onPrimary, fontWeight: "700", fontSize: 14 },
+  captureBtnText: { color: theme.colors.onPrimary, fontWeight: "600", fontSize: 14 },
   captureBtnAlt: {
     flex: 1,
     flexDirection: "row",
@@ -549,7 +547,7 @@ const useStyles = makeStyles((theme) => ({
     paddingVertical: 13,
     minHeight: 46,
   },
-  captureBtnAltText: { color: theme.colors.text, fontWeight: "700", fontSize: 14 },
+  captureBtnAltText: { color: theme.colors.text, fontWeight: "600", fontSize: 14 },
   pressed: { opacity: 0.85 },
   doneBtn: { marginTop: 14 },
   hint: {
