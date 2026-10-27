@@ -1,24 +1,27 @@
-// C:\OOTDify\src\app\+not-found.tsx
 import { Link, Stack } from "expo-router";
-import { StyleSheet, Text, View } from "react-native";
-import { theme } from "../shared/config/theme";
+import { Text, View } from "react-native";
+import { makeStyles } from "../shared/theme/makeStyles";
+import type { Theme } from "../shared/config/theme";
+import { useT } from "../shared/i18n/useT";
 
 export default function NotFoundScreen() {
+  const styles = useStyles();
+  const { t } = useT();
   return (
     <>
-      <Stack.Screen options={{ title: "Oops!" }} />
+      <Stack.Screen options={{ title: t("notfound.stack_title") }} />
       <View style={styles.container}>
-        <Text style={styles.title}>This screen doesn&apos;t exist.</Text>
+        <Text style={styles.title}>{t("notfound.title")}</Text>
 
         <Link href="/" style={styles.link}>
-          <Text style={styles.linkText}>Go back to home screen!</Text>
+          <Text style={styles.linkText}>{t("notfound.link")}</Text>
         </Link>
       </View>
     </>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme: Theme) => ({
   container: {
     flex: 1,
     alignItems: "center",
@@ -40,4 +43,4 @@ const styles = StyleSheet.create({
     color: theme.colors.primary,
     fontWeight: "600",
   },
-});
+}));
