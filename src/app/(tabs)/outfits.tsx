@@ -18,7 +18,8 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import type { OutfitPiece } from "../../features/clothing/pieces";
+import { useCaptureModalStore } from "../../features/capture/captureModalStore";
+import { OutfitPiece, pieceHref } from "../../features/clothing/pieces";
 import { CatalogItem, OCCASIONS } from "../../features/clothing/types";
 import {
   deleteSavedOutfit,
@@ -91,6 +92,8 @@ export default function OutfitsScreen() {
   const [pool, setPool] = useState<CatalogItem[]>([]);
   const [building, setBuilding] = useState(false);
   const [buildError, setBuildError] = useState<string | null>(null);
+  const [closetTooSmall, setClosetTooSmall] = useState(false);
+  const openCapture = useCaptureModalStore((s) => s.open);
   const [outfit, setOutfit] = useState<Outfit | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -146,6 +149,7 @@ export default function OutfitsScreen() {
   const build = async () => {
     setBuilding(true);
     setBuildError(null);
+    setClosetTooSmall(false);
     setOutfit(null);
     try {
       const { recommendations } = await recommendCatalog({
@@ -161,7 +165,7 @@ export default function OutfitsScreen() {
         seed: Math.floor(Date.now() / 60000), // changes at most once a minute
       });
       if (!next) {
-        setBuildError(t("outfits.builder.error.no_items"));
+        setClosetTooSmall(true);
       } else {
         setPool(recommendations);
         setOutfit(next);
@@ -177,9 +181,7 @@ export default function OutfitsScreen() {
     if (!outfit) return;
     setSaving(true);
     try {
-      const clothingIds = outfit.items
-        .filter((e) => e.source === "catalog")
-        .map((e) => e.id);
+      const clothingIds = outfit.items.map((e) => e.id);
       if (!clothingIds.length) {
         toast.info(t("outfits.toast.nothing_to_save.title"), t("outfits.toast.nothing_to_save.message"));
         setSaving(false);
@@ -440,6 +442,14 @@ export default function OutfitsScreen() {
               style={building ? styles.btnDisabled : undefined}
             />
             {buildError ? <Text style={styles.errorText}>{buildError}</Text> : null}
+            {closetTooSmall ? (
+              <View style={styles.closetHint}>
+                <Text style={styles.closetHintText}>{t("outfits.builder.error.no_items")}</Text>
+                <Pressable accessibilityRole="button" style={styles.closetHintBtn} onPress={openCapture}>
+                  <Text style={styles.closetHintBtnText}>{t("home.action.capture")}</Text>
+                </Pressable>
+              </View>
+            ) : null}
 
             {outfit ? (
               <View style={styles.outfitPreview}>
@@ -460,9 +470,7 @@ export default function OutfitsScreen() {
                       width={150}
                       onPress={() =>
                         router.push(
-                          entry.source === "catalog"
-                            ? `/catalog/${entry.id}`
-                            : "/(tabs)/discover",
+                          pieceHref({ id: entry.id, source: entry.source === "catalog" ? "catalog" : "closet" }),
                         )
                       }
                     />
@@ -694,6 +702,15 @@ const useStyles = makeStyles((theme: Theme) => ({
   builder: { gap: 12 },
   btnDisabled: { opacity: 0.4 },
   errorText: { color: theme.colors.warning, fontSize: 12.5 },
+  closetHint: { gap: 8, alignItems: "flex-start", marginTop: 8 },
+  closetHintText: { fontSize: 13, color: theme.colors.textMuted, lineHeight: 19 },
+  closetHintBtn: {
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.borderRadius.pill,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  closetHintBtnText: { color: theme.colors.onPrimary, fontWeight: "700", fontSize: 13 },
   outfitPreview: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.lg,
