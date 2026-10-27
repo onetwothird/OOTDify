@@ -131,7 +131,7 @@ function LinkRow({
       onPress={onPress}
       style={({ pressed }) => [styles.linkRow, pressed && { opacity: 0.85 }]}
     >
-      <Ionicons name={icon} size={20} color={theme.colors.primary} />
+      <Ionicons name={icon} size={20} color={theme.colors.brand} />
       <View style={styles.linkBody}>
         <Text style={styles.linkLabel}>{label}</Text>
         {hint ? <Text style={styles.linkHint}>{hint}</Text> : null}
@@ -163,7 +163,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   serviceBody: { flex: 1, minWidth: 0 },
   serviceTitle: { fontSize: 14, fontWeight: "700", color: theme.colors.text },
   serviceText: { fontSize: 12, color: theme.colors.textMuted, lineHeight: 17, marginTop: 2 },
-  serviceRetry: { fontSize: 12.5, fontWeight: "700", color: theme.colors.primary },
+  serviceRetry: { fontSize: 12.5, fontWeight: "700", color: theme.colors.brand },
   signOut: {
     flexDirection: "row",
     alignItems: "center",
