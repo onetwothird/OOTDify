@@ -138,7 +138,7 @@ export default function CatalogDetailScreen() {
             <MetaList title={t("catalog.meta.occasions")} values={item.occasion} translatePrefix="occasion" />
 
             <Pressable accessibilityRole="button" style={styles.tryonBtn} onPress={tryItOn}>
-              <Ionicons name="sparkles-outline" size={18} color="#FFF" />
+              <Ionicons name="sparkles-outline" size={18} color={theme.colors.onPrimary} />
               <Text style={styles.tryonBtnText}>{t("catalog.action.try_on")}</Text>
             </Pressable>
             <Text style={styles.tryonHint}>
