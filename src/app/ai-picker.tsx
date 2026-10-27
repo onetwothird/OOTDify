@@ -22,8 +22,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { insertSavedOutfit } from "../features/clothing/service";
 import { OCCASIONS } from "../features/clothing/types";
-import { AppButton } from "../shared/components/AppButton";
 import { Chip } from "../shared/components/Chip";
+import { Mascot } from "../shared/components/Mascot";
 import { ClothingCard } from "../shared/components/ClothingCard";
 import { EmptyState, ErrorState } from "../shared/components/StateViews";
 import { SectionHeader } from "../shared/components/SectionHeader";
@@ -44,10 +44,10 @@ import {
 } from "../services/aiApi";
 
 const CONDITIONS = [
-  { label: "Sunny", key: "sunny", tempC: 28 },
-  { label: "Mild", key: "mild", tempC: 18 },
-  { label: "Rainy", key: "rainy", tempC: 12 },
-  { label: "Cold", key: "cold", tempC: 4 },
+  { label: "Sunny", key: "sunny", tempC: 28, icon: "sunny-outline" },
+  { label: "Mild", key: "mild", tempC: 18, icon: "partly-sunny-outline" },
+  { label: "Rainy", key: "rainy", tempC: 12, icon: "rainy-outline" },
+  { label: "Cold", key: "cold", tempC: 4, icon: "snow-outline" },
 ] as const;
 
 type Condition = (typeof CONDITIONS)[number];
@@ -189,16 +189,41 @@ export default function AiPickerScreen() {
           >
             <Ionicons name="arrow-back" size={20} color={theme.colors.text} />
           </Pressable>
-          <View style={styles.headerBlock}>
-            <Text style={styles.headerTitle}>{t("ai_picker.title")}</Text>
-            <Text style={styles.headerSubtitle}>
-              {t("ai_picker.subtitle")}
-            </Text>
+          <Text style={styles.headerTitle} accessibilityRole="header">
+            {t("ai_picker.title")}
+          </Text>
+        </View>
+
+        {/* -------------------------------- Hero: Penggi and the one main action */}
+        <View style={styles.hero}>
+          <View style={styles.heroText}>
+            <Text style={styles.heroName}>{t("home.hero.badge")}</Text>
+            <Text style={styles.heroTitle}>{t("ai_picker.hero_title")}</Text>
+            <Text style={styles.heroSubtitle}>{t("ai_picker.subtitle")}</Text>
+            <Pressable
+              accessibilityRole="button"
+              disabled={loading}
+              onPress={() => void generate(Math.floor(Math.random() * 1_000_000))}
+              style={({ pressed }) => [styles.heroBtn, (pressed || loading) && styles.dim]}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color={theme.colors.feature} />
+              ) : (
+                <Ionicons name="sparkles" size={16} color={theme.colors.feature} />
+              )}
+              <Text style={styles.heroBtnText}>
+                {loading ? t("outfits.builder.composing") : t("ai_picker.recompose")}
+              </Text>
+            </Pressable>
+          </View>
+          <View style={styles.heroMascot} accessibilityElementsHidden importantForAccessibility="no">
+            <Mascot size={92} />
           </View>
         </View>
 
         {/* -------------------------------- Controls */}
-        <Text style={styles.sectionLabel}>{t("outfits.builder.occasion")}</Text>
+        <View style={styles.controls}>
+        <ControlLabel icon="pricetag-outline" label={t("outfits.builder.occasion")} />
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -214,7 +239,7 @@ export default function AiPickerScreen() {
           ))}
         </ScrollView>
 
-        <Text style={styles.sectionLabel}>{t("ai_picker.weather_label")}</Text>
+        <ControlLabel icon="thermometer-outline" label={t("ai_picker.weather_label")} />
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -224,14 +249,17 @@ export default function AiPickerScreen() {
             <Chip
               key={c.label}
               label={t(`condition.${c.key}` as TranslationKey)}
+              icon={c.icon}
               active={c.label === condition.label}
               onPress={() => setCondition(c)}
             />
           ))}
         </ScrollView>
-        <Text style={styles.conditionHint}>{t(`condition.hint.${condition.key}` as TranslationKey)}</Text>
+        <Text style={styles.conditionHint}>
+          {t("ai_picker.temp", { temp: condition.tempC })}: {t(`condition.hint.${condition.key}` as TranslationKey)}
+        </Text>
 
-        <Text style={styles.sectionLabel}>{t("ai_picker.style_for_label")}</Text>
+        <ControlLabel icon="person-outline" label={t("ai_picker.style_for_label")} />
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -252,15 +280,6 @@ export default function AiPickerScreen() {
             />
           ))}
         </ScrollView>
-
-        <View style={styles.actionRow}>
-          <AppButton
-            label={loading ? t("outfits.builder.composing") : t("ai_picker.recompose")}
-            icon="sparkles-outline"
-            loading={loading}
-            onPress={() => void generate(Math.floor(Math.random() * 1_000_000))}
-            style={styles.flex}
-          />
         </View>
 
         {/* -------------------------------- Results */}
@@ -302,9 +321,10 @@ export default function AiPickerScreen() {
           />
         ) : (
           <View style={styles.lookList}>
-            {outfits.map((outfit) => (
+            {outfits.map((outfit, index) => (
               <LookCard
                 key={outfit.id}
+                number={index + 1}
                 outfit={outfit}
                 saving={savingId === outfit.id}
                 onSave={() => void saveLook(outfit)}
@@ -322,12 +342,25 @@ export default function AiPickerScreen() {
   );
 }
 
+function ControlLabel({ icon, label }: { icon: keyof typeof Ionicons.glyphMap; label: string }) {
+  const theme = useAppTheme();
+  const styles = useStyles();
+  return (
+    <View style={styles.controlLabelRow}>
+      <Ionicons name={icon} size={15} color={theme.colors.brand} />
+      <Text style={styles.controlLabel}>{label}</Text>
+    </View>
+  );
+}
+
 function LookCard({
+  number,
   outfit,
   saving,
   onSave,
   onOpenItem,
 }: {
+  number: number;
   outfit: ComposedOutfit;
   saving: boolean;
   onSave: () => void;
@@ -336,10 +369,15 @@ function LookCard({
   const theme = useAppTheme();
   const styles = useStyles();
   const { t, tl } = useT();
+  const score = Math.max(0, Math.min(100, outfit.score));
   return (
     <View style={styles.lookCard}>
       <View style={styles.lookTopRow}>
+        <View style={styles.lookNumber}>
+          <Text style={styles.lookNumberText}>{number}</Text>
+        </View>
         <View style={styles.lookTitleBlock}>
+          <Text style={styles.lookEyebrow}>{t("ai_picker.look_number", { n: number })}</Text>
           <Text style={styles.lookTitle} numberOfLines={1}>
             {t("ai_picker.look_title", {
               occasion: outfit.occasion ? tl("occasion", outfit.occasion) : t("outfits.builder.preview.default_occasion"),
@@ -351,9 +389,17 @@ function LookCard({
           </Text>
         </View>
         <View style={styles.scoreBadge}>
-          <Text style={styles.scoreValue}>{outfit.score}</Text>
-          <Text style={styles.scoreMax}>/100</Text>
+          <Text style={styles.scoreValue}>{score}</Text>
+          <Text style={styles.scoreMax}>{t("ai_picker.match")}</Text>
         </View>
+      </View>
+      {/* How well the pieces work together, as a bar under the title. */}
+      <View
+        style={styles.meter}
+        accessibilityRole="progressbar"
+        accessibilityValue={{ min: 0, max: 100, now: score }}
+      >
+        <View style={[styles.meterFill, { width: `${score}%` }]} />
       </View>
 
       <ScrollView
@@ -423,37 +469,70 @@ const useStyles = makeStyles((theme: Theme) => ({
     alignItems: "center",
     justifyContent: "center",
   },
-  headerBlock: { flex: 1, minWidth: 0 },
   headerTitle: {
+    flex: 1,
     fontSize: 22,
     fontWeight: "700",
     color: theme.colors.text,
     letterSpacing: -0.3,
   },
-  headerSubtitle: {
-    fontSize: 13,
-    color: theme.colors.textMuted,
-    marginTop: 2,
-    lineHeight: 18,
-  },
 
-  sectionLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 1,
-    color: theme.colors.textMuted,
-    marginTop: 16,
-    marginBottom: 8,
+  // Dark denim card: Penggi on the right, the compose action on the left.
+  hero: {
+    marginTop: theme.spacing.sm,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    borderRadius: theme.borderRadius.lg,
+    backgroundColor: theme.colors.feature,
+    paddingVertical: 18,
+    paddingLeft: 18,
+    paddingRight: 8,
+    overflow: "hidden",
   },
+  heroText: { flex: 1, minWidth: 0 },
+  heroName: { fontSize: 12.5, fontWeight: "600", color: theme.colors.onFeatureMuted },
+  heroTitle: {
+    fontSize: 20,
+    lineHeight: 25,
+    fontWeight: "700",
+    letterSpacing: -0.3,
+    color: theme.colors.onFeature,
+    marginTop: 2,
+  },
+  heroSubtitle: { fontSize: 13, lineHeight: 18, color: theme.colors.onFeatureMuted, marginTop: 4 },
+  heroBtn: {
+    alignSelf: "flex-start",
+    marginTop: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    minHeight: 42,
+    paddingHorizontal: 18,
+    borderRadius: theme.borderRadius.pill,
+    backgroundColor: theme.colors.onFeature,
+  },
+  heroBtnText: { fontSize: 14, fontWeight: "600", color: theme.colors.feature },
+  heroMascot: { marginLeft: 4, marginBottom: -6 },
+  dim: { opacity: 0.7 },
+
+  controls: {
+    marginTop: 14,
+    marginBottom: 6,
+    padding: 14,
+    paddingTop: 2,
+    borderRadius: theme.borderRadius.lg,
+    backgroundColor: theme.colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+  },
+  controlLabelRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 14, marginBottom: 8 },
+  controlLabel: { fontSize: 13, fontWeight: "600", color: theme.colors.text },
   chips: { gap: 8, paddingRight: 16 },
   conditionHint: {
     fontSize: 12,
     color: theme.colors.textMuted,
-    marginTop: 6,
+    marginTop: 8,
   },
-
-  actionRow: { flexDirection: "row", marginTop: 20 },
-  flex: { flex: 1 },
 
   lookList: { gap: 16 },
   lookCard: {
@@ -465,19 +544,29 @@ const useStyles = makeStyles((theme: Theme) => ({
     gap: 12,
   },
   lookTopRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  lookNumber: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.primary,
+  },
+  lookNumberText: { fontSize: 15, fontWeight: "700", color: theme.colors.onPrimary },
   lookTitleBlock: { flex: 1, minWidth: 0 },
+  lookEyebrow: { fontSize: 12, fontWeight: "600", color: theme.colors.brand, marginBottom: 1 },
   lookTitle: { fontSize: 15, fontWeight: "700", color: theme.colors.text },
   lookReason: { fontSize: 12.5, color: theme.colors.textMuted, marginTop: 3, lineHeight: 18 },
-  scoreBadge: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    backgroundColor: theme.colors.primaryMuted,
-    borderRadius: theme.borderRadius.sm,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  scoreValue: { fontSize: 18, fontWeight: "700", color: theme.colors.brand },
+  scoreBadge: { alignItems: "flex-end" },
+  scoreValue: { fontSize: 22, lineHeight: 26, fontWeight: "700", letterSpacing: -0.5, color: theme.colors.brand },
   scoreMax: { fontSize: 11, fontWeight: "600", color: theme.colors.textMuted },
+  meter: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: theme.colors.surfaceAlt,
+    overflow: "hidden",
+  },
+  meterFill: { height: 6, borderRadius: 3, backgroundColor: theme.colors.brand },
 
   lookItems: { gap: 10, paddingRight: 8 },
 

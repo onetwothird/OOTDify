@@ -1,12 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs, usePathname, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Alert, Animated, BackHandler, Easing, Platform, View } from "react-native";
+import { Animated, BackHandler, Easing, Platform, View } from "react-native";
 import CaptureClothesModal from "../../features/capture/CaptureClothesModal";
+import { LogOutSheet } from "../../features/profile/LogOutSheet";
 import { CreateMenu } from "../../features/capture/CreateMenu";
 import { useAvatarStore } from "../../features/profile/avatarStore";
 import { ProfileAvatar } from "../../features/profile/ProfileAvatar";
-import { withAuthRedirectHeld } from "../../shared/lib/authRedirectHold";
 import { supabase } from "../../shared/lib/supabase";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import { makeStyles } from "../../shared/theme/makeStyles";
@@ -57,31 +57,18 @@ export default function TabLayout() {
   // `router.canGoBack()` can't decide this: the boot route below the tabs
   // makes it true even on Home.
   const pathname = usePathname();
+  const [logOutOpen, setLogOutOpen] = useState(false);
   useEffect(() => {
     setChromeHidden(false);
   }, [pathname, setChromeHidden]);
   useEffect(() => {
     if (pathname !== "/home") return;
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
-      Alert.alert(t("auth.exit.title"), t("auth.exit.message"), [
-        { text: t("auth.exit.stay"), style: "cancel" },
-        {
-          text: t("auth.exit.confirm"),
-          style: "destructive",
-          onPress: () => {
-            // Straight to sign-in; the hold keeps the root gate from also
-            // pushing the landing page on the signed-out session.
-            void withAuthRedirectHeld(async () => {
-              await supabase.auth.signOut();
-              router.replace("/login");
-            });
-          },
-        },
-      ]);
+      setLogOutOpen(true);
       return true;
     });
     return () => sub.remove();
-  }, [pathname, router, t]);
+  }, [pathname]);
   // Same colors as tabBarActive/InactiveTintColor below. Derived here because
   // SDK 58 types the tab bar's `color` as ColorValue (string | number | null),
   // which Ionicons' `color` prop does not accept.
@@ -177,6 +164,7 @@ export default function TabLayout() {
       ) : null}
 
       {/* Capture modal is mounted once here so any tab can open it. */}
+      <LogOutSheet visible={logOutOpen} onClose={() => setLogOutOpen(false)} />
       <CaptureClothesModal />
     </>
   );

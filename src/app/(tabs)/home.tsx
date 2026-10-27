@@ -23,6 +23,7 @@ import { CatalogItem, OCCASIONS } from "../../features/clothing/types";
 import { TodayLookCard } from "../../features/outfit/components/TodayLookCard";
 import { fetchOutfitPlans, OutfitPlan, toISODate } from "../../features/outfit/planner";
 import { ProfileAvatar } from "../../features/profile/ProfileAvatar";
+import { LogOutSheet } from "../../features/profile/LogOutSheet";
 import { ProfilePhotoSheet } from "../../features/profile/ProfilePhotoSheet";
 import { useAvatarStore } from "../../features/profile/avatarStore";
 import { applyPendingAvatar } from "../../features/profile/avatar";
@@ -81,6 +82,7 @@ export default function HomeScreen() {
   const setAvatarRef = useAvatarStore((s) => s.setRef);
   const [greetingLoading, setGreetingLoading] = useState(true);
   const [photoSheetOpen, setPhotoSheetOpen] = useState(false);
+  const [logOutOpen, setLogOutOpen] = useState(false);
   const onboardingChecked = useRef(false);
 
   const fetchRecommendations = useCallback(async (occ: string) => {
@@ -351,7 +353,9 @@ export default function HomeScreen() {
         avatarRef={avatarRef}
         onChanged={setAvatarRef}
         onClose={() => setPhotoSheetOpen(false)}
+        onSignOut={() => setLogOutOpen(true)}
       />
+      <LogOutSheet visible={logOutOpen} onClose={() => setLogOutOpen(false)} />
     </View>
   );
 }
@@ -389,6 +393,12 @@ function HomeTopBar({
 
   const greeting = greetingFor(now.getHours(), t);
   const initial = (nickname?.[0] ?? "").toUpperCase();
+  // One line at every width: the size steps with the screen, and anything
+  // still too long shrinks a little instead of wrapping. Only the first word of
+  // an older, longer display name is used.
+  const { width } = useWindowDimensions();
+  const greetingSize = width < 360 ? 21 : width >= 430 ? 25 : 23;
+  const shortName = nickname?.trim().split(/\s+/)[0] ?? null;
   const place = useCurrentPlace();
   const [enter] = useState(() => new Animated.Value(0));
 
@@ -425,8 +435,14 @@ function HomeTopBar({
         </View>
 
         <View style={styles.greetingBody}>
-          <Text style={styles.greetingTitle} numberOfLines={2} accessibilityRole="header">
-            {nickname ? `${greeting}, ${nickname}` : loading ? "…" : greeting}
+          <Text
+            style={[styles.greetingTitle, { fontSize: greetingSize, lineHeight: Math.round(greetingSize * 1.22) }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
+            accessibilityRole="header"
+          >
+            {shortName ? `${greeting}, ${shortName}` : loading ? "…" : greeting}
           </Text>
           <Pressable
             onPress={place.status === "blocked" ? place.request : undefined}
@@ -449,13 +465,10 @@ function HomeTopBar({
           </Pressable>
         </View>
 
-        <ProfileAvatar
-          size={46}
-          initial={initial}
-          avatarRef={avatarRef}
-          onPress={onOpenProfile}
-          ring={theme.colors.background}
-        />
+        {/* A denim ring with a thin gap, so the photo reads as yours and tappable. */}
+        <View style={styles.avatarRing}>
+          <ProfileAvatar size={42} initial={initial} avatarRef={avatarRef} onPress={onOpenProfile} />
+        </View>
       </View>
     </Animated.View>
   );
@@ -704,7 +717,19 @@ const useStyles = makeStyles((theme: Theme) => ({
   dateDay: { fontSize: 24, lineHeight: 26, fontWeight: "700", letterSpacing: -0.8, color: theme.colors.onPrimary },
   dateMonth: { fontSize: 12, lineHeight: 14, fontWeight: "600", color: theme.colors.onPrimaryMuted },
   greetingBody: { flex: 1, minWidth: 0 },
-  greetingTitle: { fontSize: 23, lineHeight: 28, fontWeight: "700", letterSpacing: -0.6, color: theme.colors.text },
+  greetingTitle: { fontWeight: "700", letterSpacing: -0.5, color: theme.colors.text },
+  avatarRing: {
+    padding: 2,
+    borderRadius: 26,
+    borderWidth: 2,
+    borderColor: theme.colors.brand,
+    backgroundColor: theme.colors.background,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 3,
+  },
   greetingPlaceRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
   greetingPlace: { flex: 1, minWidth: 0, fontSize: 13, lineHeight: 17, fontWeight: "600", color: theme.colors.textMuted },
 

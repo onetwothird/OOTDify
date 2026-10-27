@@ -9,8 +9,8 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 
 import { checkBackendHealth } from "../../services/aiApi";
 import type { HealthResult } from "../../services/aiApi";
+import { LogOutSheet } from "../profile/LogOutSheet";
 import { useT } from "../../shared/i18n/useT";
-import { supabase } from "../../shared/lib/supabase";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import type { Theme } from "../../shared/config/theme";
@@ -21,6 +21,7 @@ export function AccountSection() {
   const theme = useAppTheme();
   const { t } = useT();
 
+  const [logOutOpen, setLogOutOpen] = useState(false);
   const [health, setHealth] = useState<HealthResult | null>(null);
   const [checking, setChecking] = useState(true);
   // Core probe — effect-safe (no synchronous setState); state starts as checking.
@@ -103,11 +104,12 @@ export function AccountSection() {
       <Pressable
         accessibilityRole="button"
         style={({ pressed }) => [styles.signOut, pressed && { opacity: 0.7 }]}
-        onPress={() => void supabase.auth.signOut()}
+        onPress={() => setLogOutOpen(true)}
       >
         <Ionicons name="log-out-outline" size={18} color={theme.colors.danger} />
         <Text style={styles.signOutText}>{t("profile.sign_out")}</Text>
       </Pressable>
+      <LogOutSheet visible={logOutOpen} onClose={() => setLogOutOpen(false)} />
     </View>
   );
 }

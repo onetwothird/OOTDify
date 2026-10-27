@@ -9,7 +9,6 @@ import { Pressable, Text, View } from "react-native";
 
 import { AppButton } from "../../shared/components/AppButton";
 import { Sheet } from "../../shared/components/Sheet";
-import { supabase } from "../../shared/lib/supabase";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import { useT } from "../../shared/i18n/useT";
@@ -22,12 +21,15 @@ export function ProfilePhotoSheet({
   avatarRef,
   onChanged,
   onClose,
+  onSignOut,
 }: {
   visible: boolean;
   initial: string;
   avatarRef: string | null;
   onChanged: (ref: string) => void;
   onClose: () => void;
+  /** Opens the log-out confirmation (this sheet closes first). */
+  onSignOut: () => void;
 }) {
   const styles = useStyles();
   const theme = useAppTheme();
@@ -95,8 +97,7 @@ export function ProfilePhotoSheet({
         disabled={busy !== null}
         onPress={() => {
           onClose();
-          // The root layout sends signed-out users to the auth screens.
-          void supabase.auth.signOut();
+          onSignOut();
         }}
         style={({ pressed }) => [styles.signOut, pressed && { opacity: 0.7 }]}
       >
