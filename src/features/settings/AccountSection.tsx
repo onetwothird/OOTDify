@@ -49,7 +49,7 @@ export function AccountSection() {
       <View style={styles.card}>
         {checking ? (
           <View style={styles.serviceRow}>
-            <ActivityIndicator size="small" color={theme.colors.primary} />
+            <ActivityIndicator size="small" color={theme.colors.brand} />
             <Text style={styles.serviceText}>{t("profile.ai_service.checking")}</Text>
           </View>
         ) : (

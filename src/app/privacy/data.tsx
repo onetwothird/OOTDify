@@ -280,7 +280,7 @@ function Row({
         {hint ? <Text style={styles.rowHint}>{hint}</Text> : null}
       </View>
       {busy ? (
-        <ActivityIndicator size="small" color={theme.colors.primary} />
+        <ActivityIndicator size="small" color={theme.colors.brand} />
       ) : (
         <Ionicons name="chevron-forward" size={18} color={theme.colors.textMuted} />
       )}

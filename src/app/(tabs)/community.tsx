@@ -358,7 +358,7 @@ export default function CommunityScreen() {
 
       {tab === "feed" ? (
         posts === null && !feedError ? (
-          <ActivityIndicator color={theme.colors.primary} style={styles.centered} />
+          <ActivityIndicator color={theme.colors.brand} style={styles.centered} />
         ) : feedError ? (
           <ErrorState message={feedError} onRetry={() => void loadFeed()} />
         ) : (
@@ -389,7 +389,7 @@ export default function CommunityScreen() {
           />
         )
       ) : conversations === null && !chatsError ? (
-        <ActivityIndicator color={theme.colors.primary} style={styles.centered} />
+        <ActivityIndicator color={theme.colors.brand} style={styles.centered} />
       ) : chatsError ? (
         <ErrorState message={chatsError} onRetry={() => void loadChats()} />
       ) : (
@@ -423,7 +423,7 @@ export default function CommunityScreen() {
                   <Text style={styles.roomHint}>{t("community.chat.open_community.hint")}</Text>
                 </View>
                 {openingRoom ? (
-                  <ActivityIndicator size="small" color={theme.colors.primary} />
+                  <ActivityIndicator size="small" color={theme.colors.brand} />
                 ) : (
                   <Text style={styles.roomOpen}>{t("community.chat.open")}</Text>
                 )}
@@ -448,7 +448,7 @@ export default function CommunityScreen() {
                 {/* Rows are their own group so the section heading hugs them. */}
                 <View style={styles.rowGroup}>
                   {rooms === null ? (
-                    <ActivityIndicator color={theme.colors.primary} style={styles.roomsLoading} />
+                    <ActivityIndicator color={theme.colors.brand} style={styles.roomsLoading} />
                   ) : rooms.length === 0 ? (
                     <Text style={styles.roomsEmpty}>
                       {t("community.chat.empty_communities")}
@@ -480,7 +480,7 @@ export default function CommunityScreen() {
                             </Text>
                           </View>
                           {busy ? (
-                            <ActivityIndicator size="small" color={theme.colors.primary} />
+                            <ActivityIndicator size="small" color={theme.colors.brand} />
                           ) : (
                             <Text style={styles.roomOpen}>
                               {room.joined ? t("community.chat.open") : t("community.chat.join")}
@@ -620,7 +620,7 @@ const useStyles = makeStyles((theme) => ({
   roomBody: { flex: 1, minWidth: 0 },
   roomTitle: { fontSize: 14.5, fontWeight: "800", color: theme.colors.text },
   roomHint: { fontSize: 11.5, color: theme.colors.textMuted, marginTop: 2 },
-  roomOpen: { fontSize: 13, fontWeight: "800", color: theme.colors.primary },
+  roomOpen: { fontSize: 13, fontWeight: "800", color: theme.colors.brand },
 
   chatSections: { gap: theme.spacing.lg },
   section: { gap: theme.spacing.sm },

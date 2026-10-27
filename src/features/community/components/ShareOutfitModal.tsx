@@ -212,7 +212,7 @@ export function ShareOutfitModal({
 
       <Text style={styles.groupLabel}>{t("community.share_modal.choose_label")}</Text>
       {outfits === null && !loadError ? (
-        <ActivityIndicator color={theme.colors.primary} style={{ marginVertical: 12 }} />
+        <ActivityIndicator color={theme.colors.brand} style={{ marginVertical: 12 }} />
       ) : loadError ? (
         <Pressable accessibilityRole="button" onPress={() => void load()} style={styles.noteRow}>
           <Ionicons name="alert-circle-outline" size={16} color={theme.colors.danger} />

@@ -61,21 +61,21 @@ export function AppButton({
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={isPrimary ? theme.colors.onPrimary : theme.colors.text} />
+        <ActivityIndicator color={isPrimary ? theme.colors.onBrand : theme.colors.text} />
       ) : (
         <>
           {icon ? (
             <Ionicons
               name={icon}
               size={lg ? 19 : 17}
-              color={isPrimary ? theme.colors.onPrimary : theme.colors.text}
+              color={isPrimary ? theme.colors.onBrand : theme.colors.text}
             />
           ) : null}
           <Text
             style={[
               styles.label,
               lg ? styles.labelLg : styles.labelMd,
-              isPrimary && { color: theme.colors.onPrimary },
+              isPrimary && { color: theme.colors.onBrand },
               (isSecondary || variant === "ghost") && { color: theme.colors.text },
             ]}
           >
@@ -97,7 +97,7 @@ const useStyles = makeStyles((theme) => ({
   },
   lg: { paddingVertical: 16, borderRadius: theme.borderRadius.md, minHeight: 54 },
   md: { paddingVertical: 12, borderRadius: theme.borderRadius.md, minHeight: 46 },
-  primary: { backgroundColor: theme.colors.primary },
+  primary: { backgroundColor: theme.colors.brand },
   secondary: {
     backgroundColor: theme.colors.surface,
     borderWidth: StyleSheet.hairlineWidth,

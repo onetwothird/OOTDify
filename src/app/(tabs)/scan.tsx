@@ -451,7 +451,7 @@ export default function ScanScreen() {
   if (!consentLoaded) {
     return (
       <View style={[styles.screen, styles.center, { paddingTop: insets.top }]}>
-        <ActivityIndicator color={theme.colors.primary} size="large" />
+        <ActivityIndicator color={theme.colors.brand} size="large" />
       </View>
     );
   }
@@ -665,7 +665,7 @@ export default function ScanScreen() {
         ) : null}
 
         {photosLoading ? (
-          <ActivityIndicator style={styles.inlineSpin} color={theme.colors.primary} />
+          <ActivityIndicator style={styles.inlineSpin} color={theme.colors.brand} />
         ) : photosError ? (
           <ErrorState message={photosError} onRetry={refreshBodyPhotos} />
         ) : bodyPhotos.length === 0 ? (
@@ -840,7 +840,7 @@ export default function ScanScreen() {
         {/* ------------------------- Jobs ------------------------- */}
         <Text style={styles.sectionLabel}>{t("scan.jobs.label")}</Text>
         {jobsLoading && jobs.length === 0 ? (
-          <ActivityIndicator style={styles.inlineSpin} color={theme.colors.primary} />
+          <ActivityIndicator style={styles.inlineSpin} color={theme.colors.brand} />
         ) : jobsError ? (
           <ErrorState message={jobsError} onRetry={refreshJobs} />
         ) : jobs.length === 0 ? (
@@ -998,7 +998,7 @@ function JobCard({
 
       {active ? (
         <View style={styles.jobActive}>
-          <ActivityIndicator size="small" color={theme.colors.primary} />
+          <ActivityIndicator size="small" color={theme.colors.brand} />
           <Text style={styles.jobActiveText}>{t("scan.jobs.processing")}</Text>
         </View>
       ) : job.status === "completed" ? (
@@ -1164,7 +1164,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   bullets: { gap: 8 },
   bulletRow: { flexDirection: "row", gap: 8, alignItems: "flex-start" },
   bulletText: { flex: 1, fontSize: 12.5, color: theme.colors.text, lineHeight: 18 },
-  policyLink: { fontSize: 13, fontWeight: "700", color: theme.colors.primary, textDecorationLine: "underline" },
+  policyLink: { fontSize: 13, fontWeight: "700", color: theme.colors.brand, textDecorationLine: "underline" },
   consentToggleRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
   consentToggleLabel: { flex: 1, fontSize: 13, color: theme.colors.text, lineHeight: 19 },
 
@@ -1190,7 +1190,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   captureMore: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", paddingVertical: 6 },
   captureMoreText: { color: theme.colors.text, fontWeight: "700", fontSize: 13 },
   linkBtn: { paddingVertical: 6, paddingHorizontal: 8 },
-  linkBtnText: { color: theme.colors.primary, fontWeight: "700", fontSize: 13 },
+  linkBtnText: { color: theme.colors.brand, fontWeight: "700", fontSize: 13 },
   errorText: { color: theme.colors.warning, fontSize: 12.5, marginTop: 8 },
 
   // camera

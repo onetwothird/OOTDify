@@ -255,7 +255,7 @@ export default function OutfitsScreen() {
             hitSlop={8}
             style={({ pressed }) => [styles.builderBack, pressed && { opacity: 0.6 }]}
           >
-            <Ionicons name="chevron-back" size={18} color={theme.colors.primary} />
+            <Ionicons name="chevron-back" size={18} color={theme.colors.brand} />
             <Text style={styles.builderBackText}>{t("outfits.builder.back")}</Text>
           </Pressable>
         ) : null}
@@ -781,7 +781,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     paddingVertical: 6,
     paddingRight: 12,
   },
-  builderBackText: { color: theme.colors.primary, fontWeight: "700", fontSize: 14 },
+  builderBackText: { color: theme.colors.brand, fontWeight: "700", fontSize: 14 },
   poolHint: { fontSize: 11, color: theme.colors.textMuted, lineHeight: 16 },
 
   savedRow: {

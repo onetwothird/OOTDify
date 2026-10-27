@@ -118,6 +118,11 @@ describe("themeForScheme", () => {
         mutedOnCard: ratio(palette.textMuted, palette.surface) >= 4.5,
         // Text drawn on filled `primary` buttons.
         onPrimary: ratio(palette.onPrimary, palette.primary) >= 4.5,
+        // Text drawn on blue `brand` action buttons.
+        onBrand: ratio(palette.onBrand, palette.brand) >= 4.5,
+        // The orange accent is used for small text (tags) on cards and pages.
+        accentOnCard: ratio(palette.accent, palette.surface) >= 4.5,
+        accentOnBg: ratio(palette.accent, palette.background) >= 4.5,
       }).toEqual({
         mode,
         body: true,
@@ -125,6 +130,9 @@ describe("themeForScheme", () => {
         mutedOnBg: true,
         mutedOnCard: true,
         onPrimary: true,
+        onBrand: true,
+        accentOnCard: true,
+        accentOnBg: true,
       });
     }
   });

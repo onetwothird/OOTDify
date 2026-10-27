@@ -12,7 +12,7 @@ export function LoadingState({ label }: { label?: string }) {
   const theme = useAppTheme();
   return (
     <View style={styles.center} testID="loading-state">
-      <ActivityIndicator color={theme.colors.primary} size="large" />
+      <ActivityIndicator color={theme.colors.brand} size="large" />
       {label ? <View /> : null}
     </View>
   );
