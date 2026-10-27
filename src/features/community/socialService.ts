@@ -9,15 +9,19 @@ import { shrinkForUpload } from "../../shared/lib/shrinkImage";
 import { supabase } from "../../shared/lib/supabase";
 import { uuid } from "../../shared/lib/uuid";
 import {
-  isOnline,
+  presenceOf,
   splitFriendships,
+  type PickedStatus,
+  type Presence,
   type FriendshipRow,
   type MyDayPostRow,
 } from "./social";
 import type { DirectoryProfile } from "./types";
 
 export interface Person extends DirectoryProfile {
-  online: boolean;
+  presence: Presence;
+  /** Last check-in, for "Last active" when they are not around. */
+  lastSeenAt: string | null;
 }
 
 export interface FriendsOverview {
@@ -51,15 +55,25 @@ async function directory(ids: string[]): Promise<Map<string, DirectoryProfile>> 
   return new Map(((data ?? []) as DirectoryProfile[]).map((r) => [r.user_id, r]));
 }
 
-/** Last check-in for each user the policies let us see (friends who share it). */
-async function presence(ids: string[]): Promise<Map<string, string>> {
-  if (!ids.length) return new Map();
-  const { data, error } = await supabase.from("user_presence").select("user_id,last_seen_at").in("user_id", ids);
-  if (error) throw error;
-  return new Map(
-    ((data ?? []) as { user_id: string; last_seen_at: string }[]).map((r) => [r.user_id, r.last_seen_at]),
-  );
+interface PresenceRow {
+  user_id: string;
+  last_seen_at: string;
+  status: string;
 }
+
+/** Check-in and picked status for each user the policies let us see (friends who share it). */
+async function presence(ids: string[]): Promise<Map<string, PresenceRow>> {
+  if (!ids.length) return new Map();
+  const { data, error } = await supabase
+    .from("user_presence")
+    .select("user_id,last_seen_at,status")
+    .in("user_id", ids);
+  if (error) throw error;
+  return new Map(((data ?? []) as PresenceRow[]).map((r) => [r.user_id, r]));
+}
+
+/** Online first, then idle, do not disturb, offline. */
+const PRESENCE_ORDER: Record<Presence, number> = { online: 0, idle: 1, dnd: 2, offline: 3 };
 
 export function displayName(profile: DirectoryProfile | null | undefined): string {
   return profile?.display_name || profile?.first_name || "OOTDify member";
@@ -85,10 +99,12 @@ export async function fetchFriends(): Promise<FriendsOverview> {
   const now = Date.now();
   const person = (id: string): Person => ({
     ...(dir.get(id) ?? { user_id: id, display_name: null, first_name: null, avatar_url: null }),
-    online: isOnline(seen.get(id), now),
+    presence: presenceOf(seen.get(id)?.last_seen_at, seen.get(id)?.status, now),
+    lastSeenAt: seen.get(id)?.last_seen_at ?? null,
   });
   const friends = split.friends.map(person).sort(
-    (a, b) => Number(b.online) - Number(a.online) || displayName(a).localeCompare(displayName(b)),
+    (a, b) =>
+      PRESENCE_ORDER[a.presence] - PRESENCE_ORDER[b.presence] || displayName(a).localeCompare(displayName(b)),
   );
   return {
     me,
@@ -154,22 +170,27 @@ export async function heartbeat(): Promise<void> {
   if (error) throw error;
 }
 
-export async function fetchShowOnlineStatus(): Promise<boolean> {
+export interface MyPresence {
+  showStatus: boolean;
+  status: PickedStatus;
+}
+
+export async function fetchMyPresence(): Promise<MyPresence> {
   const me = await requireUserId();
   const { data, error } = await supabase
     .from("user_presence")
-    .select("show_status")
+    .select("show_status,status")
     .eq("user_id", me)
     .maybeSingle();
   if (error) throw error;
-  return (data as { show_status: boolean } | null)?.show_status ?? true;
+  const row = data as { show_status: boolean; status: PickedStatus } | null;
+  return { showStatus: row?.show_status ?? true, status: row?.status ?? "online" };
 }
 
-export async function setShowOnlineStatus(show: boolean): Promise<void> {
+/** Online, idle or do not disturb. Do not disturb also holds back phone push. */
+export async function setMyStatus(status: PickedStatus): Promise<void> {
   const me = await requireUserId();
-  const { error } = await supabase
-    .from("user_presence")
-    .upsert({ user_id: me, show_status: show }, { onConflict: "user_id" });
+  const { error } = await supabase.from("user_presence").upsert({ user_id: me, status }, { onConflict: "user_id" });
   if (error) throw error;
 }
 
@@ -272,4 +293,81 @@ export async function fetchMyDayViewers(postId: string): Promise<MyDayViewer[]> 
   const rows = (data ?? []) as { viewer_id: string; viewed_at: string }[];
   const dir = await directory(rows.map((r) => r.viewer_id));
   return rows.map((r) => ({ viewerId: r.viewer_id, viewedAt: r.viewed_at, profile: dir.get(r.viewer_id) ?? null }));
+}
+
+// ---------------------------------------------------------------------------
+// My Day hearts and comments (only you and the post's owner see them)
+// ---------------------------------------------------------------------------
+
+/** Which of these posts you have hearted. */
+export async function fetchMyHearts(postIds: string[]): Promise<Set<string>> {
+  const me = await requireUserId();
+  if (!postIds.length) return new Set();
+  const { data, error } = await supabase
+    .from("my_day_reactions")
+    .select("post_id")
+    .eq("user_id", me)
+    .in("post_id", postIds);
+  if (error) throw error;
+  return new Set(((data ?? []) as { post_id: string }[]).map((r) => r.post_id));
+}
+
+export async function setMyDayHeart(postId: string, hearted: boolean): Promise<void> {
+  const me = await requireUserId();
+  const { error } = hearted
+    ? await supabase
+        .from("my_day_reactions")
+        .upsert({ post_id: postId, user_id: me }, { onConflict: "post_id,user_id", ignoreDuplicates: true })
+    : await supabase.from("my_day_reactions").delete().eq("post_id", postId).eq("user_id", me);
+  if (error) throw error;
+}
+
+export async function sendMyDayComment(postId: string, body: string): Promise<void> {
+  const me = await requireUserId();
+  const text = body.trim().slice(0, 300);
+  if (!text) return;
+  const { error } = await supabase.from("my_day_comments").insert({ post_id: postId, user_id: me, body: text });
+  if (error) throw error;
+}
+
+export interface MyDayComment {
+  id: string;
+  userId: string;
+  body: string;
+  createdAt: string;
+  profile: DirectoryProfile | null;
+}
+
+export interface MyDayActivity {
+  viewers: MyDayViewer[];
+  hearts: Set<string>;
+  comments: MyDayComment[];
+}
+
+/** Everything friends did with one of your posts: who saw it, hearted it, and said what. */
+export async function fetchMyDayActivity(postId: string): Promise<MyDayActivity> {
+  const [viewers, hearts, comments] = await Promise.all([
+    fetchMyDayViewers(postId),
+    supabase.from("my_day_reactions").select("user_id").eq("post_id", postId),
+    supabase
+      .from("my_day_comments")
+      .select("id,user_id,body,created_at")
+      .eq("post_id", postId)
+      .order("created_at", { ascending: true }),
+  ]);
+  if (hearts.error) throw hearts.error;
+  if (comments.error) throw comments.error;
+  const rows = (comments.data ?? []) as { id: string; user_id: string; body: string; created_at: string }[];
+  const dir = await directory(rows.map((r) => r.user_id));
+  return {
+    viewers,
+    hearts: new Set(((hearts.data ?? []) as { user_id: string }[]).map((r) => r.user_id)),
+    comments: rows.map((r) => ({
+      id: r.id,
+      userId: r.user_id,
+      body: r.body,
+      createdAt: r.created_at,
+      profile: dir.get(r.user_id) ?? null,
+    })),
+  };
 }
