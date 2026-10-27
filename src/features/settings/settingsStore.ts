@@ -6,6 +6,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import { DEFAULT_APPEARANCE, SETTINGS_VERSION, migrateSettings } from "./settingsMigrate";
 
 export type LanguageCode = "en" | "fil";
 export type AppearanceMode = "system" | "light" | "dark";
@@ -29,7 +30,7 @@ export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
       language: "en",
-      appearance: "system",
+      appearance: DEFAULT_APPEARANCE,
       biometricLock: false,
       hydrated: false,
       setLanguage: (language) => set({ language }),
@@ -40,6 +41,8 @@ export const useSettingsStore = create<SettingsState>()(
     {
       name: STORAGE_KEY,
       storage: createJSONStorage(() => AsyncStorage),
+      version: SETTINGS_VERSION,
+      migrate: (persisted, version) => migrateSettings(persisted, version) as unknown as SettingsState,
       partialize: ({ language, appearance, biometricLock }) => ({
         language,
         appearance,
