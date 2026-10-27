@@ -71,6 +71,36 @@ about 1–2 updates per second. The photo try-on stays the real result.
   processors + a TFLite/MediaPipe model), which means a dev build, not Expo Go.
   Out of scope for v1.
 
+## 3b. Closet-first app (built on `feat/closet-first`, not checked on a phone)
+
+The stock catalog is gone from every screen. Everything runs on the clothes you
+capture (background removed on capture, `FEATURE_GUIDE.md` §3). Plan:
+[docs/superpowers/plans/2026-10-27-closet-first.md](./docs/superpowers/plans/2026-10-27-closet-first.md).
+
+- **Backend:** `/api/recommend` and `/api/outfits` score and compose the signed-in
+  user's `clothing_items` (`catalog_service.load_closet_candidates`).
+- **Home:** Recommended shows your clothes; Trending and Recently viewed removed.
+- **Wardrobe tab (Discover):** your closet only; catalog browsing removed.
+- **Outfits tab / AI picker:** looks from your closet, with a "Capture clothes"
+  prompt when it's too small.
+- **Scan:** your clothes only, and **Try it live** is the main action. The photo
+  try-on is hidden (`PHOTO_TRYON_AVAILABLE = false` in
+  `src/features/tryon/config.ts`) until a real model is implemented in
+  `VTONProvider.generate()`.
+- **Kept on purpose:** the `clothing` table, ingestion script and
+  `src/app/catalog/[id].tsx`, so outfits saved from catalog pieces still open.
+- **Not changed:** the privacy policy and terms still mention catalog browsing.
+  Update that legal copy if you want it to match.
+
+- [ ] On a phone, signed in:
+  - [ ] With an empty closet: Home, Wardrobe, Outfits, AI picker and Scan each
+        offer "Capture clothes", not an error.
+  - [ ] Capture a top, bottoms and shoes: Home suggests them; AI picker builds a look;
+        Outfits builder saves it and the saved look shows thumbnails.
+  - [ ] An outfit saved earlier from catalog pieces still shows its pieces.
+  - [ ] Wardrobe search and category chips filter your clothes.
+  - [ ] Item page → **Try it live** opens the live preview with that garment.
+
 ## 4. Waiting on your input (FEATURE_GUIDE)
 
 - [ ] **#1 Button positioning** — which screens look awkward? (screenshots help)
