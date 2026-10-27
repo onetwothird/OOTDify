@@ -37,6 +37,12 @@ export type ThemeColors = {
   // Royal blue for actions; `onBrand` is the text/icon drawn on it.
   brand: string;
   onBrand: string;
+  // Deep denim for the one dark feature card (Outfits "Build"), dark in both
+  // modes, with white type and its tints.
+  feature: string;
+  onFeature: string;
+  onFeatureMuted: string;
+  onFeatureSubtle: string;
   onPrimary: string;
   // Tints of onPrimary pre-blended onto `primary` (opaque hex, so every token
   // stays a plain colour): secondary type such as emails, labels, timestamps.
@@ -72,6 +78,10 @@ export const lightColors: ThemeColors = {
   // Denim.
   brand: "#3A5A96",
   onBrand: "#FFFFFF",
+  feature: "#22355C",
+  onFeature: "#FFFFFF",
+  onFeatureMuted: "#C1C6D1",
+  onFeatureSubtle: "#455576",
   onPrimary: "#2F4C82",
   // Denim ink blended onto `primary`: secondary text / hairlines / glows.
   onPrimaryMuted: "#506896",
@@ -103,6 +113,10 @@ export const darkColors: ThemeColors = {
   // Washed denim.
   brand: "#7F9CC8",
   onBrand: "#11141A",
+  feature: "#263B66",
+  onFeature: "#FFFFFF",
+  onFeatureMuted: "#C2C8D4",
+  onFeatureSubtle: "#495A7E",
   // Pale denim ink on the dim tint.
   onPrimary: "#C3D3EC",
   // Ink blended onto `primary`: secondary text / hairlines / glows.
