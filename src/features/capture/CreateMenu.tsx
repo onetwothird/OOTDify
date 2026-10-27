@@ -1,6 +1,7 @@
 // C:\OOTDify\src\features\capture\CreateMenu.tsx
-// The floating (+) above the tab bar, with the Settings gear just above it.
-// Tapping + turns it into an × and fans out the three ways to make something:
+// The floating (+) above the tab bar, with the Settings gear just above it
+// and the notifications bell above that. Tapping + turns it into an × and fans
+// out the three ways to make something:
 // add a piece, pick an outfit, or try one on. Rendered once by the tabs
 // layout, over every tab, and slides down with the tab bar while scrolling.
 import { Ionicons } from "@expo/vector-icons";
@@ -12,6 +13,7 @@ import { useReduceMotion } from "../../shared/hooks/useReduceMotion";
 import { useT } from "../../shared/i18n/useT";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
+import { NotificationBell } from "../notifications/NotificationBell";
 import { useCaptureModalStore } from "./captureModalStore";
 
 const FAB = 58;
@@ -22,6 +24,8 @@ const FAB_TOP_MARGIN = 4;
 const SETTINGS_LIFT = FAB + FAB_TOP_MARGIN + GAP;
 /** How far Settings drops to land on the centre of +. */
 const TUCK = SETTINGS_LIFT + SMALL / 2 - FAB / 2;
+/** The bell sits one slot higher, so it drops one slot further. */
+const BELL_TUCK = TUCK + SMALL + GAP;
 
 type Action = { key: string; icon: keyof typeof Ionicons.glyphMap; label: string; run: () => void };
 
@@ -122,6 +126,24 @@ export function CreateMenu({
       </Animated.View>
 
       <Animated.View style={[styles.stack, { bottom, transform: [{ translateY: slide }] }]} pointerEvents="box-none">
+        {/* The bell tucks away with Settings, a beat ahead, so the choices have
+            the column to themselves. */}
+        <Animated.View
+          pointerEvents={open ? "none" : "auto"}
+          style={[
+            styles.slot,
+            {
+              opacity: progress.interpolate({ inputRange: [0, 0.4], outputRange: [1, 0], extrapolate: "clamp" }),
+              transform: [
+                { translateY: progress.interpolate({ inputRange: [0, 0.6], outputRange: [0, BELL_TUCK], extrapolate: "clamp" }) },
+                { scale: progress.interpolate({ inputRange: [0, 0.6], outputRange: [1, 0.4], extrapolate: "clamp" }) },
+              ],
+            },
+          ]}
+        >
+          <NotificationBell size={SMALL} />
+        </Animated.View>
+
         {/* Settings tucks into + while the menu is open: it drops onto the
             button, spins a quarter turn and shrinks away, then returns. */}
         <Animated.View
@@ -180,6 +202,7 @@ const useStyles = makeStyles((theme) => ({
     gap: GAP,
   },
   pressed: { opacity: 0.8 },
+  slot: { marginRight: (FAB - SMALL) / 2 },
   action: {
     flexDirection: "row",
     alignItems: "center",
