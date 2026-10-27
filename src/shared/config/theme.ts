@@ -1,7 +1,11 @@
 // C:\OOTDify\src\shared\config\theme.ts
-// OOTDify design tokens, drawn from the mascot penguin: royal blue body, sky
-// blue cape, white belly, navy outline. Light mode is the penguin by day (icy
-// page, royal blue emphasis, navy type); dark mode is the penguin at night.
+// OOTDify design tokens, drawn from the mascot penguin: navy outline, royal
+// blue body, sky blue cape, white belly, orange beak.
+//
+// Blue is for ACTIONS only (`brand`: main buttons, the + button, the selected
+// tab), so it stays meaningful. Structure (avatars, tags, chips, toasts) uses
+// navy `primary`; pages and cards stay neutral; the beak's orange is the
+// accent for favourites and tags.
 //
 // There are TWO palettes: light and dark. Both keep the same key set, so any
 // `theme.colors.X` reference resolves in either mode.
@@ -27,6 +31,9 @@ export type ThemeColors = {
   success: string;
   warning: string;
   danger: string;
+  // Royal blue for actions; `onBrand` is the text/icon drawn on it.
+  brand: string;
+  onBrand: string;
   onPrimary: string;
   // Tints of onPrimary pre-blended onto `primary` (opaque hex, so every token
   // stays a plain colour): secondary type such as emails, labels, timestamps.
@@ -40,59 +47,60 @@ export type ThemeColors = {
 };
 
 export const lightColors: ThemeColors = {
-  // Icy page, the white of the penguin's belly with a breath of blue.
-  background: "#EEF4FB",
+  // Neutral off-white page; the blues read as colour against it.
+  background: "#F5F6F8",
   // Cards / sheets.
   surface: "#FFFFFF",
   // Raised-but-quiet fills (chips, icon tiles).
-  surfaceAlt: "#E1EBF7",
-  border: "#D3E0F0",
-  // Penguin royal blue: buttons, active states, the tab bar's selected item.
-  primary: "#2F5BC4",
-  primaryMuted: "#E4ECFA",
-  // Navy ink instead of black, so type sits in the same family as the blues.
-  text: "#14213F",
-  textMuted: "#52617F",
-  // The cape's deeper blue: favourites, tags, small highlights.
-  accent: "#1F6FB8",
+  surfaceAlt: "#ECEEF2",
+  border: "#E1E4EA",
+  // The penguin's navy outline: structural fills (avatars, tags, chips).
+  primary: "#1B2A4E",
+  primaryMuted: "#EDF0F6",
+  text: "#171E2E",
+  textMuted: "#5D6575",
+  // The beak's orange, deepened so small text stays readable.
+  accent: "#A64F08",
   success: "#2E8A57",
   warning: "#B5641F",
   danger: "#C8402F",
+  brand: "#2F5BC4",
+  onBrand: "#FFFFFF",
   onPrimary: "#FFFFFF",
   // White blended onto `primary` at 68% / 20% / 9%.
-  onPrimaryMuted: "#BCCBEC",
-  onPrimarySubtle: "#597CD0",
-  onPrimaryFaint: "#426AC9",
-  textFaint: "#E6EEF8",
+  onPrimaryMuted: "#B6BBC6",
+  onPrimarySubtle: "#495571",
+  onPrimaryFaint: "#303D5E",
+  textFaint: "#EEF0F4",
 };
 
-// Dark palette: the penguin at night. Navy layers that step lighter as they
-// come forward, and the cape's sky blue as the emphasis colour, bright enough
-// to carry buttons against the dark page.
+// Dark palette: neutral near-black layers that step lighter as they come
+// forward, a soft white-blue for structure, and the cape's sky blue for actions.
 export const darkColors: ThemeColors = {
   // Deepest layer: the page behind everything.
-  background: "#0B1633",
+  background: "#0F131C",
   // Cards / sheets — one step forward from the page.
-  surface: "#14224A",
+  surface: "#171C2C",
   // Raised-but-quiet fills (chips, icon tiles).
-  surfaceAlt: "#1C2D5E",
-  border: "#2A3D73",
-  // Sky blue from the cape: buttons, active states.
-  primary: "#5BB8EE",
-  primaryMuted: "#182A59",
-  text: "#EAF1FB",
-  textMuted: "#9FB2D6",
-  accent: "#8ACFF5",
+  surfaceAlt: "#20273A",
+  border: "#2B3348",
+  primary: "#E6ECF7",
+  primaryMuted: "#1E2537",
+  text: "#EDF1F8",
+  textMuted: "#A3ABBD",
+  accent: "#F2A25C",
   success: "#5FCB8E",
   warning: "#F0A35E",
   danger: "#F07A68",
-  // Navy ink on the light sky-blue `primary`.
-  onPrimary: "#0B1633",
+  brand: "#5BB8EE",
+  onBrand: "#0F131C",
+  // Navy ink on the light `primary`.
+  onPrimary: "#14203D",
   // Navy blended onto `primary` at 62% / 20% / 9%.
-  onPrimaryMuted: "#29547A",
-  onPrimarySubtle: "#4B98C9",
-  onPrimaryFaint: "#54A9DD",
-  textFaint: "#16244F",
+  onPrimaryMuted: "#646E84",
+  onPrimarySubtle: "#BCC3D2",
+  onPrimaryFaint: "#D3DAE6",
+  textFaint: "#1C2232",
 };
 
 export const theme = {
