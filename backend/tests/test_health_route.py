@@ -28,3 +28,25 @@ def test_health_exposes_no_credentials(client, monkeypatch):
     text = client.get("/health").get_data(as_text=True)
     assert "super-secret-value" not in text
     assert "sk-ant-secret" not in text
+
+
+def test_plain_health_never_calls_cloudinary(client, monkeypatch):
+    def boom():
+        raise AssertionError("the app polls /health; it must stay offline-cheap")
+
+    monkeypatch.setattr(cloudinary_service, "verify_credentials", boom)
+    assert client.get("/health").status_code == 200
+
+
+def test_cloudinary_check_reports_accepted_keys(client, monkeypatch):
+    monkeypatch.setattr(cloudinary_service, "verify_credentials", lambda: None)
+    body = client.get("/health?check=cloudinary").get_json()
+    assert body["cloudinary_ok"] is True
+    assert body["cloudinary_error"] is None
+
+
+def test_cloudinary_check_reports_why_keys_fail(client, monkeypatch):
+    monkeypatch.setattr(cloudinary_service, "verify_credentials", lambda: "Invalid API key or secret")
+    body = client.get("/health?check=cloudinary").get_json()
+    assert body["cloudinary_ok"] is False
+    assert body["cloudinary_error"] == "Invalid API key or secret"
