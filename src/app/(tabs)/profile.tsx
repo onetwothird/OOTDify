@@ -31,7 +31,12 @@ import { AppButton } from "../../shared/components/AppButton";
 import { ErrorState } from "../../shared/components/StateViews";
 import { LoadingState } from "../../shared/components/LoadingState";
 import { ScreenHeader } from "../../shared/components/ScreenHeader";
-import { theme } from "../../shared/config/theme";
+import { makeStyles } from "../../shared/theme/makeStyles";
+import { useAppTheme } from "../../shared/theme/ThemeProvider";
+import type { Theme } from "../../shared/config/theme";
+import { useT } from "../../shared/i18n/useT";
+import type { I18n } from "../../shared/i18n/useT";
+import type { TranslationKey } from "../../shared/i18n/translate";
 import { supabase } from "../../shared/lib/supabase";
 import { toast } from "../../shared/lib/toast";
 import {
@@ -48,14 +53,14 @@ const SIZES = ["XS", "S", "M", "L", "XL"];
 const GENDERS = ["men", "women", "unisex"] as const;
 
 /** Plain-language explanation for a failed photo check. */
-function photoCheckReason(reason: string | null): string {
+function photoCheckReason(reason: string | null, t: I18n["t"]): string {
   switch (reason) {
     case "no_person":
-      return "Nobody was detected in the frame. Face the camera and try again.";
+      return t("profile.photo_check.reason.no_person");
     case "face_not_visible":
-      return "A person was found, but the face wasn't clear. Try brighter light and a closer frame.";
+      return t("profile.photo_check.reason.face_not_visible");
     default:
-      return "The check didn't pass. Try again in good light with your face in the frame.";
+      return t("profile.photo_check.reason.default");
   }
 }
 
@@ -67,6 +72,9 @@ function formatClock(iso: string): string {
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const styles = useStyles();
+  const theme = useAppTheme();
+  const { t } = useT();
   const openCapture = useCaptureModalStore((s) => s.open);
   const { width } = useWindowDimensions();
   const condensed = width < 380;
@@ -131,11 +139,11 @@ export default function ProfileScreen() {
       setCategoriesSel(new Set(p.preferred_categories ?? []));
       setDirty(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load your profile.");
+      setError(e instanceof Error ? e.message : t("profile.error.load"));
     } finally {
       setLoading(false);
     }
-  }, [setAvatarRef]);
+  }, [setAvatarRef, t]);
 
   // Handler-facing wrapper: show the spinner and clear the previous error.
   const load = useCallback(async () => {
@@ -178,9 +186,9 @@ export default function ProfileScreen() {
         sizes: Array.from(sizesSel),
       });
       setDirty(false);
-      toast.success("Profile updated", "Your preferences now shape recommendations.");
+      toast.success(t("profile.toast.updated.title"), t("profile.toast.updated.message"));
     } catch (e) {
-      toast.error("Could not save", e instanceof Error ? e.message : "Try again in a moment.");
+      toast.error(t("profile.toast.save_error.title"), e instanceof Error ? e.message : t("profile.toast.save_error.message"));
     } finally {
       setSaving(false);
     }
@@ -200,19 +208,19 @@ export default function ProfileScreen() {
       const result = await checkProfilePhoto(selfie.uri);
       setPhotoCheck({ ...result, checkedAt: new Date().toISOString() });
       if (result.ok) {
-        toast.success("Selfie check passed", "A live person with a clear face was detected.");
+        toast.success(t("profile.photo_check.passed"), t("profile.toast.check_passed.message"));
       } else {
-        toast.error("Selfie check didn't pass", photoCheckReason(result.reason));
+        toast.error(t("profile.toast.check_failed.title"), photoCheckReason(result.reason, t));
       }
     } catch (e) {
       toast.error(
-        "Couldn't run the check",
-        e instanceof Error ? e.message : "Please try again in a moment.",
+        t("profile.toast.check_error.title"),
+        e instanceof Error ? e.message : t("profile.toast.check_error.message"),
       );
     } finally {
       setCheckingPhoto(false);
     }
-  }, [setPhotoCheck]);
+  }, [setPhotoCheck, t]);
 
   const avatarInitial = (
     firstName.trim()[0] ||
@@ -221,7 +229,7 @@ export default function ProfileScreen() {
     "?"
   ).toUpperCase();
   const displayName =
-    [firstName.trim(), lastName.trim()].filter(Boolean).join(" ") || "Profile";
+    [firstName.trim(), lastName.trim()].filter(Boolean).join(" ") || t("profile.default_name");
 
   return (
     <KeyboardAvoidingView
@@ -234,12 +242,12 @@ export default function ProfileScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <ScreenHeader
-          title="Profile"
-          subtitle="Your preferences shape real recommendations."
+          title={t("profile.title")}
+          subtitle={t("profile.subtitle")}
         />
 
         {loading ? (
-          <LoadingState label="Loading profile" />
+          <LoadingState label={t("profile.loading")} />
         ) : error ? (
           <ErrorState message={error} onRetry={load} />
         ) : (
@@ -266,7 +274,7 @@ export default function ProfileScreen() {
                     {displayName}
                   </Text>
                   <Text style={styles.heroEmail} numberOfLines={1}>
-                    {email ?? "Signed in"}
+                    {email ?? t("profile.signed_in")}
                   </Text>
                   <Pressable
                     accessibilityRole="button"
@@ -278,13 +286,13 @@ export default function ProfileScreen() {
                     ]}
                   >
                     <Ionicons name="camera-outline" size={13} color={theme.colors.onPrimary} />
-                    <Text style={styles.heroActionText}>Change photo</Text>
+                    <Text style={styles.heroActionText}>{t("profile.change_photo.label_short")}</Text>
                   </Pressable>
                 </View>
               </View>
             </View>
 
-            <SectionLabel text="PHOTO CHECK" />
+            <SectionLabel text={t("profile.photo_check.label")} />
             <View style={styles.card}>
               {photoCheck ? (
                 <>
@@ -296,31 +304,31 @@ export default function ProfileScreen() {
                       ]}
                     />
                     <Text style={styles.checkTitle}>
-                      {photoCheck.ok ? "Selfie check passed" : "Another try needed"}
+                      {photoCheck.ok ? t("profile.photo_check.passed") : t("profile.photo_check.failed")}
                     </Text>
                   </View>
                   <Text style={styles.checkText}>
                     {photoCheck.ok
-                      ? `A person was detected (${Math.round(
-                          (photoCheck.personConfidence ?? 0) * 100,
-                        )}% confidence) with ${photoCheck.faceKeypoints} of 5 face points and ${photoCheck.keypointsVisible} of 17 body points located.`
-                      : photoCheckReason(photoCheck.reason)}
+                      ? t("profile.photo_check.detail", {
+                          confidence: Math.round((photoCheck.personConfidence ?? 0) * 100),
+                          faceKeypoints: photoCheck.faceKeypoints,
+                          keypointsVisible: photoCheck.keypointsVisible,
+                        })
+                      : photoCheckReason(photoCheck.reason, t)}
                   </Text>
                 </>
               ) : (
                 <Text style={styles.checkText}>
-                  Confirms a person is really in frame, using the same body-model
-                  models as the try-on. The selfie is analysed and discarded — no
-                  copy is kept.
+                  {t("profile.photo_check.desc")}
                 </Text>
               )}
               {photoCheck ? (
                 <Text style={styles.checkMeta}>
-                  Checked at {formatClock(photoCheck.checkedAt)} · image not stored
+                  {t("profile.photo_check.meta", { time: formatClock(photoCheck.checkedAt) })}
                 </Text>
               ) : null}
               <AppButton
-                label={photoCheck ? "Run the check again" : "Run selfie check"}
+                label={photoCheck ? t("profile.photo_check.run_again") : t("profile.photo_check.run")}
                 icon="scan-outline"
                 variant="secondary"
                 size="md"
@@ -329,34 +337,34 @@ export default function ProfileScreen() {
               />
             </View>
 
-            <SectionLabel text="PERSONAL DETAILS" />
+            <SectionLabel text={t("profile.personal_details.label")} />
             <View style={styles.card}>
               <View style={[styles.nameRow, condensed && styles.nameRowStacked]}>
                 <View style={styles.nameField}>
-                  <Text style={styles.fieldLabel}>FIRST NAME</Text>
+                  <Text style={styles.fieldLabel}>{t("profile.first_name")}</Text>
                   <TextInput
                     style={styles.nameInput}
                     value={firstName}
-                    onChangeText={(t) => {
-                      setFirstName(t);
+                    onChangeText={(text) => {
+                      setFirstName(text);
                       markDirty();
                     }}
-                    placeholder="First name"
+                    placeholder={t("profile.first_name.placeholder")}
                     placeholderTextColor={theme.colors.textMuted}
                     maxLength={40}
                     autoCorrect={false}
                   />
                 </View>
                 <View style={styles.nameField}>
-                  <Text style={styles.fieldLabel}>LAST NAME</Text>
+                  <Text style={styles.fieldLabel}>{t("profile.last_name")}</Text>
                   <TextInput
                     style={styles.nameInput}
                     value={lastName}
-                    onChangeText={(t) => {
-                      setLastName(t);
+                    onChangeText={(text) => {
+                      setLastName(text);
                       markDirty();
                     }}
-                    placeholder="Last name"
+                    placeholder={t("profile.last_name.placeholder")}
                     placeholderTextColor={theme.colors.textMuted}
                     maxLength={40}
                     autoCorrect={false}
@@ -365,7 +373,7 @@ export default function ProfileScreen() {
               </View>
 
               <View style={styles.genderGroup}>
-                <Text style={styles.fieldLabel}>I SHOP FOR</Text>
+                <Text style={styles.fieldLabel}>{t("profile.shop_for")}</Text>
                 <View style={styles.prefChips}>
                   {GENDERS.map((g) => {
                     const active = gender === g;
@@ -382,7 +390,7 @@ export default function ProfileScreen() {
                         <Text
                           style={[styles.prefChipText, active && styles.prefChipTextActive]}
                         >
-                          {g[0].toUpperCase() + g.slice(1)}
+                          {t(`profile.gender.${g}` as TranslationKey)}
                         </Text>
                       </Pressable>
                     );
@@ -392,10 +400,10 @@ export default function ProfileScreen() {
             </View>
 
             {/* Preferences */}
-            <SectionLabel text="YOUR STYLE" />
+            <SectionLabel text={t("profile.style.label")} />
             <View style={styles.card}>
               <PrefGroup
-                label="Styles"
+                label={t("profile.style.styles")}
                 options={STYLES}
                 selected={stylesSel}
                 onToggle={(k) => {
@@ -404,7 +412,7 @@ export default function ProfileScreen() {
                 }}
               />
               <PrefGroup
-                label="Colors"
+                label={t("profile.style.colors")}
                 options={COLORS}
                 selected={colorsSel}
                 onToggle={(k) => {
@@ -413,7 +421,7 @@ export default function ProfileScreen() {
                 }}
               />
               <PrefGroup
-                label="Sizes"
+                label={t("profile.style.sizes")}
                 options={SIZES}
                 selected={sizesSel}
                 onToggle={(k) => {
@@ -422,39 +430,41 @@ export default function ProfileScreen() {
                 }}
               />
               <PrefGroup
-                label="Occasions"
+                label={t("profile.style.occasions")}
                 options={Array.from(OCCASIONS)}
                 selected={occasionsSel}
                 onToggle={(k) => {
                   setOccasionsSel((s) => toggle(s, k));
                   markDirty();
                 }}
+                translatePrefix="occasion"
               />
               <PrefGroup
-                label="Categories"
+                label={t("profile.style.categories")}
                 options={Array.from(CATALOG_CATEGORIES)}
                 selected={categoriesSel}
                 onToggle={(k) => {
                   setCategoriesSel((s) => toggle(s, k));
                   markDirty();
                 }}
+                translatePrefix="category"
               />
             </View>
 
             <AppButton
-              label="Save preferences"
+              label={t("profile.save_preferences")}
               loading={saving}
               disabled={!dirty && !firstName.trim() && !lastName.trim()}
               onPress={save}
             />
 
             {/* AI service status (real /health probe) */}
-            <SectionLabel text="AI SERVICE" />
+            <SectionLabel text={t("profile.ai_service.label")} />
             <View style={styles.card}>
               {checking ? (
                 <View style={styles.serviceRow}>
                   <ActivityIndicator size="small" color={theme.colors.primary} />
-                  <Text style={styles.serviceText}>Checking AI service…</Text>
+                  <Text style={styles.serviceText}>{t("profile.ai_service.checking")}</Text>
                 </View>
               ) : health?.ok ? (
                 <Pressable
@@ -464,11 +474,11 @@ export default function ProfileScreen() {
                 >
                   <View style={[styles.serviceDot, styles.serviceDotOk]} />
                   <View style={styles.serviceBody}>
-                    <Text style={styles.serviceTitle}>AI service connected</Text>
+                    <Text style={styles.serviceTitle}>{t("profile.ai_service.connected")}</Text>
                     <Text style={styles.serviceText}>
                       {health.modelLoaded
-                        ? "Style engine and body-scan models are ready."
-                        : "Connected — style models are warming up."}
+                        ? t("profile.ai_service.ready")
+                        : t("profile.ai_service.warming")}
                     </Text>
                   </View>
                   <Ionicons name="refresh" size={15} color={theme.colors.textMuted} />
@@ -481,13 +491,12 @@ export default function ProfileScreen() {
                 >
                   <View style={[styles.serviceDot, styles.serviceDotWarn]} />
                   <View style={styles.serviceBody}>
-                    <Text style={styles.serviceTitle}>AI styling is unavailable</Text>
+                    <Text style={styles.serviceTitle}>{t("profile.ai_service.unavailable")}</Text>
                     <Text style={styles.serviceText}>
-                      {health?.message ??
-                        "Make sure the AI service is running, then retry."}
+                      {health?.message ?? t("profile.ai_service.hint")}
                     </Text>
                   </View>
-                  <Text style={styles.serviceRetry}>Retry</Text>
+                  <Text style={styles.serviceRetry}>{t("profile.ai_service.retry")}</Text>
                 </Pressable>
               )}
             </View>
@@ -496,32 +505,32 @@ export default function ProfileScreen() {
             <SettingsSection />
 
             {/* Privacy & legal */}
-            <SectionLabel text="PRIVACY & DATA" />
+            <SectionLabel text={t("profile.privacy.label")} />
             <View style={styles.card}>
               <LinkRow
                 icon="shield-checkmark-outline"
-                label="Privacy & Data"
-                hint="Body photos, downloads, account deletion"
+                label={t("profile.privacy.data")}
+                hint={t("profile.privacy.data.hint")}
                 onPress={() => router.push("/privacy/data")}
               />
               <LinkRow
                 icon="document-text-outline"
-                label="Privacy Policy"
+                label={t("profile.privacy.policy")}
                 onPress={() => router.push("/privacy/policy")}
               />
               <LinkRow
                 icon="receipt-outline"
-                label="Terms of Service"
+                label={t("profile.privacy.terms")}
                 onPress={() => router.push("/privacy/terms")}
               />
             </View>
 
             {/* Closet shortcut */}
-            <SectionLabel text="QUICK ACTIONS" />
+            <SectionLabel text={t("profile.quick_actions.label")} />
             <View style={styles.card}>
               <LinkRow
                 icon="shirt-outline"
-                label="Add clothes to my closet"
+                label={t("profile.quick_actions.add_clothes")}
                 onPress={openCapture}
               />
             </View>
@@ -532,7 +541,7 @@ export default function ProfileScreen() {
               onPress={signOut}
             >
               <Ionicons name="log-out-outline" size={18} color={theme.colors.danger} />
-              <Text style={styles.signOutText}>Sign out</Text>
+              <Text style={styles.signOutText}>{t("profile.sign_out")}</Text>
             </Pressable>
           </>
         )}
@@ -542,6 +551,7 @@ export default function ProfileScreen() {
 }
 
 function SectionLabel({ text }: { text: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.sectionLabelRow}>
       <View style={styles.sectionBar} />
@@ -555,12 +565,16 @@ function PrefGroup({
   options,
   selected,
   onToggle,
+  translatePrefix,
 }: {
   label: string;
   options: string[];
   selected: Set<string>;
   onToggle: (key: string) => void;
+  translatePrefix?: string;
 }) {
+  const styles = useStyles();
+  const { tl } = useT();
   return (
     <View style={styles.prefGroup}>
       <Text style={styles.prefLabel}>{label}</Text>
@@ -575,7 +589,7 @@ function PrefGroup({
               style={[styles.prefChip, active && styles.prefChipActive]}
             >
               <Text style={[styles.prefChipText, active && styles.prefChipTextActive]}>
-                {opt}
+                {translatePrefix ? tl(translatePrefix, opt) : opt}
               </Text>
             </Pressable>
           );
@@ -596,6 +610,8 @@ function LinkRow({
   hint?: string;
   onPress: () => void;
 }) {
+  const styles = useStyles();
+  const theme = useAppTheme();
   return (
     <Pressable
       accessibilityRole="button"
@@ -612,7 +628,7 @@ function LinkRow({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme: Theme) => ({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   content: { paddingHorizontal: 16, paddingBottom: 40, gap: 12 },
   sectionLabelRow: {
@@ -780,4 +796,4 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   signOutText: { color: theme.colors.danger, fontWeight: "700", fontSize: 15 },
-});
+}));
