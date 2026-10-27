@@ -1,7 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Tabs } from "expo-router";
-import { Platform, View } from "react-native";
+import { Tabs, useRouter } from "expo-router";
+import { useEffect } from "react";
+import { Alert, BackHandler, Platform, View } from "react-native";
 import CaptureClothesModal from "../../features/capture/CaptureClothesModal";
+import { supabase } from "../../shared/lib/supabase";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import type { Theme } from "../../shared/config/theme";
@@ -11,6 +13,27 @@ export default function TabLayout() {
   const { t } = useT();
   const theme = useAppTheme();
   const styles = useStyles();
+  const router = useRouter();
+
+  // Back at the root of the signed-in app would drop the user out of it (or
+  // back onto the auth screens). Ask whether they mean to log out instead.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (router.canGoBack()) return false;
+      Alert.alert(t("auth.exit.title"), t("auth.exit.message"), [
+        { text: t("auth.exit.stay"), style: "cancel" },
+        {
+          text: t("auth.exit.confirm"),
+          style: "destructive",
+          onPress: () => {
+            void supabase.auth.signOut();
+          },
+        },
+      ]);
+      return true;
+    });
+    return () => sub.remove();
+  }, [router, t]);
   // Same colors as tabBarActive/InactiveTintColor below. Derived here because
   // SDK 58 types the tab bar's `color` as ColorValue (string | number | null),
   // which Ionicons' `color` prop does not accept.
