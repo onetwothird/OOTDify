@@ -666,7 +666,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   heroBlob: {
     position: "absolute",
     borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: theme.colors.onPrimaryFaint,
   },
   heroBlobA: { width: 200, height: 200, top: -90, right: -60 },
   heroBlobB: {
@@ -674,7 +674,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     height: 130,
     bottom: -70,
     left: -40,
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: theme.colors.onPrimaryFaint,
   },
   heroRow: { flexDirection: "row", alignItems: "center", gap: 14 },
   heroBody: { flex: 1, minWidth: 0 },
@@ -687,7 +687,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: theme.borderRadius.pill,
-    backgroundColor: "rgba(255,255,255,0.14)",
+    backgroundColor: theme.colors.onPrimarySubtle,
   },
   heroActionText: {
     color: theme.colors.onPrimary,
@@ -718,7 +718,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     letterSpacing: -0.3,
   },
   heroEmail: {
-    color: "rgba(255,255,255,0.7)",
+    color: theme.colors.onPrimaryMuted,
     fontSize: 12.5,
     marginTop: 3,
   },
