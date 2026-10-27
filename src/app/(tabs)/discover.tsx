@@ -12,22 +12,19 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCaptureModalStore } from "../../features/capture/captureModalStore";
-import type { CatalogItem, ClothingItem } from "../../features/clothing/types";
-import { CATALOG_CATEGORIES, WARDROBE_CATEGORIES } from "../../features/clothing/types";
+import type { ClothingItem } from "../../features/clothing/types";
+import { WARDROBE_CATEGORIES } from "../../features/clothing/types";
 import {
   addItemFavorite,
   fetchItemFavoriteIds,
-  recordRecentlyViewed,
   removeItemFavorite,
 } from "../../features/clothing/service";
-import { useCatalog } from "../../features/clothing/useCatalog";
+import { filterCloset } from "../../features/wardrobe/filter";
 import { useWardrobeStore } from "../../features/wardrobe/store";
 import { AppButton } from "../../shared/components/AppButton";
 import { Chip } from "../../shared/components/Chip";
-import { ClothingCard } from "../../shared/components/ClothingCard";
 import { SkeletonGrid } from "../../shared/components/LoadingState";
 import { EmptyState } from "../../shared/components/StateViews";
-import { SectionHeader } from "../../shared/components/SectionHeader";
 import { SmartImage } from "../../shared/components/SmartImage";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
@@ -51,15 +48,11 @@ export default function WardrobeScreen() {
 
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<string | null>(null);
-  const [catalogCategory, setCatalogCategory] = useState<string | null>(null);
   const [closetShown, setClosetShown] = useState(GRID_PAGE);
-  const [catalogShown, setCatalogShown] = useState(GRID_PAGE);
 
   const [favIds, setFavIds] = useState<Set<string>>(new Set());
   const [favReady, setFavReady] = useState(false);
   const firstFocus = useRef(true);
-
-  const catalogs = useCatalog(catalogCategory ?? undefined);
 
   const loadCloset = useCallback(async () => {
     await Promise.all([
@@ -84,29 +77,7 @@ export default function WardrobeScreen() {
     }, [loadCloset]),
   );
 
-  const filteredCloset = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return closet.filter((item) => {
-      const matchesFilter = !filter || item.category === filter;
-      if (!matchesFilter) return false;
-      if (!q) return true;
-      const haystack = [
-        item.name,
-        item.category,
-        item.color,
-        item.size,
-        item.brand,
-        item.style,
-        item.season,
-        ...(item.tags ?? []),
-        ...(item.occasion ?? []),
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(q);
-    });
-  }, [closet, query, filter]);
+  const filteredCloset = useMemo(() => filterCloset(closet, query, filter), [closet, query, filter]);
 
   const toggleFavorite = useCallback(
     (item: ClothingItem) => {
@@ -127,14 +98,6 @@ export default function WardrobeScreen() {
       });
     },
     [favIds],
-  );
-
-  const openCatalogItem = useCallback(
-    (item: CatalogItem) => {
-      recordRecentlyViewed(item.id).catch(() => {});
-      router.push(`/catalog/${item.id}`);
-    },
-    [router],
   );
 
   return (
@@ -234,61 +197,6 @@ export default function WardrobeScreen() {
                   label={t("discover.show_more", { count: filteredCloset.length - closetShown })}
                   icon="chevron-down"
                   onPress={() => setClosetShown((n) => n + GRID_PAGE)}
-                />
-              </View>
-            ) : null}
-          </>
-        )}
-
-        <SectionHeader
-          title={t("discover.catalog.title")}
-          subtitle={t("discover.catalog.subtitle")}
-        />
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-          <Chip label={t("discover.filter.all")} active={catalogCategory === null} onPress={() => setCatalogCategory(null)} />
-          {CATALOG_CATEGORIES.map((cat) => (
-            <Chip
-              key={cat}
-              label={tl("category", cat)}
-              active={cat === catalogCategory}
-              onPress={() => setCatalogCategory(cat)}
-            />
-          ))}
-        </ScrollView>
-        <View style={styles.chipsSpacer} />
-
-        {catalogs.loading ? (
-          <SkeletonGrid />
-        ) : catalogs.error ? (
-          <EmptyState
-            icon="cloud-offline-outline"
-            title="Couldn't load the catalog"
-            message={catalogs.error}
-            actionLabel="Try again"
-            onAction={() => void catalogs.refetch()}
-          />
-        ) : catalogs.items.length === 0 ? (
-          <Text style={styles.smallNote}>{t("discover.catalog.empty")}</Text>
-        ) : (
-          <>
-            <View style={styles.grid} onLayout={onLayout}>
-              {catalogs.items.slice(0, catalogShown).map((item) => (
-                <ClothingCard
-                  key={item.id}
-                  item={item}
-                  width={itemWidth}
-                  favorited={catalogs.favoriteIds.has(item.id)}
-                  onPress={() => openCatalogItem(item)}
-                  onToggleFavorite={() => catalogs.toggleFavorite(item).catch(() => {})}
-                />
-              ))}
-            </View>
-            {catalogs.items.length > catalogShown ? (
-              <View style={styles.moreWrap}>
-                <Chip
-                  label={t("discover.show_more", { count: catalogs.items.length - catalogShown })}
-                  icon="chevron-down"
-                  onPress={() => setCatalogShown((n) => n + GRID_PAGE)}
                 />
               </View>
             ) : null}
