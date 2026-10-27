@@ -36,20 +36,27 @@ import { EmptyState, ErrorState } from "../../shared/components/StateViews";
 import { LoadingState } from "../../shared/components/LoadingState";
 import { ScreenHeader } from "../../shared/components/ScreenHeader";
 import { SectionHeader } from "../../shared/components/SectionHeader";
-import { theme } from "../../shared/config/theme";
+import { useAppTheme } from "../../shared/theme/ThemeProvider";
+import { makeStyles } from "../../shared/theme/makeStyles";
+import type { Theme } from "../../shared/config/theme";
+import { useT } from "../../shared/i18n/useT";
+import type { TranslationKey } from "../../shared/i18n/translate";
 import { toast } from "../../shared/lib/toast";
 import { recommendCatalog } from "../../services/aiApi";
 
 const CONDITIONS = [
-  { label: "Sunny", tempC: 28 },
-  { label: "Mild", tempC: 18 },
-  { label: "Rainy", tempC: 12 },
-  { label: "Cold", tempC: 4 },
+  { label: "Sunny", key: "sunny", tempC: 28 },
+  { label: "Mild", key: "mild", tempC: 18 },
+  { label: "Rainy", key: "rainy", tempC: 12 },
+  { label: "Cold", key: "cold", tempC: 4 },
 ] as const;
 
 export default function OutfitsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const theme = useAppTheme();
+  const styles = useStyles();
+  const { t, tl } = useT();
   const { width: winWidth } = useWindowDimensions();
   // Two-column grid, one column on very narrow screens (<360dp content width).
   const gridCardWidth =
@@ -91,11 +98,11 @@ export default function OutfitsScreen() {
     try {
       setSaved(await fetchSavedOutfits());
     } catch (e) {
-      setSavedError(e instanceof Error ? e.message : "Could not load saved outfits.");
+      setSavedError(e instanceof Error ? e.message : t("outfits.error.load"));
     } finally {
       setSavedLoading(false);
     }
-  }, []);
+  }, [t]);
 
   // Handler-facing wrapper: show the spinner and clear the previous error.
   const loadSaved = useCallback(async () => {
@@ -153,13 +160,13 @@ export default function OutfitsScreen() {
         seed: Math.floor(Date.now() / 60000), // changes at most once a minute
       });
       if (!next) {
-        setBuildError("The catalog didn't return any items for this occasion.");
+        setBuildError(t("outfits.builder.error.no_items"));
       } else {
         setPool(recommendations);
         setOutfit(next);
       }
     } catch (e) {
-      setBuildError(e instanceof Error ? e.message : "Could not build an outfit.");
+      setBuildError(e instanceof Error ? e.message : t("outfits.builder.error.generic"));
     } finally {
       setBuilding(false);
     }
@@ -173,13 +180,13 @@ export default function OutfitsScreen() {
         .filter((e) => e.source === "catalog")
         .map((e) => e.id);
       if (!clothingIds.length) {
-        toast.info("Nothing to save", "This outfit has no catalog items to save.");
+        toast.info(t("outfits.toast.nothing_to_save.title"), t("outfits.toast.nothing_to_save.message"));
         setSaving(false);
         return;
       }
       const saved = await insertSavedOutfit({
         name: outfit.occasion
-          ? `${outfit.occasion} look`
+          ? t("home.looks.occasion_look", { occasion: outfit.occasion })
           : `Outfit ${new Date().toLocaleDateString()}`,
         occasion: outfit.occasion ?? null,
         clothing_ids: clothingIds,
@@ -188,14 +195,14 @@ export default function OutfitsScreen() {
       setOutfit(null);
       setBuilderMode(false);
       await loadSaved();
-      toast.success("Outfit saved", "Added to your saved outfits.", {
-        label: "View",
+      toast.success(t("outfits.toast.saved.title"), t("outfits.toast.saved.message"), {
+        label: t("outfits.toast.view"),
         onPress: () => router.push(`/outfit/${saved.id}`),
       });
     } catch (e) {
       toast.error(
-        "Could not save",
-        e instanceof Error ? e.message : "Something went wrong while saving.",
+        t("outfits.toast.save_error.title"),
+        e instanceof Error ? e.message : t("outfits.toast.save_error.message"),
       );
     } finally {
       setSaving(false);
@@ -203,10 +210,10 @@ export default function OutfitsScreen() {
   };
 
   const removeOutfit = (outfitId: string) => {
-    Alert.alert("Delete outfit?", "This removes the saved outfit from your account.", [
-      { text: "Cancel", style: "cancel" },
+    Alert.alert(t("outfits.delete_confirm.title"), t("outfits.delete_confirm.message"), [
+      { text: t("outfits.delete_confirm.cancel"), style: "cancel" },
       {
-        text: "Delete",
+        text: t("outfits.delete_confirm.confirm"),
         style: "destructive",
         onPress: () => {
           void (async () => {
@@ -215,8 +222,8 @@ export default function OutfitsScreen() {
               setSaved((prev) => prev.filter((o) => o.id !== outfitId));
             } catch (e) {
               Alert.alert(
-                "Delete failed",
-                e instanceof Error ? e.message : "Could not delete the outfit.",
+                t("outfits.delete_error.title"),
+                e instanceof Error ? e.message : t("outfits.delete_error.message"),
               );
             }
           })();
@@ -235,47 +242,47 @@ export default function OutfitsScreen() {
         {builderMode ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Back to saved outfits"
+            accessibilityLabel={t("outfits.builder.back_a11y")}
             onPress={() => setBuilderMode(false)}
             hitSlop={8}
             style={({ pressed }) => [styles.builderBack, pressed && { opacity: 0.6 }]}
           >
             <Ionicons name="chevron-back" size={18} color={theme.colors.primary} />
-            <Text style={styles.builderBackText}>Saved outfits</Text>
+            <Text style={styles.builderBackText}>{t("outfits.builder.back")}</Text>
           </Pressable>
         ) : null}
 
         <ScreenHeader
-          title={builderMode ? "Build an outfit" : "Outfits"}
+          title={builderMode ? t("outfits.builder.title") : t("outfits.title")}
           subtitle={
             builderMode
-              ? "Compose a new look from real catalog picks."
+              ? t("outfits.builder.subtitle")
               : view === "calendar"
-                ? "Plan which look to wear each day."
-                : "Looks you've built and saved."
+                ? t("outfits.calendar.subtitle")
+                : t("outfits.subtitle")
           }
           right={
             builderMode ? null : (
               <View style={styles.headerActions}>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Build outfit"
+                  accessibilityLabel={t("outfits.action.build_a11y")}
                   hitSlop={6}
                   onPress={() => setBuilderMode(true)}
                   style={({ pressed }) => [styles.headerAction, pressed && { opacity: 0.7 }]}
                 >
                   <Ionicons name="add-circle-outline" size={20} color={theme.colors.primary} />
-                  <Text style={styles.headerActionText}>Build</Text>
+                  <Text style={styles.headerActionText}>{t("outfits.action.build")}</Text>
                 </Pressable>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="AI Picker"
+                  accessibilityLabel={t("outfits.action.ai_picker")}
                   hitSlop={6}
                   onPress={() => router.push("/ai-picker")}
                   style={({ pressed }) => [styles.headerAction, pressed && { opacity: 0.7 }]}
                 >
                   <Ionicons name="sparkles-outline" size={20} color={theme.colors.primary} />
-                  <Text style={styles.headerActionText}>AI Picker</Text>
+                  <Text style={styles.headerActionText}>{t("outfits.action.ai_picker")}</Text>
                 </Pressable>
               </View>
             )
@@ -294,7 +301,7 @@ export default function OutfitsScreen() {
                 <Text
                   style={[styles.segmentText, view === "looks" && styles.segmentTextActive]}
                 >
-                  Saved looks
+                  {t("outfits.tab.looks")}
                 </Text>
               </Pressable>
               <Pressable
@@ -306,7 +313,7 @@ export default function OutfitsScreen() {
                 <Text
                   style={[styles.segmentText, view === "calendar" && styles.segmentTextActive]}
                 >
-                  Calendar
+                  {t("outfits.tab.calendar")}
                 </Text>
               </Pressable>
             </View>
@@ -319,8 +326,8 @@ export default function OutfitsScreen() {
             ) : (
               <>
                 <SectionHeader
-                  title="Saved looks"
-                  subtitle="Outfits you've built and kept."
+                  title={t("outfits.saved.title")}
+                  subtitle={t("outfits.saved.subtitle")}
                   right={(
                     <View style={styles.viewToggle}>
                       <Pressable
@@ -352,15 +359,15 @@ export default function OutfitsScreen() {
                 />
 
                 {savedLoading ? (
-                  <LoadingState label="Loading outfits" />
+                  <LoadingState label={t("outfits.loading")} />
                 ) : savedError ? (
                   <ErrorState message={savedError} onRetry={loadSaved} />
                 ) : saved.length === 0 ? (
                   <EmptyState
                     icon="shirt-outline"
-                    title="No saved outfits yet"
-                    message="Build an outfit from the catalog and it will appear here."
-                    actionLabel="Build outfit"
+                    title={t("outfits.saved.empty.title")}
+                    message={t("outfits.saved.empty.message")}
+                    actionLabel={t("outfits.saved.empty.action")}
                     onAction={() => setBuilderMode(true)}
                   />
                 ) : looksView === "list" ? (
@@ -392,7 +399,7 @@ export default function OutfitsScreen() {
           </>
         ) : (
           <View style={styles.builder}>
-            <Text style={styles.sectionLabel}>OCCASION</Text>
+            <Text style={styles.sectionLabel}>{t("outfits.builder.occasion")}</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -401,14 +408,14 @@ export default function OutfitsScreen() {
               {OCCASIONS.map((occ) => (
                 <Chip
                   key={occ}
-                  label={occ}
+                  label={tl("occasion", occ)}
                   active={occ === occasion}
                   onPress={() => setOccasion(occ)}
                 />
               ))}
             </ScrollView>
 
-            <Text style={styles.sectionLabel}>CONDITION</Text>
+            <Text style={styles.sectionLabel}>{t("outfits.builder.condition")}</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -417,7 +424,7 @@ export default function OutfitsScreen() {
               {CONDITIONS.map((c) => (
                 <Chip
                   key={c.label}
-                  label={c.label}
+                  label={t(`condition.${c.key}` as TranslationKey)}
                   active={c.label === condition.label}
                   onPress={() => setCondition(c)}
                 />
@@ -425,7 +432,7 @@ export default function OutfitsScreen() {
             </ScrollView>
 
             <AppButton
-              label={building ? "Composing…" : "Compose outfit"}
+              label={building ? t("outfits.builder.composing") : t("outfits.builder.compose")}
               icon="sparkles-outline"
               loading={building}
               onPress={build}
@@ -436,10 +443,13 @@ export default function OutfitsScreen() {
             {outfit ? (
               <View style={styles.outfitPreview}>
                 <Text style={styles.previewTitle}>
-                  {outfit.occasion ?? "Look"} · {condition.label}
+                  {t("outfits.builder.preview.title", {
+                    occasion: outfit.occasion ?? t("outfits.builder.preview.default_occasion"),
+                    condition: t(`condition.${condition.key}` as TranslationKey),
+                  })}
                 </Text>
                 <Text style={styles.scoreLine}>
-                  Compatibility score {outfit.score}/100
+                  {t("outfits.builder.compatibility", { score: outfit.score })}
                 </Text>
                 <View style={styles.previewGrid}>
                   {outfit.items.map((entry) => (
@@ -463,7 +473,7 @@ export default function OutfitsScreen() {
                     style={styles.ghostBtn}
                     onPress={() => setOutfit(null)}
                   >
-                    <Text style={styles.ghostBtnText}>Discard</Text>
+                    <Text style={styles.ghostBtnText}>{t("outfits.builder.discard")}</Text>
                   </Pressable>
                   <Pressable
                     accessibilityRole="button"
@@ -474,7 +484,7 @@ export default function OutfitsScreen() {
                     {saving ? (
                       <ActivityIndicator color="#FFF" />
                     ) : (
-                      <Text style={styles.saveBtnText}>Save outfit</Text>
+                      <Text style={styles.saveBtnText}>{t("outfits.builder.save")}</Text>
                     )}
                   </Pressable>
                 </View>
@@ -483,8 +493,7 @@ export default function OutfitsScreen() {
 
             {pool.length > 0 ? (
               <Text style={styles.poolHint}>
-                Pooled from {pool.length} real catalog recommendations for
-                &ldquo;{occasion}&rdquo;.
+                {t("outfits.builder.pool_hint", { count: pool.length, occasion: tl("occasion", occasion) })}
               </Text>
             ) : null}
           </View>
@@ -515,6 +524,8 @@ function thumbnailsFor(
 
 /** Row of item thumbnails for a look; falls back to the shirt icon. */
 function LookThumbs({ urls, size, gap }: { urls: string[]; size: number; gap: number }) {
+  const theme = useAppTheme();
+  const styles = useStyles();
   if (!urls.length) {
     return (
       <View style={[styles.lookIcon, { width: size, height: size }]}>
@@ -555,6 +566,9 @@ function SavedOutfitRow({
   onPress: () => void;
   onDelete: () => void;
 }) {
+  const theme = useAppTheme();
+  const styles = useStyles();
+  const { t } = useT();
   const count = outfit.clothing_ids?.length ?? 0;
   return (
     <Pressable
@@ -565,10 +579,10 @@ function SavedOutfitRow({
       <LookThumbs urls={thumbnails ?? []} size={42} gap={10} />
       <View style={styles.savedBody}>
         <Text style={styles.savedName} numberOfLines={1}>
-          {outfit.name || "Untitled outfit"}
+          {outfit.name || t("outfits.untitled")}
         </Text>
         <Text style={styles.savedMeta} numberOfLines={1}>
-          {outfit.occasion ?? "No occasion"} · {count} item{count === 1 ? "" : "s"} ·{" "}
+          {outfit.occasion ?? t("home.looks.no_occasion")} · {t("home.looks.items", { count })} ·{" "}
           {new Date(outfit.created_at).toLocaleDateString()}
         </Text>
       </View>
@@ -592,6 +606,9 @@ function SavedOutfitCard({
   onPress: () => void;
   onDelete: () => void;
 }) {
+  const theme = useAppTheme();
+  const styles = useStyles();
+  const { t } = useT();
   const count = outfit.clothing_ids?.length ?? 0;
   return (
     <Pressable
@@ -608,10 +625,10 @@ function SavedOutfitCard({
       </View>
       <View style={styles.savedCardBody}>
         <Text style={styles.savedCardName} numberOfLines={2}>
-          {outfit.name || "Untitled outfit"}
+          {outfit.name || t("outfits.untitled")}
         </Text>
         <Text style={styles.savedCardMeta} numberOfLines={1}>
-          {outfit.occasion ?? "No occasion"} · {count} item{count === 1 ? "" : "s"}
+          {outfit.occasion ?? t("home.looks.no_occasion")} · {t("home.looks.items", { count })}
         </Text>
         <Text style={styles.savedCardDate} numberOfLines={1}>
           {new Date(outfit.created_at).toLocaleDateString()}
@@ -632,7 +649,7 @@ function SavedOutfitCard({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme: Theme) => ({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   content: { paddingHorizontal: 16, paddingBottom: 40, gap: 12 },
   headerActions: { flexDirection: "row", gap: 14, alignItems: "center" },
@@ -780,4 +797,4 @@ const styles = StyleSheet.create({
   savedCardMeta: { fontSize: 11.5, color: theme.colors.textMuted },
   savedCardDate: { fontSize: 11, color: theme.colors.textMuted },
   savedCardTrash: { position: "absolute", top: 8, right: 8, padding: 6 },
-});
+}));
