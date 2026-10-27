@@ -58,6 +58,6 @@ const useStyles = makeStyles((theme: Theme) => ({
     paddingBottom: 8,
   },
   navBtn: { padding: 6 },
-  navTitle: { fontSize: 15, fontWeight: "800", color: theme.colors.text },
+  navTitle: { fontSize: 15, fontWeight: "700", color: theme.colors.text },
   content: { padding: 16 },
 }));
