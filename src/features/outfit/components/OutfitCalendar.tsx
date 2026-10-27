@@ -20,6 +20,7 @@ import { resolveMediaUrl } from "../../../shared/lib/storageUrl";
 import { theme as staticTheme } from "../../../shared/config/theme";
 import { makeStyles } from "../../../shared/theme/makeStyles";
 import { useAppTheme } from "../../../shared/theme/ThemeProvider";
+import { useT } from "../../../shared/i18n/useT";
 import { SavedOutfit } from "../../clothing/service";
 import {
   clearOutfitPlan,
@@ -31,12 +32,6 @@ import {
   toISODate,
 } from "../planner";
 
-const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
-const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
-
 interface Props {
   outfits: SavedOutfit[];
   onOpenOutfit: (id: string) => void;
@@ -45,6 +40,23 @@ interface Props {
 export function OutfitCalendar({ outfits, onOpenOutfit }: Props) {
   const styles = useStyles();
   const theme = useAppTheme();
+  const { t, locale } = useT();
+  const weekdayFormatter = useMemo(
+    () => new Intl.DateTimeFormat(locale, { weekday: "narrow" }),
+    [locale],
+  );
+  const monthFormatter = useMemo(
+    () => new Intl.DateTimeFormat(locale, { month: "long" }),
+    [locale],
+  );
+  const dayFormatter = useMemo(
+    () => new Intl.DateTimeFormat(locale, { month: "long", day: "numeric" }),
+    [locale],
+  );
+  const weekdays = useMemo(
+    () => Array.from({ length: 7 }, (_, i) => weekdayFormatter.format(new Date(2023, 0, 1 + i))),
+    [weekdayFormatter],
+  );
   const insets = useSafeAreaInsets();
   const today = useMemo(() => new Date(), []);
   const [cursor, setCursor] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
@@ -84,12 +96,12 @@ export function OutfitCalendar({ outfits, onOpenOutfit }: Props) {
         for (const r of rows) map[r.plan_date] = r;
         setPlans(map);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Could not load your calendar.");
+        setError(e instanceof Error ? e.message : t("outfits.calendar.load_error"));
       } finally {
         setLoading(false);
       }
     },
-    [],
+    [t],
   );
 
   // Month navigation must show the loading state for the new month — reset it
@@ -160,7 +172,7 @@ export function OutfitCalendar({ outfits, onOpenOutfit }: Props) {
       }
       setPickerDate(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save that plan.");
+      setError(e instanceof Error ? e.message : t("outfits.calendar.save_error"));
     } finally {
       setSaving(false);
     }
@@ -174,7 +186,7 @@ export function OutfitCalendar({ outfits, onOpenOutfit }: Props) {
       <View style={styles.monthBar}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Previous month"
+          accessibilityLabel={t("outfits.calendar.prev_month_a11y")}
           hitSlop={8}
           style={styles.navBtn}
           onPress={() => shiftMonth(-1)}
@@ -183,17 +195,17 @@ export function OutfitCalendar({ outfits, onOpenOutfit }: Props) {
         </Pressable>
         <View style={styles.monthCenter}>
           <Text style={styles.monthLabel}>
-            {MONTHS[month]} {year}
+            {monthFormatter.format(cursor)} {year}
           </Text>
           <Text style={styles.monthMeta}>
             {plannedCount
-              ? `${plannedCount} day${plannedCount === 1 ? "" : "s"} planned`
-              : "No looks planned yet"}
+              ? t("outfits.calendar.days_planned", { count: plannedCount })
+              : t("outfits.calendar.none_planned")}
           </Text>
         </View>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Next month"
+          accessibilityLabel={t("outfits.calendar.next_month_a11y")}
           hitSlop={8}
           style={styles.navBtn}
           onPress={() => shiftMonth(1)}
@@ -204,7 +216,7 @@ export function OutfitCalendar({ outfits, onOpenOutfit }: Props) {
 
       {/* Weekday labels */}
       <View style={styles.weekRow}>
-        {WEEKDAYS.map((d, i) => (
+        {weekdays.map((d, i) => (
           <Text key={`${d}-${i}`} style={styles.weekLabel}>
             {d}
           </Text>
@@ -228,7 +240,7 @@ export function OutfitCalendar({ outfits, onOpenOutfit }: Props) {
               <View key={iso} style={styles.cell}>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Plan for ${MONTHS[month]} ${day}`}
+                  accessibilityLabel={t("outfits.calendar.plan_day_a11y", { date: dayFormatter.format(new Date(year, month, day)) })}
                   onPress={() => setPickerDate(iso)}
                   style={({ pressed }) => [
                     styles.day,
@@ -256,13 +268,13 @@ export function OutfitCalendar({ outfits, onOpenOutfit }: Props) {
 
       {/* Today shortcut + hint */}
       <View style={styles.footer}>
-        <Text style={styles.hint}>Tap a day to plan a look.</Text>
+        <Text style={styles.hint}>{t("outfits.calendar.hint")}</Text>
         <Pressable
           accessibilityRole="button"
           style={styles.todayBtn}
           onPress={() => setCursor(new Date(today.getFullYear(), today.getMonth(), 1))}
         >
-          <Text style={styles.todayBtnText}>Today</Text>
+          <Text style={styles.todayBtnText}>{t("outfits.calendar.today")}</Text>
         </Pressable>
       </View>
 
@@ -278,9 +290,9 @@ export function OutfitCalendar({ outfits, onOpenOutfit }: Props) {
             <View style={styles.pickerHandle} />
             <View style={styles.pickerHeader}>
               <View>
-                <Text style={styles.pickerTitle}>Plan a look</Text>
+                <Text style={styles.pickerTitle}>{t("outfits.plan_a_look")}</Text>
                 <Text style={styles.pickerSub}>
-                  {pickerDate ? fromISOToLabel(pickerDate) : ""}
+                  {pickerDate ? fromISOToLabel(pickerDate, locale) : ""}
                 </Text>
               </View>
               <Pressable
@@ -296,7 +308,7 @@ export function OutfitCalendar({ outfits, onOpenOutfit }: Props) {
               <View style={styles.pickerEmpty}>
                 <Ionicons name="shirt-outline" size={26} color={theme.colors.textMuted} />
                 <Text style={styles.pickerEmptyText}>
-                  No saved outfits yet. Build a look first, then plan it here.
+                  {t("outfits.calendar.picker.empty")}
                 </Text>
               </View>
             ) : (
@@ -307,7 +319,7 @@ export function OutfitCalendar({ outfits, onOpenOutfit }: Props) {
                 {outfits.map((o) => {
                   const active = pickerOutfit?.outfit_id === o.id;
                   const count = o.clothing_ids?.length ?? 0;
-                  const meta = [o.occasion, count + " item" + (count === 1 ? "" : "s")]
+                  const meta = [o.occasion, t("home.looks.items", { count })]
                     .filter(Boolean)
                     .join("\u00B7");
                   return (
@@ -325,7 +337,7 @@ export function OutfitCalendar({ outfits, onOpenOutfit }: Props) {
                       <MiniThumb imageRef={outfitThumbRef(o)} size={44} themeColors={theme.colors} />
                       <View style={styles.pickerRowBody}>
                         <Text style={styles.pickerRowName} numberOfLines={1}>
-                          {o.name || "Untitled outfit"}
+                          {o.name || t("outfits.untitled")}
                         </Text>
                         <Text style={styles.pickerRowMeta} numberOfLines={1}>
                           {meta}
@@ -351,7 +363,7 @@ export function OutfitCalendar({ outfits, onOpenOutfit }: Props) {
                   onPress={() => void assign(null)}
                 >
                   <Ionicons name="trash-outline" size={16} color={theme.colors.danger} />
-                  <Text style={styles.clearBtnText}>Clear this day</Text>
+                  <Text style={styles.clearBtnText}>{t("outfits.calendar.picker.clear")}</Text>
                 </Pressable>
               ) : null}
               {pickerOutfit?.outfit_id ? (
@@ -364,7 +376,7 @@ export function OutfitCalendar({ outfits, onOpenOutfit }: Props) {
                     onOpenOutfit(id);
                   }}
                 >
-                  <Text style={styles.openBtnText}>Open outfit</Text>
+                  <Text style={styles.openBtnText}>{t("outfits.action.open_outfit")}</Text>
                 </Pressable>
               ) : null}
               {saving ? <ActivityIndicator color={theme.colors.primary} /> : null}
@@ -376,11 +388,11 @@ export function OutfitCalendar({ outfits, onOpenOutfit }: Props) {
   );
 }
 
-/** "2026-10-12" → "Mon, Oct 12" (local). */
-function fromISOToLabel(iso: string): string {
+/** "2026-10-12" → "Mon, Oct 12" (locale-aware). */
+function fromISOToLabel(iso: string, locale: string): string {
   const [y, m, d] = iso.split("-").map(Number);
   const date = new Date(y, (m ?? 1) - 1, d ?? 1);
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString(locale, {
     weekday: "short",
     month: "short",
     day: "numeric",

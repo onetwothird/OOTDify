@@ -18,6 +18,7 @@ import { resolveMediaUrl } from "../../shared/lib/storageUrl";
 import { changeProfileAvatar, promptAvatarSource } from "./avatar";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
+import { useT } from "../../shared/i18n/useT";
 
 interface Props {
   size?: number;
@@ -59,6 +60,7 @@ export function ProfileAvatar({
 }: Props) {
   const styles = useStyles();
   const theme = useAppTheme();
+  const { t } = useT();
   const [resolved, setResolved] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
 
@@ -152,7 +154,7 @@ export function ProfileAvatar({
       {interactive ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={onPress ? "Open profile" : "Change profile photo"}
+          accessibilityLabel={onPress ? t("profile.avatar.open_a11y") : t("profile.avatar.change_a11y")}
           onPress={handlePress}
           hitSlop={8}
           style={({ pressed }) => [styles.wrap, pressed && { opacity: 0.85 }]}

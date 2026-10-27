@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppButton } from "../../../shared/components/AppButton";
 import { makeStyles } from "../../../shared/theme/makeStyles";
 import { useAppTheme } from "../../../shared/theme/ThemeProvider";
+import { useT } from "../../../shared/i18n/useT";
 import { createRoom } from "../service";
 import { ROOM_CATEGORIES } from "../types";
 
@@ -36,6 +37,7 @@ export function CreateRoomModal({
   const insets = useSafeAreaInsets();
   const styles = useStyles();
   const theme = useAppTheme();
+  const { t } = useT();
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<string>(ROOM_CATEGORIES[0]);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +67,7 @@ export function CreateRoomModal({
       reset();
       onCreated(roomId);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not create the community.");
+      setError(e instanceof Error ? e.message : t("community.create_room.error"));
     } finally {
       setCreating(false);
     }
@@ -91,10 +93,10 @@ export function CreateRoomModal({
             </View>
 
             <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>Create a community</Text>
+              <Text style={styles.sheetTitle}>{t("community.create_room.title")}</Text>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Close"
+                accessibilityLabel={t("common.close")}
                 hitSlop={8}
                 onPress={close}
                 style={({ pressed }) => pressed && { opacity: 0.6 }}
@@ -108,17 +110,17 @@ export function CreateRoomModal({
               keyboardShouldPersistTaps="handled"
             >
               <Text style={styles.intro}>
-                Anyone on OOTDify can find and join a public community.
+                {t("community.create_room.intro")}
               </Text>
 
-              <Text style={styles.groupLabel}>NAME</Text>
+              <Text style={styles.groupLabel}>{t("community.create_room.name_label")}</Text>
               <TextInput
                 value={title}
-                onChangeText={(t) => {
-                  setTitle(t);
+                onChangeText={(text) => {
+                  setTitle(text);
                   if (error) setError(null);
                 }}
-                placeholder="e.g. Everyday Streetwear"
+                placeholder={t("community.create_room.name_placeholder")}
                 placeholderTextColor={theme.colors.textMuted}
                 style={styles.input}
                 maxLength={60}
@@ -127,7 +129,7 @@ export function CreateRoomModal({
                 autoCapitalize="sentences"
               />
 
-              <Text style={styles.groupLabel}>CATEGORY</Text>
+              <Text style={styles.groupLabel}>{t("community.create_room.category_label")}</Text>
               <View style={styles.chipRow}>
                 {ROOM_CATEGORIES.map((c) => {
                   const active = c === category;
@@ -150,7 +152,7 @@ export function CreateRoomModal({
               {error ? <Text style={styles.error}>{error}</Text> : null}
 
               <AppButton
-                label={creating ? "Creating…" : "Create community"}
+                label={creating ? t("community.create_room.submitting") : t("community.create_room.submit")}
                 icon="people-outline"
                 onPress={() => void submit()}
                 loading={creating}

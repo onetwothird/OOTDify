@@ -39,31 +39,14 @@ import { AuthCard, AuthHero } from "../../shared/components/AuthShell";
 import { FormField } from "../../shared/components/FormField";
 import { OAuthButtons } from "../../shared/components/OAuthButtons";
 import { PRIVACY_ROUTE, TERMS_ROUTE, TERMS_VERSION } from "../../shared/config/legal";
-import { theme } from "../../shared/config/theme";
+import { useAppTheme } from "../../shared/theme/ThemeProvider";
+import { makeStyles } from "../../shared/theme/makeStyles";
+import type { Theme } from "../../shared/config/theme";
+import { useT } from "../../shared/i18n/useT";
 import { signInWithFacebook, signInWithGoogle } from "../../shared/lib/oauth";
 import { supabase } from "../../shared/lib/supabase";
 
-const CONSENT_MESSAGE =
-  "Please agree to the Terms of Service and Privacy Policy to create an account.";
-
-const STEPS = ["Details", "Photo", "Finish"] as const;
-
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-
-const STEP_COPY = [
-  {
-    title: "Create your account",
-    subtitle: "Your wardrobe, organised in minutes.",
-  },
-  {
-    title: "Add your photo",
-    subtitle: "Optional — skip it now and add one later from Profile.",
-  },
-  {
-    title: "One last step",
-    subtitle: "Agree to the terms and your account is ready.",
-  },
-] as const;
 
 function formatBytes(bytes: number | null): string | null {
   if (!bytes || bytes <= 0) return null;
@@ -72,6 +55,15 @@ function formatBytes(bytes: number | null): string | null {
 }
 
 export default function SignupScreen() {
+  const theme = useAppTheme();
+  const styles = useStyles();
+  const { t } = useT();
+  const STEPS = [t("auth.signup.step.details"), t("auth.signup.step.photo"), t("auth.signup.step.finish")];
+  const STEP_COPY = [
+    { title: t("auth.signup.step1.title"), subtitle: t("auth.signup.step1.subtitle") },
+    { title: t("auth.signup.step2.title"), subtitle: t("auth.signup.step2.subtitle") },
+    { title: t("auth.signup.step3.title"), subtitle: t("auth.signup.step3.subtitle") },
+  ];
   const [step, setStep] = useState(0);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -88,9 +80,9 @@ export default function SignupScreen() {
   const busy = loading || googleLoading || facebookLoading;
 
   const rules = [
-    { label: "8+ characters", ok: password.length >= 8 },
-    { label: "A letter", ok: /[a-zA-Z]/.test(password) },
-    { label: "A number", ok: /\d/.test(password) },
+    { label: t("auth.signup.rule.length"), ok: password.length >= 8 },
+    { label: t("auth.signup.rule.letter"), ok: /[a-zA-Z]/.test(password) },
+    { label: t("auth.signup.rule.number"), ok: /\d/.test(password) },
   ];
   const passwordOk = rules.every((r) => r.ok);
 
@@ -124,15 +116,15 @@ export default function SignupScreen() {
     if (busy) return;
     if (step === 0) {
       if (fullName.trim().length < 2) {
-        setError("Please tell us the name you'd like us to use.");
+        setError(t("auth.signup.error.name"));
         return;
       }
       if (!EMAIL_RE.test(email.trim())) {
-        setError("That email address doesn't look right.");
+        setError(t("auth.signup.error.email"));
         return;
       }
       if (!passwordOk) {
-        setError("Please choose a password that meets all three rules.");
+        setError(t("auth.signup.error.password"));
         return;
       }
     }
@@ -158,7 +150,7 @@ export default function SignupScreen() {
   const handleSignup = async () => {
     if (busy) return;
     if (!agreed) {
-      setError(CONSENT_MESSAGE);
+      setError(t("auth.signup.consent_required"));
       return;
     }
 
@@ -195,16 +187,16 @@ export default function SignupScreen() {
     // Only now can these belong to an account.
     await rememberChoice(email.trim());
     Alert.alert(
-      "Account created",
-      "Log in and your photo is applied automatically — it is never uploaded before you have an account.",
-      [{ text: "Log in", onPress: () => router.replace("/login") }],
+      t("auth.signup.success.title"),
+      t("auth.signup.success.message"),
+      [{ text: t("auth.signup.success.login"), onPress: () => router.replace("/login") }],
     );
   };
 
   const handleGoogleAuth = async () => {
     if (busy) return;
     if (!agreed) {
-      setError(CONSENT_MESSAGE);
+      setError(t("auth.signup.consent_required"));
       return;
     }
     setGoogleLoading(true);
@@ -219,7 +211,7 @@ export default function SignupScreen() {
         router.replace("/(tabs)/home");
       }
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Google sign-in failed. Please try again.");
+      setError(e instanceof Error ? e.message : t("auth.signup.google_failed"));
     } finally {
       setGoogleLoading(false);
     }
@@ -228,7 +220,7 @@ export default function SignupScreen() {
   const handleFacebookAuth = async () => {
     if (busy) return;
     if (!agreed) {
-      setError(CONSENT_MESSAGE);
+      setError(t("auth.signup.consent_required"));
       return;
     }
     setFacebookLoading(true);
@@ -241,7 +233,7 @@ export default function SignupScreen() {
       if (session) await rememberChoice(session.user.email);
       if (session) router.replace("/(tabs)/home");
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Facebook sign-in failed. Please try again.");
+      setError(e instanceof Error ? e.message : t("auth.signup.facebook_failed"));
     } finally {
       setFacebookLoading(false);
     }
@@ -303,11 +295,11 @@ export default function SignupScreen() {
               {step === 0 ? (
                 <>
                   <FormField
-                    label="Full name"
+                    label={t("auth.signup.full_name_label")}
                     icon="person-outline"
                     value={fullName}
                     onChangeText={setFullName}
-                    placeholder="Your name"
+                    placeholder={t("auth.signup.full_name_placeholder")}
                     autoCapitalize="words"
                     autoComplete="name"
                     textContentType="name"
@@ -316,11 +308,11 @@ export default function SignupScreen() {
                   />
 
                   <FormField
-                    label="Email address"
+                    label={t("auth.common.email_label")}
                     icon="mail-outline"
                     value={email}
                     onChangeText={setEmail}
-                    placeholder="you@example.com"
+                    placeholder={t("auth.common.email_placeholder")}
                     keyboardType="email-address"
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -331,12 +323,12 @@ export default function SignupScreen() {
                   />
 
                   <FormField
-                    label="Password"
+                    label={t("auth.common.password_label")}
                     icon="lock-closed-outline"
                     secure
                     value={password}
                     onChangeText={setPassword}
-                    placeholder="Create a password"
+                    placeholder={t("auth.signup.password_placeholder")}
                     autoCapitalize="none"
                     autoComplete="new-password"
                     textContentType="newPassword"
@@ -376,21 +368,21 @@ export default function SignupScreen() {
                     />
                     <Text style={styles.previewHint}>
                       {photo
-                        ? "This is exactly what your profile will show."
-                        : "Take one now, pick one you already like — or skip it entirely."}
+                        ? t("auth.signup.photo.ready_hint")
+                        : t("auth.signup.photo.pick_hint")}
                     </Text>
                   </View>
 
                   <View style={styles.photoActions}>
                     <AppButton
-                      label={photo ? "Retake photo" : "Take photo"}
+                      label={photo ? t("auth.signup.photo.retake") : t("auth.signup.photo.take")}
                       icon="camera-outline"
                       onPress={() => choosePhoto("camera")}
                       disabled={busy || picking}
                       style={styles.pill}
                     />
                     <AppButton
-                      label="Choose from library"
+                      label={t("auth.signup.photo.choose_library")}
                       icon="images-outline"
                       variant="secondary"
                       onPress={() => choosePhoto("library")}
@@ -402,8 +394,7 @@ export default function SignupScreen() {
                   {photo ? <PhotoFacts photo={photo} /> : null}
 
                   <Text style={styles.stepNote}>
-                    Nothing is uploaded yet — the photo is kept on this device and attached
-                    after you sign in.
+                    {t("auth.signup.photo.note")}
                   </Text>
                 </>
               ) : null}
@@ -422,13 +413,13 @@ export default function SignupScreen() {
                     />
                     <View style={styles.summaryBody}>
                       <Text style={styles.summaryName} numberOfLines={1}>
-                        {fullName.trim() || "Your account"}
+                        {fullName.trim() || t("auth.signup.summary.default_account")}
                       </Text>
                       <Text style={styles.summaryEmail} numberOfLines={1}>
-                        {email.trim() || "No email yet"}
+                        {email.trim() || t("auth.signup.summary.no_email")}
                       </Text>
                       <Text style={styles.summaryMeta}>
-                        {photo ? "Photo ready to attach after sign-in" : "No photo yet — you can add one later"}
+                        {photo ? t("auth.signup.summary.photo_ready") : t("auth.signup.summary.no_photo")}
                       </Text>
                     </View>
                   </View>
@@ -437,7 +428,7 @@ export default function SignupScreen() {
                     <Pressable
                       accessibilityRole="checkbox"
                       accessibilityState={{ checked: agreed }}
-                      accessibilityLabel="I agree to the Terms of Service and Privacy Policy"
+                      accessibilityLabel={t("auth.signup.consent.checkbox_a11y")}
                       onPress={() => {
                         setAgreed((value) => !value);
                         setError(null);
@@ -452,28 +443,28 @@ export default function SignupScreen() {
                       />
                     </Pressable>
                     <Text style={styles.consentText}>
-                      I agree to the{" "}
+                      {t("auth.signup.consent.prefix")}
                       <Text
                         accessibilityRole="link"
                         style={styles.consentLink}
                         onPress={() => router.push(TERMS_ROUTE)}
                       >
-                        Terms of Service
-                      </Text>{" "}
-                      and{" "}
+                        {t("auth.signup.consent.terms")}
+                      </Text>
+                      {t("auth.signup.consent.and")}
                       <Text
                         accessibilityRole="link"
                         style={styles.consentLink}
                         onPress={() => router.push(PRIVACY_ROUTE)}
                       >
-                        Privacy Policy
+                        {t("auth.signup.consent.privacy")}
                       </Text>
-                      .
+                      {t("auth.signup.consent.suffix")}
                     </Text>
                   </View>
 
                   <AppButton
-                    label="Create account"
+                    label={t("auth.signup.submit")}
                     onPress={handleSignup}
                     loading={loading}
                     disabled={busy}
@@ -482,7 +473,7 @@ export default function SignupScreen() {
 
                   <View style={styles.dividerRow}>
                     <View style={styles.dividerLine} />
-                    <Text style={styles.dividerText}>or continue with</Text>
+                    <Text style={styles.dividerText}>{t("auth.common.continue_with")}</Text>
                     <View style={styles.dividerLine} />
                   </View>
 
@@ -506,7 +497,7 @@ export default function SignupScreen() {
 
             {step < STEPS.length - 1 ? (
               <AppButton
-                label={step === 1 && !photo ? "Skip for now" : "Continue"}
+                label={step === 1 && !photo ? t("auth.signup.skip") : t("auth.signup.continue")}
                 icon="arrow-forward"
                 onPress={goNext}
                 disabled={busy}
@@ -516,19 +507,18 @@ export default function SignupScreen() {
           </AuthCard>
 
           <Text style={styles.note}>
-            Body photos you scan stay in your private account and are used only
-            for the AI features you ask for.
+            {t("auth.signup.note")}
           </Text>
         </ScrollView>
 
         <View style={[styles.footer, { paddingBottom: insets.bottom + theme.spacing.md }]}>
-          <Text style={styles.footerText}>Already have an account? </Text>
+          <Text style={styles.footerText}>{t("auth.signup.footer.question")}</Text>
           <Pressable
             accessibilityRole="button"
             onPress={() => router.push("/login")}
             hitSlop={8}
           >
-            <Text style={styles.footerLink}>Log in</Text>
+            <Text style={styles.footerLink}>{t("auth.signup.footer.action")}</Text>
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -538,6 +528,9 @@ export default function SignupScreen() {
 
 /** The real, OS-reported facts about the chosen file — nothing invented. */
 function PhotoFacts({ photo }: { photo: { uri: string } & Record<string, unknown> }) {
+  const theme = useAppTheme();
+  const styles = useStyles();
+  const { t } = useT();
   const width = typeof photo.width === "number" ? photo.width : 0;
   const height = typeof photo.height === "number" ? photo.height : 0;
   const fileSize = typeof photo.fileSize === "number" ? photo.fileSize : null;
@@ -546,17 +539,17 @@ function PhotoFacts({ photo }: { photo: { uri: string } & Record<string, unknown
 
   const facts: { label: string; value: string }[] = [
     {
-      label: photo.source === "camera" ? "Captured live" : "From your library",
-      value: photo.source === "camera" ? "front camera" : "on device",
+      label: photo.source === "camera" ? t("auth.signup.photo.fact.camera_label") : t("auth.signup.photo.fact.library_label"),
+      value: photo.source === "camera" ? t("auth.signup.photo.fact.camera_value") : t("auth.signup.photo.fact.library_value"),
     },
   ];
   if (width && height) {
     facts.push({
-      label: "Square crop",
+      label: t("auth.signup.photo.fact.crop_label"),
       value: `${width} × ${height}`,
     });
   }
-  if (size) facts.push({ label: "Image", value: `${mimeType ?? "image"} · ${size}` });
+  if (size) facts.push({ label: t("auth.signup.photo.fact.image_label"), value: `${mimeType ?? "image"} · ${size}` });
 
   return (
     <View style={styles.facts}>
@@ -571,7 +564,7 @@ function PhotoFacts({ photo }: { photo: { uri: string } & Record<string, unknown
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme: Theme) => ({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   flex: { flex: 1 },
   scroll: {
@@ -703,4 +696,4 @@ const styles = StyleSheet.create({
   },
   footerText: { fontSize: 14, fontWeight: "500", color: theme.colors.textMuted },
   footerLink: { fontSize: 14, fontWeight: "800", color: theme.colors.text },
-});
+}));

@@ -24,6 +24,7 @@ import { EmptyState, ErrorState } from "../../../shared/components/StateViews";
 import { SmartImage } from "../../../shared/components/SmartImage";
 import { makeStyles } from "../../../shared/theme/makeStyles";
 import { useAppTheme } from "../../../shared/theme/ThemeProvider";
+import { useT } from "../../../shared/i18n/useT";
 import { supabase } from "../../../shared/lib/supabase";
 import { shareOutfit } from "../service";
 
@@ -61,6 +62,7 @@ export function ShareOutfitModal({
   const insets = useSafeAreaInsets();
   const styles = useStyles();
   const theme = useAppTheme();
+  const { t } = useT();
   const [outfits, setOutfits] = useState<SavedOutfit[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refs, setRefs] = useState<Map<string, string | null>>(new Map());
@@ -81,9 +83,9 @@ export function ShareOutfitModal({
       setError(null);
       setRefs(await previewRefs(rows));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load your saved looks.");
+      setError(e instanceof Error ? e.message : t("community.share_modal.error.load"));
     }
-  }, []);
+  }, [t]);
 
   // Load outfits when modal becomes visible — inline async in effect to avoid setState-in-effect lint error.
   useEffect(() => {
@@ -98,13 +100,13 @@ export function ShareOutfitModal({
         setRefs(await previewRefs(rows));
       } catch (e) {
         if (cancelled) return;
-        setError(e instanceof Error ? e.message : "Could not load your saved looks.");
+        setError(e instanceof Error ? e.message : t("community.share_modal.error.load"));
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [visible]);
+  }, [visible, t]);
 
   const selected = outfits?.find((o) => o.id === selectedId) ?? null;
 
@@ -123,7 +125,7 @@ export function ShareOutfitModal({
       onShared();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not share this look.");
+      setError(e instanceof Error ? e.message : t("community.share_modal.error.share"));
     } finally {
       setSharing(false);
     }
@@ -148,10 +150,10 @@ export function ShareOutfitModal({
               <View style={styles.handle} />
             </View>
             <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>Share a look</Text>
+              <Text style={styles.sheetTitle}>{t("community.share")}</Text>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Close"
+                accessibilityLabel={t("common.close")}
                 hitSlop={8}
                 onPress={handleClose}
                 style={({ pressed }) => pressed && { opacity: 0.6 }}
@@ -168,13 +170,13 @@ export function ShareOutfitModal({
               ) : !outfits?.length ? (
                 <EmptyState
                   icon="sparkles-outline"
-                  title="No saved looks yet"
-                  message="Save an outfit from the Outfits tab, then share it here."
+                  title={t("community.share_modal.empty.title")}
+                  message={t("community.share_modal.empty.message")}
                   compact
                 />
               ) : (
                 <>
-                  <Text style={styles.groupLabel}>CHOOSE AN OUTFIT</Text>
+                  <Text style={styles.groupLabel}>{t("community.share_modal.choose_label")}</Text>
                   {outfits.map((o) => {
                     const active = o.id === selectedId;
                     const thumbs = o.clothing_ids
@@ -206,10 +208,10 @@ export function ShareOutfitModal({
                         </View>
                         <View style={styles.outfitBody}>
                           <Text style={styles.outfitName} numberOfLines={1}>
-                            {o.name || "Untitled look"}
+                            {o.name || t("home.looks.untitled")}
                           </Text>
                           <Text style={styles.outfitMeta}>
-                            {o.clothing_ids.length} piece{o.clothing_ids.length === 1 ? "" : "s"}
+                            {t("community.share_modal.pieces", { count: o.clothing_ids.length })}
                             {o.occasion ? ` · ${o.occasion}` : ""}
                           </Text>
                         </View>
@@ -222,12 +224,12 @@ export function ShareOutfitModal({
                     );
                   })}
 
-                  <Text style={styles.groupLabel}>CAPTION</Text>
+                  <Text style={styles.groupLabel}>{t("community.share_modal.caption_label")}</Text>
                   <TextInput
                     style={styles.captionInput}
                     value={caption}
                     onChangeText={setCaption}
-                    placeholder="Tell the community about this look…"
+                    placeholder={t("community.share_modal.caption_placeholder")}
                     placeholderTextColor={theme.colors.textMuted}
                     maxLength={400}
                     multiline
@@ -236,7 +238,7 @@ export function ShareOutfitModal({
                   {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
                   <AppButton
-                    label="Post to Community"
+                    label={t("community.share_modal.submit")}
                     icon="cloud-upload-outline"
                     loading={sharing}
                     disabled={!selected}
@@ -244,8 +246,7 @@ export function ShareOutfitModal({
                     style={{ marginBottom: 4 }}
                   />
                   <Text style={styles.privacyNote}>
-                    The outfit images are copied to the public Community bucket. Your wardrobe
-                    itself stays private.
+                    {t("community.share_modal.privacy_note")}
                   </Text>
                 </>
               )}

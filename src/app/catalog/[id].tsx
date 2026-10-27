@@ -19,11 +19,17 @@ import { useTryOnSelection } from "../../features/tryon/selectionStore";
 import { ErrorState } from "../../shared/components/StateViews";
 import { LoadingState } from "../../shared/components/LoadingState";
 import { SmartImage } from "../../shared/components/SmartImage";
-import { theme } from "../../shared/config/theme";
+import { makeStyles } from "../../shared/theme/makeStyles";
+import { useAppTheme } from "../../shared/theme/ThemeProvider";
+import type { Theme } from "../../shared/config/theme";
+import { useT } from "../../shared/i18n/useT";
 
 export default function CatalogDetailScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const styles = useStyles();
+  const theme = useAppTheme();
+  const { t, tl } = useT();
   const { id } = useLocalSearchParams<{ id: string }>();
   const setClothing = useTryOnSelection((s) => s.setClothing);
 
@@ -52,14 +58,14 @@ export default function CatalogDetailScreen() {
         ]);
         if (!alive) return;
         if (!row) {
-          setError("This item is no longer in the catalog.");
+          setError(t("catalog.not_found"));
         } else {
           setItem(row);
           setFav(favs.has(row.id));
           recordRecentlyViewed(row.id).catch(() => {});
         }
       } catch (e) {
-        if (alive) setError(e instanceof Error ? e.message : "Could not load this item.");
+        if (alive) setError(e instanceof Error ? e.message : t("catalog.error.load"));
       } finally {
         if (alive) setLoading(false);
       }
@@ -67,7 +73,7 @@ export default function CatalogDetailScreen() {
     return () => {
       alive = false;
     };
-  }, [id]);
+  }, [id, t]);
 
   const toggleFav = async () => {
     if (!item) return;
@@ -94,7 +100,7 @@ export default function CatalogDetailScreen() {
         <Pressable accessibilityRole="button" onPress={() => router.back()} hitSlop={8} style={styles.navBtn}>
           <Ionicons name="arrow-back" size={22} color={theme.colors.text} />
         </Pressable>
-        <Text style={styles.navTitle}>Item</Text>
+        <Text style={styles.navTitle}>{t("catalog.nav_title")}</Text>
         <Pressable accessibilityRole="button" onPress={toggleFav} hitSlop={8} style={styles.navBtn}>
           <Ionicons
             name={fav ? "heart" : "heart-outline"}
@@ -105,7 +111,7 @@ export default function CatalogDetailScreen() {
       </View>
 
       {loading ? (
-        <LoadingState label="Loading item" />
+        <LoadingState label={t("catalog.loading")} />
       ) : error ? (
         <ErrorState message={error} onRetry={() => router.back()} />
       ) : item ? (
@@ -121,18 +127,22 @@ export default function CatalogDetailScreen() {
               <Text style={styles.description}>{item.description}</Text>
             ) : null}
 
-            <MetaList title="Category" values={[item.category, item.subcategory].filter(Boolean) as string[]} />
-            <MetaList title="Style" values={item.style ? [item.style] : []} />
-            <MetaList title="Colors" values={item.color} />
-            <MetaList title="Sizes" values={item.sizes} />
-            <MetaList title="Occasions" values={item.occasion} />
+            <MetaList
+              title={t("catalog.meta.category")}
+              values={[item.category, item.subcategory].filter(Boolean) as string[]}
+              translatePrefix="category"
+            />
+            <MetaList title={t("catalog.meta.style")} values={item.style ? [item.style] : []} />
+            <MetaList title={t("catalog.meta.colors")} values={item.color} />
+            <MetaList title={t("catalog.meta.sizes")} values={item.sizes} />
+            <MetaList title={t("catalog.meta.occasions")} values={item.occasion} translatePrefix="occasion" />
 
             <Pressable accessibilityRole="button" style={styles.tryonBtn} onPress={tryItOn}>
               <Ionicons name="sparkles-outline" size={18} color="#FFF" />
-              <Text style={styles.tryonBtnText}>Try it on</Text>
+              <Text style={styles.tryonBtnText}>{t("catalog.action.try_on")}</Text>
             </Pressable>
             <Text style={styles.tryonHint}>
-              Opens the Scan tab — pick a body photo and run a virtual try-on.
+              {t("catalog.try_on_hint")}
             </Text>
           </View>
         </ScrollView>
@@ -141,7 +151,17 @@ export default function CatalogDetailScreen() {
   );
 }
 
-function MetaList({ title, values }: { title: string; values: string[] }) {
+function MetaList({
+  title,
+  values,
+  translatePrefix,
+}: {
+  title: string;
+  values: string[];
+  translatePrefix?: string;
+}) {
+  const styles = useStyles();
+  const { tl } = useT();
   if (!values.length) return null;
   return (
     <View style={styles.metaBlock}>
@@ -149,7 +169,7 @@ function MetaList({ title, values }: { title: string; values: string[] }) {
       <View style={styles.metaChips}>
         {values.map((v) => (
           <View key={v} style={styles.metaChip}>
-            <Text style={styles.metaChipText}>{v}</Text>
+            <Text style={styles.metaChipText}>{translatePrefix ? tl(translatePrefix, v) : v}</Text>
           </View>
         ))}
       </View>
@@ -157,7 +177,7 @@ function MetaList({ title, values }: { title: string; values: string[] }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme: Theme) => ({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   navRow: {
     flexDirection: "row",
@@ -199,4 +219,4 @@ const styles = StyleSheet.create({
   },
   tryonBtnText: { color: theme.colors.onPrimary, fontWeight: "700", fontSize: 15 },
   tryonHint: { fontSize: 11.5, color: theme.colors.textMuted, textAlign: "center" },
-});
+}));

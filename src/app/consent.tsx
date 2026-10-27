@@ -27,10 +27,16 @@ import {
   TERMS_ROUTE,
   TERMS_VERSION,
 } from "../shared/config/legal";
-import { theme } from "../shared/config/theme";
+import { useAppTheme } from "../shared/theme/ThemeProvider";
+import { makeStyles } from "../shared/theme/makeStyles";
+import type { Theme } from "../shared/config/theme";
+import { useT } from "../shared/i18n/useT";
 import { supabase } from "../shared/lib/supabase";
 
 export default function ConsentScreen() {
+  const theme = useAppTheme();
+  const styles = useStyles();
+  const { t } = useT();
   const [checked, setChecked] = useState(false);
   const [accepting, setAccepting] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -51,8 +57,8 @@ export default function ConsentScreen() {
       router.replace("/(tabs)/home");
     } catch (error: unknown) {
       const message =
-        error instanceof Error ? error.message : "Could not save your acceptance.";
-      Alert.alert("Acceptance not saved", message);
+        error instanceof Error ? error.message : t("consent.accept_error.default");
+      Alert.alert(t("consent.accept_error.title"), message);
     } finally {
       setAccepting(false);
     }
@@ -65,7 +71,7 @@ export default function ConsentScreen() {
       await supabase.auth.signOut();
       router.replace("/(auth)");
     } catch {
-      Alert.alert("Sign out failed", "Please try again.");
+      Alert.alert(t("consent.signout_error.title"), t("auth.common.try_again"));
     } finally {
       setSigningOut(false);
     }
@@ -84,33 +90,30 @@ export default function ConsentScreen() {
           <Ionicons name="document-text-outline" size={28} color={theme.colors.text} />
         </View>
 
-        <Text style={styles.title}>Review and accept to continue</Text>
+        <Text style={styles.title}>{t("consent.title")}</Text>
         <Text style={styles.subtitle}>
-          We updated our Terms of Service and Privacy Policy. Your acceptance is
-          recorded with version {TERMS_VERSION} ({TERMS_DISPLAY_DATE}) before AI
-          features process your photos — that&apos;s also enforced by our backend,
-          so we can&apos;t skip it quietly either.
+          {t("consent.subtitle", { version: TERMS_VERSION, date: TERMS_DISPLAY_DATE })}
         </Text>
 
         <View style={styles.docList}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Read the Terms of Service"
+            accessibilityLabel={t("consent.terms.a11y")}
             onPress={openTerms}
             style={({ pressed }) => [styles.docRow, pressed && styles.docRowPressed]}
           >
             <Ionicons name="reader-outline" size={20} color={theme.colors.text} />
-            <Text style={styles.docRowText}>Terms of Service</Text>
+            <Text style={styles.docRowText}>{t("consent.terms.label")}</Text>
             <Ionicons name="chevron-forward" size={18} color={theme.colors.textMuted} />
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Read the Privacy Policy"
+            accessibilityLabel={t("consent.privacy.a11y")}
             onPress={openPrivacy}
             style={({ pressed }) => [styles.docRow, pressed && styles.docRowPressed]}
           >
             <Ionicons name="shield-checkmark-outline" size={20} color={theme.colors.text} />
-            <Text style={styles.docRowText}>Privacy Policy</Text>
+            <Text style={styles.docRowText}>{t("consent.privacy.label")}</Text>
             <Ionicons name="chevron-forward" size={18} color={theme.colors.textMuted} />
           </Pressable>
         </View>
@@ -118,7 +121,7 @@ export default function ConsentScreen() {
         <Pressable
           accessibilityRole="checkbox"
           accessibilityState={{ checked }}
-          accessibilityLabel="I have read and agree to the Terms of Service and Privacy Policy"
+          accessibilityLabel={t("consent.checkbox.a11y")}
           onPress={() => setChecked((v) => !v)}
           style={styles.checkRow}
         >
@@ -128,12 +131,12 @@ export default function ConsentScreen() {
             color={checked ? theme.colors.primary : theme.colors.textMuted}
           />
           <Text style={styles.checkText}>
-            I have read and agree to the Terms of Service and Privacy Policy.
+            {t("consent.checkbox.label")}
           </Text>
         </Pressable>
 
         <AppButton
-          label="Accept and continue"
+          label={t("consent.accept")}
           icon="checkmark"
           onPress={handleAccept}
           disabled={!checked}
@@ -141,22 +144,21 @@ export default function ConsentScreen() {
           style={styles.acceptButton}
         />
         <AppButton
-          label={signingOut ? "Signing out…" : "Not now — sign out"}
+          label={signingOut ? t("consent.accept.loading") : t("consent.decline")}
           variant="ghost"
           onPress={handleSignOut}
           loading={signingOut}
         />
 
         <Text style={styles.footnote}>
-          Declining signs you out; nothing is recorded. You can accept at any
-          time by signing back in.
+          {t("consent.footnote")}
         </Text>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme: Theme) => ({
   safeArea: { flex: 1, backgroundColor: theme.colors.background },
   content: {
     padding: theme.spacing.page,
@@ -218,4 +220,4 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: theme.spacing.md,
   },
-});
+}));

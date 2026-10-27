@@ -28,11 +28,17 @@ import { AppButton } from "../../shared/components/AppButton";
 import { EmptyState, ErrorState } from "../../shared/components/StateViews";
 import { LoadingState } from "../../shared/components/LoadingState";
 import { SmartImage } from "../../shared/components/SmartImage";
-import { theme } from "../../shared/config/theme";
+import { makeStyles } from "../../shared/theme/makeStyles";
+import { useAppTheme } from "../../shared/theme/ThemeProvider";
+import type { Theme } from "../../shared/config/theme";
+import { useT } from "../../shared/i18n/useT";
 
 export default function ItemDetailScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const styles = useStyles();
+  const theme = useAppTheme();
+  const { t, tl } = useT();
   const { id } = useLocalSearchParams<{ id: string }>();
   const setClothing = useTryOnSelection((s) => s.setClothing);
 
@@ -65,14 +71,14 @@ export default function ItemDetailScreen() {
         }
         if (!alive) return;
         if (!found) {
-          setError("This item could not be found in your wardrobe.");
+          setError(t("item.not_found"));
         } else {
           setItem(found);
           const favs = await fetchItemFavoriteIds().catch(() => new Set<string>());
           if (alive) setFav(favs.has(found.id));
         }
       } catch (e) {
-        if (alive) setError(e instanceof Error ? e.message : "Could not load this item.");
+        if (alive) setError(e instanceof Error ? e.message : t("item.error.load"));
       } finally {
         if (alive) setLoading(false);
       }
@@ -80,7 +86,7 @@ export default function ItemDetailScreen() {
     return () => {
       alive = false;
     };
-  }, [id, storeItems]);
+  }, [id, storeItems, t]);
 
   const toggleFavorite = useCallback(async () => {
     if (!item) return;
@@ -97,12 +103,12 @@ export default function ItemDetailScreen() {
   const confirmDelete = useCallback(() => {
     if (!item) return;
     Alert.alert(
-      "Delete this item?",
-      "It will be removed from your wardrobe. This can't be undone.",
+      t("item.delete_confirm.title"),
+      t("item.delete_confirm.message"),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t("item.delete_confirm.cancel"), style: "cancel" },
         {
-          text: "Delete",
+          text: t("item.delete_confirm.confirm"),
           style: "destructive",
           onPress: () => {
             void (async () => {
@@ -111,8 +117,8 @@ export default function ItemDetailScreen() {
                 router.back();
               } catch (e) {
                 Alert.alert(
-                  "Delete failed",
-                  e instanceof Error ? e.message : "Could not delete this item.",
+                  t("item.delete_error.title"),
+                  e instanceof Error ? e.message : t("item.delete_error.message"),
                 );
               }
             })();
@@ -120,20 +126,21 @@ export default function ItemDetailScreen() {
         },
       ],
     );
-  }, [item, router]);
+  }, [item, router, t]);
 
   const meta = useMemo(() => {
     if (!item) return [] as { k: string; v: string }[];
     const out: { k: string; v: string }[] = [];
-    if (item.category) out.push({ k: "Category", v: item.category });
-    if (item.color) out.push({ k: "Color", v: item.color });
-    if (item.size) out.push({ k: "Size", v: item.size });
-    if (item.brand) out.push({ k: "Brand", v: item.brand });
-    if (item.style) out.push({ k: "Style", v: item.style });
-    if (item.season) out.push({ k: "Season", v: item.season });
-    if ((item.occasion ?? []).length) out.push({ k: "Occasions", v: item.occasion.join(", ") });
+    if (item.category) out.push({ k: t("item.meta.category"), v: tl("category", item.category) });
+    if (item.color) out.push({ k: t("item.meta.color"), v: item.color });
+    if (item.size) out.push({ k: t("item.meta.size"), v: item.size });
+    if (item.brand) out.push({ k: t("item.meta.brand"), v: item.brand });
+    if (item.style) out.push({ k: t("item.meta.style"), v: item.style });
+    if (item.season) out.push({ k: t("item.meta.season"), v: tl("season", item.season) });
+    if ((item.occasion ?? []).length)
+      out.push({ k: t("item.meta.occasions"), v: item.occasion.map((o) => tl("occasion", o)).join(", ") });
     return out;
-  }, [item]);
+  }, [item, t, tl]);
 
   if (loading) {
     return (
@@ -146,7 +153,7 @@ export default function ItemDetailScreen() {
   if (error || !item) {
     return (
       <View style={[styles.screen, { paddingTop: insets.top }]}>
-        <ErrorState message={error ?? "Item not found."} onRetry={() => router.back()} />
+        <ErrorState message={error ?? t("item.not_found_title")} onRetry={() => router.back()} />
       </View>
     );
   }
@@ -158,7 +165,7 @@ export default function ItemDetailScreen() {
         <View style={styles.topBar}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Go back"
+            accessibilityLabel={t("item.back_a11y")}
             onPress={() => router.back()}
             hitSlop={8}
             style={styles.backBtn}
@@ -191,7 +198,7 @@ export default function ItemDetailScreen() {
 
         {/* Title */}
         <Text style={styles.name} testID="item-name">
-          {item.name || item.category || "Untitled item"}
+          {item.name || (item.category ? tl("category", item.category) : t("item.untitled"))}
         </Text>
         {item.tags && item.tags.length > 0 ? (
           <Text style={styles.tags}>{item.tags.join(" · ")}</Text>
@@ -212,15 +219,15 @@ export default function ItemDetailScreen() {
         ) : (
           <EmptyState
             icon="pricetags-outline"
-            title="No details yet"
-            message="Add size, color, brand and more to make your wardrobe searchable."
+            title={t("item.empty.title")}
+            message={t("item.empty.message")}
           />
         )}
 
         {/* Actions */}
         <View style={styles.actions}>
           <AppButton
-            label="Try it on"
+            label={t("item.action.try_on")}
             icon="sparkles-outline"
             onPress={() => {
               setClothing(item.id, "item");
@@ -228,19 +235,19 @@ export default function ItemDetailScreen() {
             }}
           />
           <AppButton
-            label="Edit details"
+            label={t("item.action.edit")}
             variant="secondary"
             icon="create-outline"
             onPress={() => setEditOpen(true)}
           />
           <Pressable accessibilityRole="button" onPress={confirmDelete} style={styles.deleteBtn}>
             <Ionicons name="trash-outline" size={16} color={theme.colors.danger} />
-            <Text style={styles.deleteText}>Delete item</Text>
+            <Text style={styles.deleteText}>{t("item.action.delete")}</Text>
           </Pressable>
         </View>
 
         <Text style={styles.privacyNote}>
-          This photo is stored privately on your account and is never shared.
+          {t("item.privacy_note")}
         </Text>
       </ScrollView>
 
@@ -253,7 +260,7 @@ export default function ItemDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme: Theme) => ({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   content: { paddingHorizontal: theme.spacing.page, paddingBottom: 40 },
   topBar: {
@@ -335,4 +342,4 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 18,
   },
-});
+}));

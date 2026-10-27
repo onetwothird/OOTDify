@@ -45,6 +45,7 @@ import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import { supabase } from "../../shared/lib/supabase";
 import { timeAgo } from "../../features/community/format";
 import { toast } from "../../shared/lib/toast";
+import { useT } from "../../shared/i18n/useT";
 
 type Tab = "feed" | "chats";
 
@@ -57,6 +58,7 @@ const GUTTER = 20;
 export default function CommunityScreen() {
   const styles = useStyles();
   const theme = useAppTheme();
+  const { t } = useT();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -216,7 +218,7 @@ export default function CommunityScreen() {
     (authorId: string) => {
       if (!meId) return;
       if (authorId === meId) {
-        toast.info("That's you", "You can't start a chat with your own post.");
+        toast.info(t("community.toast.own_post.title"), t("community.toast.own_post.message"));
         return;
       }
       void (async () => {
@@ -224,22 +226,22 @@ export default function CommunityScreen() {
           const conversationId = await startDirectConversation(authorId);
           router.push(`/community/chat/${conversationId}`);
         } catch (e) {
-          toast.error("Could not start chat", communityErrorMessage(e));
+          toast.error(t("community.toast.chat_error.title"), communityErrorMessage(e));
         }
       })();
     },
-    [meId, router],
+    [meId, router, t],
   );
 
   const handleDelete = useCallback(async (post: FeedPost) => {
     try {
       await deletePost(post);
       setPosts((prev) => prev?.filter((p) => p.id !== post.id) ?? prev);
-      toast.success("Post deleted");
+      toast.success(t("community.toast.post_deleted"));
     } catch (e) {
-      toast.error("Could not delete post", communityErrorMessage(e));
+      toast.error(t("community.toast.delete_error.title"), communityErrorMessage(e));
     }
-  }, []);
+  }, [t]);
 
   // ---- Chats actions -------------------------------------------------------
   const openCommunityRoom = useCallback(async () => {
@@ -248,11 +250,11 @@ export default function CommunityScreen() {
       const roomId = await ensureCommunityRoom();
       router.push(`/community/chat/${roomId}`);
     } catch (e) {
-      toast.error("Could not open community chat", communityErrorMessage(e));
+      toast.error(t("community.toast.room_error.title"), communityErrorMessage(e));
     } finally {
       setOpeningRoom(false);
     }
-  }, [router]);
+  }, [router, t]);
 
   /** Join a public room (if needed) and open it. */
   const openRoom = useCallback(
@@ -262,12 +264,12 @@ export default function CommunityScreen() {
         if (!room.joined) await joinRoom(room.id);
         router.push(`/community/chat/${room.id}`);
       } catch (e) {
-        toast.error("Could not join community", communityErrorMessage(e));
+        toast.error(t("community.toast.join_error.title"), communityErrorMessage(e));
       } finally {
         setJoiningId(null);
       }
     },
-    [router],
+    [router, t],
   );
 
   const handleRoomCreated = useCallback(
@@ -305,13 +307,13 @@ export default function CommunityScreen() {
           content use, keeping title, subtitle and action on one aligned rail. */}
       <View style={styles.headerWrap}>
         <ScreenHeader
-          title="Community"
-          subtitle="See what others are wearing"
+          title={t("community.title")}
+          subtitle={t("community.subtitle")}
           right={
             condensed ? (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Share a look"
+                accessibilityLabel={t("community.share")}
                 hitSlop={8}
                 onPress={() => setShareOpen(true)}
                 style={({ pressed }) => [styles.shareIconBtn, pressed && { opacity: 0.7 }]}
@@ -320,7 +322,7 @@ export default function CommunityScreen() {
               </Pressable>
             ) : (
               <AppButton
-                label="Share a look"
+                label={t("community.share")}
                 icon="cloud-upload-outline"
                 size="md"
                 onPress={() => setShareOpen(true)}
@@ -341,7 +343,7 @@ export default function CommunityScreen() {
             style={[styles.segmentBtn, tab === key && styles.segmentBtnActive]}
           >
             <Text style={[styles.segmentText, tab === key && styles.segmentTextActive]}>
-              {key === "feed" ? "Feed" : "Chats"}
+              {key === "feed" ? t("community.tab.feed") : t("community.tab.chats")}
             </Text>
           </Pressable>
         ))}
@@ -369,8 +371,8 @@ export default function CommunityScreen() {
             ListEmptyComponent={
               <EmptyState
                 icon="people-outline"
-                title="Nothing shared yet"
-                message={"Be the first — tap \"Share a look\" up top to post a saved outfit."}
+                title={t("community.feed.empty.title")}
+                message={t("community.feed.empty.message")}
               />
             }
           />
@@ -405,29 +407,29 @@ export default function CommunityScreen() {
                   <Text style={styles.roomIconText}>OC</Text>
                 </View>
                 <View style={styles.roomBody}>
-                  <Text style={styles.roomTitle}>Open Community Chat</Text>
-                  <Text style={styles.roomHint}>Talk with everyone on OOTDify</Text>
+                  <Text style={styles.roomTitle}>{t("community.chat.open_community")}</Text>
+                  <Text style={styles.roomHint}>{t("community.chat.open_community.hint")}</Text>
                 </View>
                 {openingRoom ? (
                   <ActivityIndicator size="small" color={theme.colors.primary} />
                 ) : (
-                  <Text style={styles.roomOpen}>Open</Text>
+                  <Text style={styles.roomOpen}>{t("community.chat.open")}</Text>
                 )}
               </Pressable>
 
               {/* ------------------------------------------- Communities */}
               <View style={styles.section}>
                 <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>COMMUNITIES</Text>
+                  <Text style={styles.sectionTitle}>{t("community.chat.communities")}</Text>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="Create a community"
+                    accessibilityLabel={t("community.chat.create_a11y")}
                     hitSlop={8}
                     onPress={() => setCreateOpen(true)}
                     style={({ pressed }) => [styles.createBtn, pressed && { opacity: 0.85 }]}
                   >
                     <Ionicons name="add" size={16} color={theme.colors.onPrimary} />
-                    <Text style={styles.createBtnText}>Create</Text>
+                    <Text style={styles.createBtnText}>{t("community.chat.create")}</Text>
                   </Pressable>
                 </View>
 
@@ -437,7 +439,7 @@ export default function CommunityScreen() {
                     <ActivityIndicator color={theme.colors.primary} style={styles.roomsLoading} />
                   ) : rooms.length === 0 ? (
                     <Text style={styles.roomsEmpty}>
-                      No communities yet. Create one to get started.
+                      {t("community.chat.empty_communities")}
                     </Text>
                   ) : (
                     rooms.map((room) => {
@@ -462,15 +464,15 @@ export default function CommunityScreen() {
                             </Text>
                             <Text style={styles.chatPreview} numberOfLines={1}>
                               {room.category} ·{" "}
-                              {room.memberCount === 1
-                                ? "1 member"
-                                : `${room.memberCount} members`}
+                              {t("community.chat.members", { count: room.memberCount })}
                             </Text>
                           </View>
                           {busy ? (
                             <ActivityIndicator size="small" color={theme.colors.primary} />
                           ) : (
-                            <Text style={styles.roomOpen}>{room.joined ? "Open" : "Join"}</Text>
+                            <Text style={styles.roomOpen}>
+                              {room.joined ? t("community.chat.open") : t("community.chat.join")}
+                            </Text>
                           )}
                         </Pressable>
                       );
@@ -480,7 +482,7 @@ export default function CommunityScreen() {
               </View>
 
               {chatRows.length ? (
-                <Text style={styles.sectionTitle}>DIRECT MESSAGES</Text>
+                <Text style={styles.sectionTitle}>{t("community.chat.dms")}</Text>
               ) : null}
             </View>
           }
@@ -491,8 +493,8 @@ export default function CommunityScreen() {
             // is and how to get one.
             <EmptyState
               icon="chatbubbles-outline"
-              title="No direct messages"
-              message="Message someone from the feed to start a private chat."
+              title={t("community.chat.no_dms.title")}
+              message={t("community.chat.no_dms.message")}
             />
           }
           renderItem={({ item }) => (
@@ -511,7 +513,7 @@ export default function CommunityScreen() {
                   {item.otherName}
                 </Text>
                 <Text style={styles.chatPreview} numberOfLines={1}>
-                  {item.lastMessage ?? "No messages yet"}
+                  {item.lastMessage ?? t("community.chat.no_messages")}
                 </Text>
               </View>
               <View style={styles.chatMeta}>
@@ -534,7 +536,7 @@ export default function CommunityScreen() {
         onClose={() => setShareOpen(false)}
         onShared={() => {
           void loadFeed();
-          toast.success("Look shared", "Your outfit is now on the community feed.");
+          toast.success(t("community.toast.shared.title"), t("community.toast.shared.message"));
         }}
       />
 

@@ -22,6 +22,7 @@ import { SavedOutfit } from "../../clothing/service";
 import { theme as staticTheme } from "../../../shared/config/theme";
 import { makeStyles } from "../../../shared/theme/makeStyles";
 import { useAppTheme } from "../../../shared/theme/ThemeProvider";
+import { useT } from "../../../shared/i18n/useT";
 import { resolveMediaUrl } from "../../../shared/lib/storageUrl";
 import { fetchClothingImageRefs, OutfitPlan } from "../planner";
 
@@ -52,7 +53,13 @@ export function TodayLookCard({
 }: Props) {
   const styles = useStyles();
   const theme = useAppTheme();
+  const { t, locale } = useT();
   const planned = Boolean(plan?.outfit_id);
+  const todayLabel = new Date().toLocaleDateString(locale, {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+  });
 
   return (
     <GlassView
@@ -64,20 +71,20 @@ export function TodayLookCard({
       style={[styles.card, !LIQUID_GLASS && styles.cardFallback]}
     >
       <View style={styles.head}>
-        <Text style={styles.kicker}>TODAY&apos;S LOOK</Text>
-        <Text style={styles.date}>{TODAY_LABEL}</Text>
+        <Text style={styles.kicker}>{t("outfits.today.kicker")}</Text>
+        <Text style={styles.date}>{todayLabel}</Text>
       </View>
 
       {loading ? (
         <View style={styles.stateRow}>
           <ActivityIndicator color={theme.colors.text} />
-          <Text style={styles.stateText}>Checking today&apos;s plan…</Text>
+          <Text style={styles.stateText}>{t("outfits.today.checking")}</Text>
         </View>
       ) : error ? (
         <View style={styles.stateRow}>
           <Ionicons name="cloud-offline-outline" size={20} color={theme.colors.accent} />
           <View style={styles.body}>
-            <Text style={styles.title}>Today&apos;s plan is unavailable</Text>
+            <Text style={styles.title}>{t("outfits.today.unavailable_title")}</Text>
             <Text style={styles.meta}>{error}</Text>
           </View>
         </View>
@@ -88,10 +95,9 @@ export function TodayLookCard({
               <Ionicons name="calendar-outline" size={22} color={theme.colors.textMuted} />
             </View>
             <View style={styles.body}>
-              <Text style={styles.title}>Nothing planned for today</Text>
+              <Text style={styles.title}>{t("outfits.today.nothing_title")}</Text>
               <Text style={styles.meta}>
-                Pick one of your saved looks on the calendar and it will show up
-                here each morning.
+                {t("outfits.today.nothing_message")}
               </Text>
             </View>
           </View>
@@ -101,7 +107,7 @@ export function TodayLookCard({
             style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
           >
             <Ionicons name="calendar-outline" size={16} color={theme.colors.onPrimary} />
-            <Text style={styles.ctaText}>Plan a look</Text>
+            <Text style={styles.ctaText}>{t("outfits.plan_a_look")}</Text>
           </Pressable>
         </>
       ) : (
@@ -110,14 +116,14 @@ export function TodayLookCard({
             <OutfitThumb outfit={outfit} themeColors={theme.colors} />
             <View style={styles.body}>
               <Text style={styles.title} numberOfLines={1}>
-                {outfit?.name || "Planned look"}
+                {outfit?.name || t("outfits.today.default_name")}
               </Text>
               <Text style={styles.meta} numberOfLines={2}>
                 {outfit
-                  ? [outfit.occasion, itemCount(outfit)]
+                  ? [outfit.occasion, t("home.looks.items", { count: outfit.clothing_ids?.length ?? 0 })]
                       .filter(Boolean)
                       .join(" · ")
-                  : "This plan points at an outfit that is no longer saved."}
+                  : t("outfits.today.orphaned")}
               </Text>
             </View>
           </View>
@@ -127,7 +133,7 @@ export function TodayLookCard({
               onPress={onPlanLook}
               style={({ pressed }) => [styles.ghost, pressed && styles.ctaPressed]}
             >
-              <Text style={styles.ghostText}>Calendar</Text>
+              <Text style={styles.ghostText}>{t("outfits.today.calendar_cta")}</Text>
             </Pressable>
             {outfit ? (
               <Pressable
@@ -136,7 +142,7 @@ export function TodayLookCard({
                 style={({ pressed }) => [styles.cta, styles.ctaFlex, pressed && styles.ctaPressed]}
               >
                 <Ionicons name="shirt-outline" size={16} color={theme.colors.onPrimary} />
-                <Text style={styles.ctaText}>Open outfit</Text>
+                <Text style={styles.ctaText}>{t("outfits.action.open_outfit")}</Text>
               </Pressable>
             ) : null}
           </View>
@@ -144,11 +150,6 @@ export function TodayLookCard({
       )}
     </GlassView>
   );
-}
-
-function itemCount(outfit: SavedOutfit): string {
-  const n = outfit.clothing_ids?.length ?? 0;
-  return `${n} item${n === 1 ? "" : "s"}`;
 }
 
 /** First piece of the look as a square thumbnail; placeholder while it loads. */
@@ -191,12 +192,6 @@ function OutfitThumb({ outfit, themeColors }: { outfit: SavedOutfit | undefined;
     </View>
   );
 }
-
-const TODAY_LABEL = new Date().toLocaleDateString(undefined, {
-  weekday: "long",
-  month: "short",
-  day: "numeric",
-});
 
 const useStyles = makeStyles((theme) => ({
   card: {

@@ -18,12 +18,18 @@ import {
 } from "../../features/clothing/service";
 import { ErrorState } from "../../shared/components/StateViews";
 import { LoadingState } from "../../shared/components/LoadingState";
-import { theme } from "../../shared/config/theme";
+import { useAppTheme } from "../../shared/theme/ThemeProvider";
+import { makeStyles } from "../../shared/theme/makeStyles";
+import type { Theme } from "../../shared/config/theme";
+import { useT } from "../../shared/i18n/useT";
 import { resolveMediaUrl } from "../../shared/lib/storageUrl";
 
 export default function OutfitDetailScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const theme = useAppTheme();
+  const styles = useStyles();
+  const { t } = useT();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const [outfit, setOutfit] = useState<SavedOutfit | null>(null);
@@ -50,7 +56,7 @@ export default function OutfitDetailScreen() {
         const row = saved.find((o) => o.id === id) ?? null;
         if (!alive) return;
         if (!row) {
-          setError("This outfit was not found.");
+          setError(t("outfit.detail.not_found"));
           setLoading(false);
           return;
         }
@@ -65,7 +71,7 @@ export default function OutfitDetailScreen() {
           if (alive) setHeroUri(u);
         }
       } catch (e) {
-        if (alive) setError(e instanceof Error ? e.message : "Could not load this outfit.");
+        if (alive) setError(e instanceof Error ? e.message : t("outfit.detail.load_error"));
       } finally {
         if (alive) setLoading(false);
       }
@@ -73,14 +79,14 @@ export default function OutfitDetailScreen() {
     return () => {
       alive = false;
     };
-  }, [id]);
+  }, [id, t]);
 
   const remove = () => {
     if (!outfit) return;
-    Alert.alert("Delete outfit?", "This removes the outfit from your account.", [
-      { text: "Cancel", style: "cancel" },
+    Alert.alert(t("outfits.delete_confirm.title"), t("outfits.delete_confirm.message"), [
+      { text: t("outfits.delete_confirm.cancel"), style: "cancel" },
       {
-        text: "Delete",
+        text: t("outfits.delete_confirm.confirm"),
         style: "destructive",
         onPress: () => {
           void (async () => {
@@ -89,8 +95,8 @@ export default function OutfitDetailScreen() {
               router.back();
             } catch (e) {
               Alert.alert(
-                "Delete failed",
-                e instanceof Error ? e.message : "Could not delete the outfit.",
+                t("outfits.delete_error.title"),
+                e instanceof Error ? e.message : t("outfits.delete_error.message"),
               );
             }
           })();
@@ -105,40 +111,39 @@ export default function OutfitDetailScreen() {
         <Pressable accessibilityRole="button" onPress={() => router.back()} hitSlop={8} style={styles.navBtn}>
           <Ionicons name="arrow-back" size={22} color={theme.colors.text} />
         </Pressable>
-        <Text style={styles.navTitle}>Saved Outfit</Text>
+        <Text style={styles.navTitle}>{t("outfit.detail.nav_title")}</Text>
         <Pressable accessibilityRole="button" onPress={remove} hitSlop={8} style={styles.navBtn}>
           <Ionicons name="trash-outline" size={20} color={theme.colors.textMuted} />
         </Pressable>
       </View>
 
       {loading ? (
-        <LoadingState label="Loading outfit" />
+        <LoadingState label={t("outfit.detail.loading")} />
       ) : error ? (
         <ErrorState message={error} onRetry={() => router.back()} />
       ) : outfit ? (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <Text style={styles.title}>{outfit.name || "Untitled outfit"}</Text>
+          <Text style={styles.title}>{outfit.name || t("outfits.untitled")}</Text>
           <Text style={styles.meta}>
-            {outfit.occasion ?? "No occasion"} ·{" "}
+            {outfit.occasion ?? t("home.looks.no_occasion")} ·{" "}
             {new Date(outfit.created_at).toLocaleDateString()}
           </Text>
 
           {heroUri ? (
             <View style={styles.heroWrap}>
               <Image source={{ uri: heroUri }} style={styles.heroImage} contentFit="cover" transition={150} />
-              <Text style={styles.heroLabel}>Virtual try-on result</Text>
+              <Text style={styles.heroLabel}>{t("outfit.detail.tryon_label")}</Text>
             </View>
           ) : outfit.try_on_id ? (
             <Text style={styles.missingResult}>
-              This outfit was built from a try-on, but the result image is no longer
-              available. The garments are listed below.
+              {t("outfit.detail.missing_result")}
             </Text>
           ) : null}
 
-          <Text style={styles.sectionLabel}>GARMENTS</Text>
+          <Text style={styles.sectionLabel}>{t("outfit.detail.garments_label")}</Text>
           {items.length === 0 ? (
             <Text style={styles.emptyItems}>
-              No garment details were saved with this outfit.
+              {t("outfit.detail.no_garments")}
             </Text>
           ) : (
             items.map((it) => (
@@ -175,6 +180,7 @@ async function fetchCatalogish(ids: string[]): Promise<{ data: CatalogItem[] }> 
 }
 
 function ItemThumb({ ref: imageRef }: { ref: string | null }) {
+  const styles = useStyles();
   const [uri, setUri] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
@@ -193,7 +199,7 @@ function ItemThumb({ ref: imageRef }: { ref: string | null }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme: Theme) => ({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   navRow: {
     flexDirection: "row",
@@ -257,4 +263,4 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
   },
   itemName: { fontSize: 14, fontWeight: "700", color: theme.colors.text, marginTop: 2 },
-});
+}));

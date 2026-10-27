@@ -2,50 +2,37 @@
 // How to use OOTDify — a short, real walkthrough of the app's core flows.
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { theme } from "../../shared/config/theme";
+import { makeStyles } from "../../shared/theme/makeStyles";
+import { useAppTheme } from "../../shared/theme/ThemeProvider";
+import type { Theme } from "../../shared/config/theme";
+import { useT } from "../../shared/i18n/useT";
+import type { TranslationKey } from "../../shared/i18n/translate";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
-const STEPS: { icon: IconName; title: string; body: string }[] = [
-  {
-    icon: "shirt-outline",
-    title: "Build your wardrobe",
-    body: "Add clothes from your camera or photo library. Each piece is stored privately in your account and organised by category.",
-  },
-  {
-    icon: "sparkles-outline",
-    title: "Generate a look",
-    body: "Pick an occasion and let the AI compose a complete outfit from your own wardrobe and the shared catalog.",
-  },
-  {
-    icon: "cube-outline",
-    title: "Try it on",
-    body: "Upload a body photo once, then see how a look sits on you before you wear it.",
-  },
-  {
-    icon: "calendar-outline",
-    title: "Plan your week",
-    body: "Open the Outfits calendar to schedule looks ahead of time and never repeat an outfit by accident.",
-  },
-  {
-    icon: "heart-outline",
-    title: "Save favourites",
-    body: "Tap the heart on any item or look. Saved pieces surface again in your recommendations.",
-  },
+const STEPS: { icon: IconName; titleKey: TranslationKey; bodyKey: TranslationKey }[] = [
+  { icon: "shirt-outline", titleKey: "settings.help_screen.step1.title", bodyKey: "settings.help_screen.step1.body" },
+  { icon: "sparkles-outline", titleKey: "settings.help_screen.step2.title", bodyKey: "settings.help_screen.step2.body" },
+  { icon: "cube-outline", titleKey: "settings.help_screen.step3.title", bodyKey: "settings.help_screen.step3.body" },
+  { icon: "calendar-outline", titleKey: "settings.help_screen.step4.title", bodyKey: "settings.help_screen.step4.body" },
+  { icon: "heart-outline", titleKey: "settings.help_screen.step5.title", bodyKey: "settings.help_screen.step5.body" },
 ];
 
-const TIPS: string[] = [
-  "Fill out your style preferences in Profile — recommendations get sharper with every answer.",
-  "Tag every wardrobe piece with its category so the generator never mixes up tops and shoes.",
-  "Your body photo is private to your account and only used for try-on.",
+const TIPS: TranslationKey[] = [
+  "settings.help_screen.tip1",
+  "settings.help_screen.tip2",
+  "settings.help_screen.tip3",
 ];
 
 export default function HelpScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const styles = useStyles();
+  const theme = useAppTheme();
+  const { t } = useT();
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 8 }]}>
@@ -58,37 +45,36 @@ export default function HelpScreen() {
         >
           <Ionicons name="arrow-back" size={22} color={theme.colors.text} />
         </Pressable>
-        <Text style={styles.navTitle}>How to use OOTDify</Text>
+        <Text style={styles.navTitle}>{t("settings.help.use")}</Text>
         <View style={{ width: 34 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.intro}>
-          OOTDify helps you get dressed with what you already own. Follow these
-          steps to get the most out of it.
+          {t("settings.help_screen.intro")}
         </Text>
 
         {STEPS.map((step, i) => (
-          <View key={step.title} style={styles.stepCard}>
+          <View key={step.titleKey} style={styles.stepCard}>
             <View style={styles.stepIndex}>
               <Text style={styles.stepIndexText}>{i + 1}</Text>
             </View>
             <View style={styles.stepBody}>
               <View style={styles.stepTitleRow}>
                 <Ionicons name={step.icon} size={18} color={theme.colors.primary} />
-                <Text style={styles.stepTitle}>{step.title}</Text>
+                <Text style={styles.stepTitle}>{t(step.titleKey)}</Text>
               </View>
-              <Text style={styles.stepText}>{step.body}</Text>
+              <Text style={styles.stepText}>{t(step.bodyKey)}</Text>
             </View>
           </View>
         ))}
 
-        <Text style={styles.sectionLabel}>TIPS</Text>
+        <Text style={styles.sectionLabel}>{t("settings.help_screen.tips.label")}</Text>
         <View style={styles.card}>
           {TIPS.map((tip) => (
             <View key={tip} style={styles.tipRow}>
               <Ionicons name="bulb-outline" size={18} color={theme.colors.warning} />
-              <Text style={styles.tipText}>{tip}</Text>
+              <Text style={styles.tipText}>{t(tip)}</Text>
             </View>
           ))}
         </View>
@@ -97,7 +83,7 @@ export default function HelpScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme: Theme) => ({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   navRow: {
     flexDirection: "row",
@@ -115,7 +101,7 @@ const styles = StyleSheet.create({
     gap: 12,
     backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 0.5,
     borderColor: theme.colors.border,
     padding: 14,
   },
@@ -142,11 +128,11 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 0.5,
     borderColor: theme.colors.border,
     padding: 14,
     gap: 12,
   },
   tipRow: { flexDirection: "row", gap: 10, alignItems: "flex-start" },
   tipText: { flex: 1, fontSize: 12.5, color: theme.colors.textMuted, lineHeight: 18 },
-});
+}));

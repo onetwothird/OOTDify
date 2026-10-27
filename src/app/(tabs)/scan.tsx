@@ -48,7 +48,11 @@ import {
 import { EmptyState, ErrorState } from "../../shared/components/StateViews";
 import { ScreenHeader } from "../../shared/components/ScreenHeader";
 import { SkeletonBlock } from "../../shared/components/Skeleton";
-import { theme } from "../../shared/config/theme";
+import { makeStyles } from "../../shared/theme/makeStyles";
+import { useAppTheme } from "../../shared/theme/ThemeProvider";
+import type { Theme } from "../../shared/config/theme";
+import { useT } from "../../shared/i18n/useT";
+import type { TranslationKey } from "../../shared/i18n/translate";
 import { resolveMediaUrl } from "../../shared/lib/storageUrl";
 import { toast } from "../../shared/lib/toast";
 import { useResponsiveColumns } from "../../shared/hooks/useResponsiveColumns";
@@ -60,6 +64,9 @@ type CameraMode = "idle" | "camera" | "preview";
 export default function ScanScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const styles = useStyles();
+  const theme = useAppTheme();
+  const { t, tl } = useT();
   const { itemWidth, onLayout } = useResponsiveColumns(110, 12);
 
   // Camera view ref (component instance exposes takePictureAsync).
@@ -266,8 +273,8 @@ export default function ScanScreen() {
       const res = await requestPerm();
       if (!res.granted) {
         Alert.alert(
-          "Camera access needed",
-          "We only use the camera to photograph your body for the analysis you asked for. Enable camera access in Settings to continue.",
+          t("scan.permission.title"),
+          t("scan.permission.message"),
         );
         return;
       }
@@ -307,8 +314,8 @@ export default function ScanScreen() {
       setCapturedUri(null);
     } catch (e) {
       Alert.alert(
-        "Scan failed",
-        e instanceof Error ? e.message : "The AI backend could not analyze this photo.",
+        t("scan.error.scan_failed.title"),
+        e instanceof Error ? e.message : t("scan.error.scan_failed.message"),
       );
       // Keep the preview so the user can retry or cancel.
     } finally {
@@ -318,12 +325,12 @@ export default function ScanScreen() {
 
   const removeBodyPhoto = async (id: string) => {
     Alert.alert(
-      "Delete body photo?",
-      "This removes the photo and all of its analysis from your account. This can't be undone.",
+      t("scan.delete_photo.title"),
+      t("scan.delete_photo.message"),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t("scan.camera.cancel"), style: "cancel" },
         {
-          text: "Delete",
+          text: t("scan.jobs.delete"),
           style: "destructive",
           onPress: () => {
             void (async () => {
@@ -333,8 +340,8 @@ export default function ScanScreen() {
                 if (selectedBodyId === id) setSelectedBodyId(null);
               } catch (e) {
                 Alert.alert(
-                  "Delete failed",
-                  e instanceof Error ? e.message : "Could not delete the photo.",
+                  t("scan.error.delete_photo_failed.title"),
+                  e instanceof Error ? e.message : t("scan.error.delete_photo_failed.message"),
                 );
               }
             })();
@@ -356,11 +363,11 @@ export default function ScanScreen() {
   const startTryOn = async () => {
     setRunError(null);
     if (!selectedBodyId) {
-      setRunError("Scan or choose a body photo first.");
+      setRunError(t("scan.error.need_body_photo"));
       return;
     }
     if (selectedClothing.size === 0) {
-      setRunError("Pick at least one garment to try on.");
+      setRunError(t("scan.error.need_garment"));
       return;
     }
     setCreating(true);
@@ -373,7 +380,7 @@ export default function ScanScreen() {
       setSelectedClothing(new Set());
       void refreshJobs();
     } catch (e) {
-      setRunError(e instanceof Error ? e.message : "Could not start the try-on job.");
+      setRunError(e instanceof Error ? e.message : t("scan.error.tryon_start_failed"));
     } finally {
       setCreating(false);
     }
@@ -384,18 +391,18 @@ export default function ScanScreen() {
       await retryTryOnJob(jobId);
       void refreshJobs();
     } catch (e) {
-      Alert.alert("Retry failed", e instanceof Error ? e.message : "Could not retry the job.");
+      Alert.alert(t("scan.error.retry_failed.title"), e instanceof Error ? e.message : t("scan.error.retry_failed.message"));
     }
   };
 
   const removeJob = async (job: TryOnJob) => {
     Alert.alert(
-      "Delete try-on?",
-      "The generated image and this job's record will be removed from your account.",
+      t("scan.delete_job.title"),
+      t("scan.delete_job.message"),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t("scan.camera.cancel"), style: "cancel" },
         {
-          text: "Delete",
+          text: t("scan.jobs.delete"),
           style: "destructive",
           onPress: () => {
             void (async () => {
@@ -404,8 +411,8 @@ export default function ScanScreen() {
                 setJobs((prev) => prev.filter((j) => j.id !== job.id));
               } catch (e) {
                 Alert.alert(
-                  "Delete failed",
-                  e instanceof Error ? e.message : "Could not delete the try-on.",
+                  t("scan.error.delete_photo_failed.title"),
+                  e instanceof Error ? e.message : t("scan.error.delete_job_failed.message"),
                 );
               }
             })();
@@ -423,14 +430,14 @@ export default function ScanScreen() {
         try_on_id: job.id,
         result_url: job.result_url ?? null,
       });
-      toast.success("Outfit saved", "Saved to your Outfits tab.", {
-        label: "View",
+      toast.success(t("scan.toast.outfit_saved.title"), t("scan.toast.outfit_saved.message"), {
+        label: t("outfits.toast.view"),
         onPress: () => router.push(`/outfit/${saved.id}`),
       });
     } catch (e) {
       toast.error(
-        "Could not save",
-        e instanceof Error ? e.message : "Something went wrong while saving.",
+        t("outfits.toast.save_error.title"),
+        e instanceof Error ? e.message : t("outfits.toast.save_error.message"),
       );
     }
   };
@@ -451,23 +458,21 @@ export default function ScanScreen() {
       <View style={[styles.screen, { paddingTop: insets.top + 8 }]}>
         <ScrollView contentContainerStyle={styles.consentContent} showsVerticalScrollIndicator={false}>
           <ScreenHeader
-            title="Virtual Try-On"
-            subtitle="Body analysis and AI-generated looks"
+            title={t("scan.title")}
+            subtitle={t("scan.consent.subtitle")}
           />
           <View style={styles.consentCard}>
-            <Text style={styles.consentTitle}>Before you start</Text>
+            <Text style={styles.consentTitle}>{t("scan.consent.title")}</Text>
             <Text style={styles.consentBody}>
-              Body analysis uses AI (pose + segmentation) to understand the shape
-              of the person in your photo. Try-on then shows how catalog garments
-              would look on that body.
+              {t("scan.consent.body")}
             </Text>
             <View style={styles.bullets}>
               {[
-                "Your photos are stored in a private, per-user bucket. Only you can see them.",
-                "The camera is only used when you tap Scan Me — never in the background.",
-                "Temporary processing files are deleted after each job.",
-                "You can delete any body photo at any time.",
-                "AI try-on is a shared service. Generated images are kept privately for you.",
+                t("scan.consent.b1"),
+                t("scan.consent.b2"),
+                t("scan.consent.b3"),
+                t("scan.consent.b4"),
+                t("scan.consent.b5"),
               ].map((b) => (
                 <View key={b} style={styles.bulletRow}>
                   <Ionicons name="checkmark-circle-outline" size={16} color={theme.colors.primary} />
@@ -477,7 +482,7 @@ export default function ScanScreen() {
             </View>
 
             <Pressable onPress={() => router.push("/privacy/policy")} hitSlop={6}>
-              <Text style={styles.policyLink}>Read the full Privacy Policy</Text>
+              <Text style={styles.policyLink}>{t("scan.consent.policy")}</Text>
             </Pressable>
 
             <View style={styles.consentToggleRow}>
@@ -488,9 +493,7 @@ export default function ScanScreen() {
                 thumbColor="#FFFFFF"
               />
               <Text style={styles.consentToggleLabel}>
-                I understand and agree that my body photos may be processed by
-                AI for body analysis and virtual try-on, and stored in my
-                private account area.
+                {t("scan.consent.agree")}
               </Text>
             </View>
 
@@ -500,7 +503,7 @@ export default function ScanScreen() {
               onPress={acceptConsent}
               style={[styles.primaryBtn, !agree && styles.btnDisabled]}
             >
-              <Text style={styles.primaryBtnText}>Continue</Text>
+              <Text style={styles.primaryBtnText}>{t("scan.consent.continue")}</Text>
             </Pressable>
           </View>
         </ScrollView>
@@ -516,8 +519,8 @@ export default function ScanScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <ScreenHeader
-          title="Virtual Try-On"
-          subtitle="Scan a body photo, pick real garments, and generate your look."
+          title={t("scan.title")}
+          subtitle={t("scan.subtitle")}
         />
 
         {/* 5-step workflow: Photo → Clothing → Generate → Review → Save */}
@@ -534,7 +537,7 @@ export default function ScanScreen() {
         />
 
         {/* ------------------------- Body photo ------------------------- */}
-        <Text style={styles.sectionLabel}>BODY PHOTO</Text>
+        <Text style={styles.sectionLabel}>{t("scan.body_photo.label")}</Text>
         {cameraMode === "camera" ? (
           <View style={styles.cameraBox}>
             <CameraView
@@ -575,7 +578,7 @@ export default function ScanScreen() {
                         setCameraMode("preview");
                       }
                     } catch {
-                      Alert.alert("Capture failed", "Please try again.");
+                      Alert.alert(t("scan.error.capture_failed.title"), t("scan.error.capture_failed.message"));
                     }
                   }}
                 >
@@ -586,7 +589,7 @@ export default function ScanScreen() {
                   style={styles.cancelCapture}
                   onPress={() => setCameraMode("idle")}
                 >
-                  <Text style={styles.cancelCaptureText}>Cancel</Text>
+                  <Text style={styles.cancelCaptureText}>{t("scan.camera.cancel")}</Text>
                 </Pressable>
               </View>
             </CameraView>
@@ -603,7 +606,7 @@ export default function ScanScreen() {
                   setCameraMode("idle");
                 }}
               >
-                <Text style={styles.secondaryBtnText}>Retake</Text>
+                <Text style={styles.secondaryBtnText}>{t("scan.preview.retake")}</Text>
               </Pressable>
               <Pressable
                 accessibilityRole="button"
@@ -614,7 +617,7 @@ export default function ScanScreen() {
                 {uploading ? (
                   <ActivityIndicator color="#FFF" />
                 ) : (
-                  <Text style={styles.primaryBtnText}>Analyze & Save</Text>
+                  <Text style={styles.primaryBtnText}>{t("scan.preview.analyze")}</Text>
                 )}
               </Pressable>
             </View>
@@ -623,11 +626,11 @@ export default function ScanScreen() {
           <View style={styles.scanActions}>
             <Pressable accessibilityRole="button" style={styles.scanBtn} onPress={startCapture}>
               <Ionicons name="camera-outline" size={22} color={theme.colors.onPrimary} />
-              <Text style={styles.scanBtnText}>Scan Me</Text>
+              <Text style={styles.scanBtnText}>{t("scan.action.scan")}</Text>
             </Pressable>
             <Pressable accessibilityRole="button" style={styles.scanBtnGhost} onPress={pickPhoto}>
               <Ionicons name="images-outline" size={22} color={theme.colors.primary} />
-              <Text style={styles.scanBtnGhostText}>Choose Photo</Text>
+              <Text style={styles.scanBtnGhostText}>{t("scan.action.choose")}</Text>
             </Pressable>
           </View>
         )}
@@ -641,8 +644,8 @@ export default function ScanScreen() {
             />
             <Text style={styles.analysisText}>
               {lastAnalysis.detected
-                ? `Person detected${lastAnalysis.confidence != null ? ` — ${Math.round(lastAnalysis.confidence * 100)}% confidence` : ""}.`
-                : "No person detected. Try a full-body photo in good light."}
+                ? t("scan.analysis.detected", { confidence: Math.round((lastAnalysis.confidence ?? 0) * 100) })
+                : t("scan.analysis.no_person")}
             </Text>
           </View>
         ) : null}
@@ -654,12 +657,12 @@ export default function ScanScreen() {
         ) : bodyPhotos.length === 0 ? (
           <EmptyState
             icon="body-outline"
-            title="No body photos yet"
-            message="Scan or choose a photo above. It's stored privately and only shown to you."
+            title={t("scan.photos.empty.title")}
+            message={t("scan.photos.empty.message")}
           />
         ) : (
           <View>
-            <Text style={styles.miniLabel}>TAP TO SELECT FOR TRY-ON</Text>
+            <Text style={styles.miniLabel}>{t("scan.photos.select_hint")}</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -683,7 +686,7 @@ export default function ScanScreen() {
                       color={theme.colors.textMuted}
                     />
                     <Text style={styles.photoBadgeText}>
-                      {p.detection?.personDetected ? "Person" : "Check scan"}
+                      {p.detection?.personDetected ? t("scan.photos.badge.person") : t("scan.photos.badge.check")}
                     </Text>
                   </View>
                   <Pressable
@@ -706,22 +709,22 @@ export default function ScanScreen() {
         )}
 
         {/* ------------------------- Try-on ------------------------- */}
-        <Text style={styles.sectionLabel}>TRY-ON</Text>
+        <Text style={styles.sectionLabel}>{t("scan.tryon.label")}</Text>
         <View style={styles.tryonCard}>
           <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Body photo</Text>
+            <Text style={styles.metaLabel}>{t("scan.tryon.body_photo")}</Text>
             <Text style={styles.metaValue} numberOfLines={1}>
-              {selectedBodyId ? "Selected" : "None selected"}
+              {selectedBodyId ? t("scan.tryon.selected") : t("scan.tryon.none_selected")}
             </Text>
           </View>
           <View style={styles.segRow}>
             <SegButton
-              label="Catalog"
+              label={t("scan.tryon.catalog")}
               active={clothingSource === "catalog"}
               onPress={() => setClothingSource("catalog")}
             />
             <SegButton
-              label="My Closet"
+              label={t("scan.tryon.closet")}
               active={clothingSource === "closet"}
               onPress={() => {
                 setClothingSource("closet");
@@ -734,7 +737,7 @@ export default function ScanScreen() {
 
           {clothingSource === "catalog" ? (
             catalogItems.length === 0 ? (
-              <Text style={styles.smallHint}>The catalog is loading or empty.</Text>
+              <Text style={styles.smallHint}>{t("scan.tryon.catalog.loading")}</Text>
             ) : (
               <View style={styles.itemGrid} onLayout={onLayout}>
                 {catalogItems.map((item) => (
@@ -760,14 +763,14 @@ export default function ScanScreen() {
           ) : closetItems.length === 0 ? (
             <View style={styles.emptyCloset}>
               <Text style={styles.smallHint}>
-                Your closet looks empty. Capture items first.
+                {t("scan.tryon.closet.empty")}
               </Text>
               <Pressable
                 accessibilityRole="button"
                 style={styles.inlineCta}
                 onPress={openCapture}
               >
-                <Text style={styles.inlineCtaText}>Capture clothes</Text>
+                <Text style={styles.inlineCtaText}>{t("scan.tryon.closet.capture")}</Text>
               </Pressable>
             </View>
           ) : (
@@ -781,7 +784,7 @@ export default function ScanScreen() {
                 >
                   <PickImage source={item.image_url} />
                   <Text style={styles.pickName} numberOfLines={1}>
-                    {item.name || item.category || "Item"}
+                    {item.name || (item.category ? tl("category", item.category) : t("scan.item_fallback"))}
                   </Text>
                   {selectedClothing.has(item.id) ? (
                     <View style={styles.pickCheck}>
@@ -797,9 +800,9 @@ export default function ScanScreen() {
             <View style={styles.creatingPanel}>
               <SkeletonBlock aspectRatio={0.8} radius={theme.borderRadius.md} />
               <View style={styles.creatingCopy}>
-                <Text style={styles.creatingTitle}>Creating your look</Text>
+                <Text style={styles.creatingTitle}>{t("scan.tryon.creating.title")}</Text>
                 <Text style={styles.creatingText}>
-                  AI is combining your photo with the selected clothing…
+                  {t("scan.tryon.creating.message")}
                 </Text>
               </View>
             </View>
@@ -814,17 +817,17 @@ export default function ScanScreen() {
             {creating ? (
               <View style={styles.creatingBtnRow}>
                 <ActivityIndicator color={theme.colors.onPrimary} size="small" />
-                <Text style={styles.primaryBtnText}>Creating…</Text>
+                <Text style={styles.primaryBtnText}>{t("scan.tryon.creating")}</Text>
               </View>
             ) : (
-              <Text style={styles.primaryBtnText}>Start try-on</Text>
+              <Text style={styles.primaryBtnText}>{t("scan.tryon.start")}</Text>
             )}
           </Pressable>
           {runError ? <Text style={styles.errorText}>{runError}</Text> : null}
         </View>
 
         {/* ------------------------- Jobs ------------------------- */}
-        <Text style={styles.sectionLabel}>RECENT TRY-ONS</Text>
+        <Text style={styles.sectionLabel}>{t("scan.jobs.label")}</Text>
         {jobsLoading && jobs.length === 0 ? (
           <ActivityIndicator style={styles.inlineSpin} color={theme.colors.primary} />
         ) : jobsError ? (
@@ -832,17 +835,15 @@ export default function ScanScreen() {
         ) : jobs.length === 0 ? (
           <EmptyState
             icon="sparkles-outline"
-            title="No try-ons yet"
-            message="Select a body photo and a garment above to start your first virtual try-on."
+            title={t("scan.jobs.empty.title")}
+            message={t("scan.jobs.empty.message")}
           />
         ) : (
           jobs.map((job) => <JobCard key={job.id} job={job} onDelete={removeJob} onRetry={retryJob} onSave={saveJobAsOutfit} />)
         )}
 
         <Text style={styles.footnote}>
-          Try-on generation requires an AI virtual-try-on model on the server.
-          If it isn&apos;t configured yet, jobs will fail honestly instead of
-          showing fake images.
+          {t("scan.footnote")}
         </Text>
       </ScrollView>
     </View>
@@ -850,6 +851,7 @@ export default function ScanScreen() {
 }
 
 function BodyPhotoImage({ photo }: { photo: BodyPhotoWithUrl }) {
+  const styles = useStyles();
   const [uri, setUri] = useState<string | null>(photo.signedUrl ?? null);
   useEffect(() => {
     if (uri) return;
@@ -869,6 +871,7 @@ function BodyPhotoImage({ photo }: { photo: BodyPhotoWithUrl }) {
 }
 
 function PickImage({ source }: { source: string | null }) {
+  const styles = useStyles();
   const [uri, setUri] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
@@ -895,6 +898,7 @@ function SegButton({
   active: boolean;
   onPress: () => void;
 }) {
+  const styles = useStyles();
   return (
     <Pressable
       accessibilityRole="button"
@@ -906,10 +910,17 @@ function SegButton({
   );
 }
 
-// The virtual try-on workflow: 1 Photo → 2 Clothing → 3 Generate → 4 Review → 5 Save
-const TRYON_STEPS = ["Photo", "Clothing", "Generate", "Review", "Save"] as const;
-
 function StepIndicator({ current }: { current: number }) {
+  const styles = useStyles();
+  const theme = useAppTheme();
+  const { t } = useT();
+  const TRYON_STEPS = [
+    t("scan.step.photo"),
+    t("scan.step.clothing"),
+    t("scan.step.generate"),
+    t("scan.step.review"),
+    t("scan.step.save"),
+  ];
   return (
     <View
       style={styles.stepsRow}
@@ -974,6 +985,9 @@ function JobCard({
   onRetry: (id: string) => void;
   onSave: (job: TryOnJob) => void;
 }) {
+  const styles = useStyles();
+  const theme = useAppTheme();
+  const { t } = useT();
   const active = job.status === "uploading" || job.status === "queued" || job.status === "processing";
   return (
     <View style={styles.jobCard}>
@@ -992,26 +1006,26 @@ function JobCard({
       {active ? (
         <View style={styles.jobActive}>
           <ActivityIndicator size="small" color={theme.colors.primary} />
-          <Text style={styles.jobActiveText}>Processing — this may take a minute.</Text>
+          <Text style={styles.jobActiveText}>{t("scan.jobs.processing")}</Text>
         </View>
       ) : job.status === "completed" ? (
         <View style={styles.jobDone}>
           <JobResultImage job={job} />
           <View style={styles.jobDoneActions}>
             <Pressable accessibilityRole="button" style={styles.inlineCta} onPress={() => onSave(job)}>
-              <Text style={styles.inlineCtaText}>Save outfit</Text>
+              <Text style={styles.inlineCtaText}>{t("scan.jobs.save_outfit")}</Text>
             </Pressable>
             <Pressable accessibilityRole="button" style={styles.linkBtn} onPress={() => onDelete(job)}>
-              <Text style={styles.linkBtnText}>Delete</Text>
+              <Text style={styles.linkBtnText}>{t("scan.jobs.delete")}</Text>
             </Pressable>
           </View>
         </View>
       ) : (
         <View style={styles.jobFailed}>
           <Ionicons name="alert-circle-outline" size={16} color={theme.colors.warning} />
-          <Text style={styles.jobFailedText}>{job.error || "The try-on job failed."}</Text>
+          <Text style={styles.jobFailedText}>{job.error || t("scan.jobs.failed")}</Text>
           <Pressable accessibilityRole="button" style={styles.linkBtn} onPress={() => onRetry(job.id)}>
-            <Text style={styles.linkBtnText}>Retry</Text>
+            <Text style={styles.linkBtnText}>{t("scan.jobs.retry")}</Text>
           </Pressable>
         </View>
       )}
@@ -1020,6 +1034,9 @@ function JobCard({
 }
 
 function JobStatusPill({ status }: { status: TryOnJob["status"] }) {
+  const styles = useStyles();
+  const theme = useAppTheme();
+  const { t } = useT();
   const colors: Record<TryOnJob["status"], string> = {
     uploading: theme.colors.textMuted,
     queued: theme.colors.textMuted,
@@ -1029,12 +1046,13 @@ function JobStatusPill({ status }: { status: TryOnJob["status"] }) {
   };
   return (
     <View style={[styles.pill, { borderColor: colors[status] }]}>
-      <Text style={[styles.pillText, { color: colors[status] }]}>{status}</Text>
+      <Text style={[styles.pillText, { color: colors[status] }]}>{t(`scan.job_status.${status}` as TranslationKey)}</Text>
     </View>
   );
 }
 
 function JobResultImage({ job }: { job: TryOnJob }) {
+  const styles = useStyles();
   const [uri, setUri] = useState<string | null>(job.resultSignedUrl ?? null);
   useEffect(() => {
     if (uri || !job.result_url) return;
@@ -1057,7 +1075,7 @@ function JobResultImage({ job }: { job: TryOnJob }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme: Theme) => ({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   center: { alignItems: "center", justifyContent: "center" },
   content: { paddingHorizontal: 12, paddingBottom: 40, gap: 12 },
@@ -1384,4 +1402,4 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     marginTop: 4,
   },
-});
+}));

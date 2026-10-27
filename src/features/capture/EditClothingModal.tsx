@@ -24,6 +24,7 @@ import { ClothingItem, OCCASIONS, SEASONS, WARDROBE_CATEGORIES } from "../clothi
 import { useWardrobeStore } from "../wardrobe/store";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
+import { useT } from "../../shared/i18n/useT";
 
 interface Props {
   item: ClothingItem | null;
@@ -35,6 +36,7 @@ export default function EditClothingModal({ item, onClose }: Props) {
   const updateItem = useWardrobeStore((s) => s.updateItem);
   const styles = useStyles();
   const theme = useAppTheme();
+  const { t, tl } = useT();
 
   // Fields initialize from `item` once, via lazy initializers. The parent only
   // mounts this modal while the user is editing, so every open starts fresh and
@@ -81,7 +83,7 @@ export default function EditClothingModal({ item, onClose }: Props) {
       });
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save these details.");
+      setError(e instanceof Error ? e.message : t("capture.edit.error"));
     } finally {
       setSaving(false);
     }
@@ -99,7 +101,7 @@ export default function EditClothingModal({ item, onClose }: Props) {
           <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 4 }]}>
             <View style={styles.handle} />
             <View style={styles.header}>
-              <Text style={styles.title}>Edit item</Text>
+              <Text style={styles.title}>{t("capture.edit.title")}</Text>
               <Pressable onPress={onClose} hitSlop={8}>
                 <Ionicons name="close-outline" size={26} color={theme.colors.text} />
               </Pressable>
@@ -110,18 +112,18 @@ export default function EditClothingModal({ item, onClose }: Props) {
               keyboardShouldPersistTaps="handled"
               contentContainerStyle={styles.body}
             >
-              <Field label="Name">
+              <Field label={t("capture.edit.field.name")}>
                 <TextInput
                   style={inputStyle}
                   value={name}
                   onChangeText={setName}
-                  placeholder="e.g. Oversized black tee"
+                  placeholder={t("capture.edit.field.name_placeholder")}
                   placeholderTextColor={theme.colors.textMuted}
                   maxLength={60}
                 />
               </Field>
 
-              <Field label="Category">
+              <Field label={t("capture.edit.field.category")}>
                 <View style={styles.chipWrap}>
                   {WARDROBE_CATEGORIES.map((cat) => (
                     <Pressable
@@ -130,7 +132,7 @@ export default function EditClothingModal({ item, onClose }: Props) {
                       style={[styles.chip, cat === category && styles.chipActive]}
                     >
                       <Text style={[styles.chipText, cat === category && styles.chipTextActive]}>
-                        {cat}
+                        {tl("category", cat)}
                       </Text>
                     </Pressable>
                   ))}
@@ -138,22 +140,22 @@ export default function EditClothingModal({ item, onClose }: Props) {
               </Field>
 
               <View style={styles.twoCol}>
-                <Field label="Color" containerStyle={styles.colField}>
+                <Field label={t("capture.edit.field.color")} containerStyle={styles.colField}>
                   <TextInput
                     style={inputStyle}
                     value={color}
                     onChangeText={setColor}
-                    placeholder="e.g. Black"
+                    placeholder={t("capture.edit.field.color_placeholder")}
                     placeholderTextColor={theme.colors.textMuted}
                     maxLength={30}
                   />
                 </Field>
-                <Field label="Size" containerStyle={styles.colField}>
+                <Field label={t("capture.edit.field.size")} containerStyle={styles.colField}>
                   <TextInput
                     style={inputStyle}
                     value={size}
                     onChangeText={setSize}
-                    placeholder="S / M / 32"
+                    placeholder={t("capture.edit.field.size_placeholder")}
                     placeholderTextColor={theme.colors.textMuted}
                     maxLength={20}
                   />
@@ -161,29 +163,29 @@ export default function EditClothingModal({ item, onClose }: Props) {
               </View>
 
               <View style={styles.twoCol}>
-                <Field label="Brand" containerStyle={styles.colField}>
+                <Field label={t("capture.edit.field.brand")} containerStyle={styles.colField}>
                   <TextInput
                     style={inputStyle}
                     value={brand}
                     onChangeText={setBrand}
-                    placeholder="Brand"
+                    placeholder={t("capture.edit.field.brand_placeholder")}
                     placeholderTextColor={theme.colors.textMuted}
                     maxLength={40}
                   />
                 </Field>
-                <Field label="Style" containerStyle={styles.colField}>
+                <Field label={t("capture.edit.field.style")} containerStyle={styles.colField}>
                   <TextInput
                     style={inputStyle}
                     value={style}
                     onChangeText={setStyle}
-                    placeholder="e.g. Streetwear"
+                    placeholder={t("capture.edit.field.style_placeholder")}
                     placeholderTextColor={theme.colors.textMuted}
                     maxLength={30}
                   />
                 </Field>
               </View>
 
-              <Field label="Season">
+              <Field label={t("capture.edit.field.season")}>
                 <View style={styles.chipWrap}>
                   {SEASONS.map((s) => (
                     <Pressable
@@ -199,7 +201,7 @@ export default function EditClothingModal({ item, onClose }: Props) {
                 </View>
               </Field>
 
-              <Field label="Occasions">
+              <Field label={t("capture.edit.field.occasions")}>
                 <View style={styles.chipWrap}>
                   {OCCASIONS.map((occ) => (
                     <Pressable
@@ -208,19 +210,19 @@ export default function EditClothingModal({ item, onClose }: Props) {
                       style={[styles.chip, occasions.has(occ) && styles.chipActive]}
                     >
                       <Text style={[styles.chipText, occasions.has(occ) && styles.chipTextActive]}>
-                        {occ}
+                        {tl("occasion", occ)}
                       </Text>
                     </Pressable>
                   ))}
                 </View>
               </Field>
 
-              <Field label="Tags" hint="Comma separated — helps search.">
+              <Field label={t("capture.edit.field.tags")} hint={t("capture.edit.field.tags_hint")}>
                 <TextInput
                   style={inputStyle}
                   value={tags}
                   onChangeText={setTags}
-                  placeholder="oversized, summer, thrifted"
+                  placeholder={t("capture.edit.field.tags_placeholder")}
                   placeholderTextColor={theme.colors.textMuted}
                   autoCapitalize="none"
                 />
@@ -237,7 +239,7 @@ export default function EditClothingModal({ item, onClose }: Props) {
                 {saving ? (
                   <ActivityIndicator color={theme.colors.onPrimary} />
                 ) : (
-                  <Text style={styles.saveBtnText}>Save details</Text>
+                  <Text style={styles.saveBtnText}>{t("capture.edit.save")}</Text>
                 )}
               </Pressable>
             </ScrollView>

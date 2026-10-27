@@ -28,7 +28,11 @@ import { ClothingCard } from "../shared/components/ClothingCard";
 import { EmptyState, ErrorState } from "../shared/components/StateViews";
 import { SectionHeader } from "../shared/components/SectionHeader";
 import { Skeleton } from "../shared/components/Skeleton";
-import { theme } from "../shared/config/theme";
+import { useAppTheme } from "../shared/theme/ThemeProvider";
+import { makeStyles } from "../shared/theme/makeStyles";
+import type { Theme } from "../shared/config/theme";
+import { useT } from "../shared/i18n/useT";
+import type { TranslationKey } from "../shared/i18n/translate";
 import { toast } from "../shared/lib/toast";
 import {
   ApiError,
@@ -38,19 +42,19 @@ import {
 } from "../services/aiApi";
 
 const CONDITIONS = [
-  { label: "Sunny", tempC: 28, hint: "Hot — light layers" },
-  { label: "Mild", tempC: 18, hint: "Comfortable" },
-  { label: "Rainy", tempC: 12, hint: "Cool + wet" },
-  { label: "Cold", tempC: 4, hint: "Layer up" },
+  { label: "Sunny", key: "sunny", tempC: 28 },
+  { label: "Mild", key: "mild", tempC: 18 },
+  { label: "Rainy", key: "rainy", tempC: 12 },
+  { label: "Cold", key: "cold", tempC: 4 },
 ] as const;
 
 type Condition = (typeof CONDITIONS)[number];
 type GenderChoice = "all" | "men" | "women";
 
-const GENDERS: { key: GenderChoice; label: string }[] = [
-  { key: "all", label: "Everyone" },
-  { key: "men", label: "Men" },
-  { key: "women", label: "Women" },
+const GENDERS: { key: GenderChoice }[] = [
+  { key: "all" },
+  { key: "men" },
+  { key: "women" },
 ];
 
 const LOOK_COUNT = 3;
@@ -58,6 +62,9 @@ const LOOK_COUNT = 3;
 export default function AiPickerScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const theme = useAppTheme();
+  const styles = useStyles();
+  const { t, tl } = useT();
 
   const [occasion, setOccasion] = useState<string>("Casual");
   const [condition, setCondition] = useState<Condition>(CONDITIONS[1]);
@@ -85,13 +92,13 @@ export default function AiPickerScreen() {
         setError(
           e instanceof ApiError
             ? e
-            : new ApiError("unknown", "Something went wrong. Please try again.", 0, e),
+            : new ApiError("unknown", t("home.error.unknown"), 0, e),
         );
       } finally {
         setLoading(false);
       }
     },
-    [occasion, condition, gender],
+    [occasion, condition, gender, t],
   );
 
   // Handler-facing wrapper (shuffle / retry): show the spinner first.
@@ -126,31 +133,31 @@ export default function AiPickerScreen() {
     async (outfit: ComposedOutfit) => {
       const clothingIds = outfit.items.map((i) => i.id);
       if (!clothingIds.length) {
-        toast.info("Nothing to save", "This look has no catalog items to save.");
+        toast.info(t("outfits.toast.nothing_to_save.title"), t("outfits.toast.nothing_to_save.message"));
         return;
       }
       setSavingId(outfit.id);
       try {
         const saved = await insertSavedOutfit({
-          name: outfit.occasion ? `${outfit.occasion} look` : "AI look",
+          name: outfit.occasion ? t("home.looks.occasion_look", { occasion: outfit.occasion }) : t("ai_picker.default_name"),
           occasion: outfit.occasion,
           clothing_ids: clothingIds,
           try_on_id: null,
         });
-        toast.success("Look saved", "Added to your saved outfits.", {
-          label: "View",
+        toast.success(t("ai_picker.toast.saved.title"), t("outfits.toast.saved.message"), {
+          label: t("outfits.toast.view"),
           onPress: () => router.push(`/outfit/${saved.id}`),
         });
       } catch (e) {
         toast.error(
-          "Could not save",
-          e instanceof Error ? e.message : "Something went wrong while saving.",
+          t("outfits.toast.save_error.title"),
+          e instanceof Error ? e.message : t("outfits.toast.save_error.message"),
         );
       } finally {
         setSavingId(null);
       }
     },
-    [router],
+    [router, t],
   );
 
   const openItem = useCallback(
@@ -172,7 +179,7 @@ export default function AiPickerScreen() {
         <View style={styles.headerRow}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Go back"
+            accessibilityLabel={t("ai_picker.back_a11y")}
             hitSlop={8}
             onPress={() => router.back()}
             style={styles.backBtn}
@@ -180,15 +187,15 @@ export default function AiPickerScreen() {
             <Ionicons name="arrow-back" size={20} color={theme.colors.text} />
           </Pressable>
           <View style={styles.headerBlock}>
-            <Text style={styles.headerTitle}>AI Outfit Picker</Text>
+            <Text style={styles.headerTitle}>{t("ai_picker.title")}</Text>
             <Text style={styles.headerSubtitle}>
-              Complete looks, composed from real catalog pieces.
+              {t("ai_picker.subtitle")}
             </Text>
           </View>
         </View>
 
         {/* -------------------------------- Controls */}
-        <Text style={styles.sectionLabel}>OCCASION</Text>
+        <Text style={styles.sectionLabel}>{t("outfits.builder.occasion")}</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -197,14 +204,14 @@ export default function AiPickerScreen() {
           {OCCASIONS.map((occ) => (
             <Chip
               key={occ}
-              label={occ}
+              label={tl("occasion", occ)}
               active={occ === occasion}
               onPress={() => setOccasion(occ)}
             />
           ))}
         </ScrollView>
 
-        <Text style={styles.sectionLabel}>WEATHER</Text>
+        <Text style={styles.sectionLabel}>{t("ai_picker.weather_label")}</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -213,15 +220,15 @@ export default function AiPickerScreen() {
           {CONDITIONS.map((c) => (
             <Chip
               key={c.label}
-              label={c.label}
+              label={t(`condition.${c.key}` as TranslationKey)}
               active={c.label === condition.label}
               onPress={() => setCondition(c)}
             />
           ))}
         </ScrollView>
-        <Text style={styles.conditionHint}>{condition.hint}</Text>
+        <Text style={styles.conditionHint}>{t(`condition.hint.${condition.key}` as TranslationKey)}</Text>
 
-        <Text style={styles.sectionLabel}>STYLE FOR</Text>
+        <Text style={styles.sectionLabel}>{t("ai_picker.style_for_label")}</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -230,7 +237,13 @@ export default function AiPickerScreen() {
           {GENDERS.map((g) => (
             <Chip
               key={g.key}
-              label={g.label}
+              label={
+                g.key === "all"
+                  ? t("ai_picker.gender.all")
+                  : g.key === "men"
+                    ? t("profile.gender.men")
+                    : t("profile.gender.women")
+              }
               active={g.key === gender}
               onPress={() => setGender(g.key)}
             />
@@ -239,7 +252,7 @@ export default function AiPickerScreen() {
 
         <View style={styles.actionRow}>
           <AppButton
-            label={loading ? "Composing…" : "Re-compose"}
+            label={loading ? t("outfits.builder.composing") : t("ai_picker.recompose")}
             icon="sparkles-outline"
             loading={loading}
             onPress={() => void generate(Math.floor(Math.random() * 1_000_000))}
@@ -249,11 +262,11 @@ export default function AiPickerScreen() {
 
         {/* -------------------------------- Results */}
         <SectionHeader
-          title="Your looks"
+          title={t("ai_picker.results_title")}
           subtitle={
             pool > 0
-              ? `Composed from ${pool} catalog pieces for “${occasion}”.`
-              : "Server-composed looks from the live catalog."
+              ? t("ai_picker.results_subtitle_pool", { count: pool, occasion: tl("occasion", occasion) })
+              : t("ai_picker.results_subtitle_empty")
           }
         />
 
@@ -275,13 +288,13 @@ export default function AiPickerScreen() {
         ) : outfits.length === 0 ? (
           <EmptyState
             icon="shirt-outline"
-            title={pool === 0 ? "The catalog is empty" : "No looks for this combination"}
+            title={pool === 0 ? t("ai_picker.empty.title_catalog") : t("ai_picker.empty.title_combo")}
             message={
               pool === 0
-                ? "Run the ingestion script to fill the catalog with real clothing, then come back."
-                : "Try a different occasion or weather."
+                ? t("ai_picker.empty.message_catalog")
+                : t("ai_picker.empty.message_combo")
             }
-            actionLabel="Try again"
+            actionLabel={t("ai_picker.try_again")}
             onAction={() => void generate()}
           />
         ) : (
@@ -299,9 +312,7 @@ export default function AiPickerScreen() {
         )}
 
         <Text style={styles.footnote}>
-          Looks are composed server-side from the shared catalog. Every piece is a
-          real product row — nothing is fabricated. If the AI service is offline,
-          generation fails honestly instead of guessing.
+          {t("ai_picker.footnote")}
         </Text>
       </ScrollView>
     </View>
@@ -319,12 +330,18 @@ function LookCard({
   onSave: () => void;
   onOpenItem: (id: string) => void;
 }) {
+  const theme = useAppTheme();
+  const styles = useStyles();
+  const { t, tl } = useT();
   return (
     <View style={styles.lookCard}>
       <View style={styles.lookTopRow}>
         <View style={styles.lookTitleBlock}>
           <Text style={styles.lookTitle} numberOfLines={1}>
-            {outfit.occasion ?? "Look"} · {outfit.items.length} pieces
+            {t("ai_picker.look_title", {
+              occasion: outfit.occasion ? tl("occasion", outfit.occasion) : t("outfits.builder.preview.default_occasion"),
+              count: outfit.items.length,
+            })}
           </Text>
           <Text style={styles.lookReason} numberOfLines={2}>
             {outfit.reason}
@@ -355,7 +372,7 @@ function LookCard({
         <View style={styles.missingRow}>
           <Ionicons name="information-circle-outline" size={14} color={theme.colors.textMuted} />
           <Text style={styles.missingText}>
-            Catalog has no {outfit.missing.join(", ")} to complete this look yet.
+            {t("ai_picker.missing_items", { list: outfit.missing.join(", ") })}
           </Text>
         </View>
       ) : null}
@@ -375,7 +392,7 @@ function LookCard({
         ) : (
           <>
             <Ionicons name="bookmark-outline" size={16} color={theme.colors.onPrimary} />
-            <Text style={styles.saveBtnText}>Save this look</Text>
+            <Text style={styles.saveBtnText}>{t("ai_picker.save_look")}</Text>
           </>
         )}
       </Pressable>
@@ -383,7 +400,7 @@ function LookCard({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme: Theme) => ({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   content: { paddingHorizontal: theme.spacing.page, paddingBottom: 48 },
 
@@ -483,4 +500,4 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     marginTop: 20,
   },
-});
+}));

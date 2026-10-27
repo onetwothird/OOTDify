@@ -25,6 +25,7 @@ import { AppButton } from "../../../shared/components/AppButton";
 import { SmartImage } from "../../../shared/components/SmartImage";
 import { makeStyles } from "../../../shared/theme/makeStyles";
 import { useAppTheme } from "../../../shared/theme/ThemeProvider";
+import { useT } from "../../../shared/i18n/useT";
 import { timeAgo } from "../format";
 import {
   addComment,
@@ -53,6 +54,7 @@ export function PostCard({
 }) {
   const styles = useStyles();
   const theme = useAppTheme();
+  const { t } = useT();
   const { width } = useWindowDimensions();
   const imageW = Math.max(200, width - CARD_W_SUBTRACTION);
 
@@ -97,7 +99,7 @@ export function PostCard({
     try {
       setComments(await fetchComments(post.id));
     } catch (e) {
-      setCommentsError(e instanceof Error ? e.message : "Could not load comments.");
+      setCommentsError(e instanceof Error ? e.message : t("community.post.comments_error"));
     } finally {
       setLoadingComments(false);
     }
@@ -117,20 +119,24 @@ export function PostCard({
       setDraft("");
       await loadComments();
     } catch (e) {
-      setCommentsError(e instanceof Error ? e.message : "Could not post your comment.");
+      setCommentsError(e instanceof Error ? e.message : t("community.post.comment_post_error"));
     } finally {
       setPostingComment(false);
     }
   };
 
   const confirmDelete = () => {
-    Alert.alert("Delete this post?", "The shared look and its comments will be removed.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: () => onDelete(post) },
-    ]);
+    Alert.alert(
+      t("community.post.delete_confirm.title"),
+      t("community.post.delete_confirm.message"),
+      [
+        { text: t("community.post.delete_confirm.cancel"), style: "cancel" },
+        { text: t("community.post.delete_confirm.confirm"), style: "destructive", onPress: () => onDelete(post) },
+      ],
+    );
   };
 
-  const authorName = post.author?.display_name || post.author?.first_name || "OOTDify member";
+  const authorName = post.author?.display_name || post.author?.first_name || t("community.post.default_author");
   const initial = (authorName[0] ?? "?").toUpperCase();
 
   return (
@@ -145,14 +151,14 @@ export function PostCard({
         <View style={styles.headerBody}>
           <Text style={styles.authorName} numberOfLines={1}>
             {authorName}
-            {isOwn ? <Text style={styles.youTag}>  · you</Text> : null}
+            {isOwn ? <Text style={styles.youTag}>{t("community.post.you_tag")}</Text> : null}
           </Text>
           <Text style={styles.time}>{timeAgo(post.created_at)}</Text>
         </View>
         {isOwn ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Delete post"
+            accessibilityLabel={t("community.post.delete_a11y")}
             hitSlop={8}
             onPress={confirmDelete}
             style={({ pressed }) => pressed && { opacity: 0.6 }}
@@ -179,7 +185,7 @@ export function PostCard({
               key={`${post.id}-img-${i}`}
               source={ref}
               style={[styles.image, { width: imageW }]}
-              accessibilityLabel={`Shared look ${i + 1} by ${authorName}`}
+              accessibilityLabel={t("community.post.image_a11y", { index: i + 1, name: authorName })}
             />
           ))}
         </ScrollView>
@@ -189,7 +195,7 @@ export function PostCard({
       <View style={styles.actions}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={post.likedByMe ? "Unlike" : "Like"}
+          accessibilityLabel={post.likedByMe ? t("community.post.unlike_a11y") : t("community.post.like_a11y")}
           onPress={() => void toggleLike()}
           disabled={liking}
           style={styles.actionBtn}
@@ -204,7 +210,7 @@ export function PostCard({
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Comments"
+          accessibilityLabel={t("community.post.comments_a11y")}
           onPress={toggleComments}
           style={styles.actionBtn}
         >
@@ -215,12 +221,12 @@ export function PostCard({
         {!isOwn && post.user_id !== meId ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`Message ${authorName}`}
+            accessibilityLabel={t("community.post.message_a11y", { name: authorName })}
             onPress={() => onMessage(post.user_id)}
             style={styles.actionBtn}
           >
             <Ionicons name="paper-plane-outline" size={18} color={theme.colors.text} />
-            <Text style={styles.actionText}>Message</Text>
+            <Text style={styles.actionText}>{t("community.post.message")}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -241,7 +247,7 @@ export function PostCard({
               </View>
             ))
           ) : (
-            <Text style={styles.commentsEmpty}>No comments yet — say something nice.</Text>
+            <Text style={styles.commentsEmpty}>{t("community.post.comments_empty")}</Text>
           )}
 
           <View style={styles.commentInputRow}>
@@ -249,13 +255,13 @@ export function PostCard({
               style={styles.commentInput}
               value={draft}
               onChangeText={setDraft}
-              placeholder="Add a comment…"
+              placeholder={t("community.post.comment_placeholder")}
               placeholderTextColor={theme.colors.textMuted}
               maxLength={500}
               multiline
             />
             <AppButton
-              label="Post"
+              label={t("community.post.comment_submit")}
               size="md"
               variant="secondary"
               loading={postingComment}

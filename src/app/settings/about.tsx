@@ -19,7 +19,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from "react-native";
@@ -29,17 +28,21 @@ import {
   checkForStoreUpdate,
   UpdateCheckResult,
 } from "../../features/settings/updates";
-import { theme } from "../../shared/config/theme";
+import { makeStyles } from "../../shared/theme/makeStyles";
+import { useAppTheme } from "../../shared/theme/ThemeProvider";
+import type { Theme } from "../../shared/config/theme";
+import { useT } from "../../shared/i18n/useT";
+import type { TranslationKey } from "../../shared/i18n/translate";
 import { toast } from "../../shared/lib/toast";
 
 
 type TabKey = "updates" | "whatsnew" | "feedback" | "trademarks";
 
-const TABS: { key: TabKey; label: string }[] = [
-  { key: "updates", label: "Updates" },
-  { key: "whatsnew", label: "What's new" },
-  { key: "feedback", label: "Feedback" },
-  { key: "trademarks", label: "Trademarks" },
+const TABS: { key: TabKey; labelKey: TranslationKey }[] = [
+  { key: "updates", labelKey: "settings.about_screen.tab.updates" },
+  { key: "whatsnew", labelKey: "settings.about_screen.tab.whatsnew" },
+  { key: "feedback", labelKey: "settings.about_screen.tab.feedback" },
+  { key: "trademarks", labelKey: "settings.about_screen.tab.trademarks" },
 ];
 
 /** Optional support address: expo.extra.supportEmail in app.json, if set. */
@@ -57,33 +60,36 @@ function versionLabel(): string {
   return version ?? "unknown";
 }
 
-const RELEASE_NOTES: { version: string; date: string; items: string[] }[] = [
+const RELEASE_NOTES: { versionKey: TranslationKey; dateKey: TranslationKey; itemKeys: TranslationKey[] }[] = [
   {
-    version: "This build",
-    date: "Current",
-    items: [
-      "Community — see other members' shared outfits, react, comment, and message them 1:1.",
-      "Open Community Chat — a shared room everyone in OOTDify can join.",
-      "Profile is now the settings hub: language, appearance, biometric unlock, backup, and this About screen.",
-      "Home redesign with Discover / Wardrobe / Looks segments, and a grid view for saved looks.",
+    versionKey: "settings.about_screen.release_notes.current_version",
+    dateKey: "settings.about_screen.release_notes.current_date",
+    itemKeys: [
+      "settings.about_screen.release_notes.item1",
+      "settings.about_screen.release_notes.item2",
+      "settings.about_screen.release_notes.item3",
+      "settings.about_screen.release_notes.item4",
     ],
   },
 ];
 
-const TRADEMARKS: { name: string; note: string }[] = [
-  { name: "Expo", note: "Build and runtime tooling this app is built with." },
-  { name: "React Native", note: "The UI framework powering every screen." },
-  { name: "Supabase", note: "Database, auth, storage, and realtime used by the app." },
-  { name: "Ionicons", note: "The icon set shown throughout the interface." },
-  { name: "Inter", note: "The typeface used across the app." },
+const TRADEMARKS: { name: string; noteKey: TranslationKey }[] = [
+  { name: "Expo", noteKey: "settings.about_screen.trademarks.expo" },
+  { name: "React Native", noteKey: "settings.about_screen.trademarks.react_native" },
+  { name: "Supabase", noteKey: "settings.about_screen.trademarks.supabase" },
+  { name: "Ionicons", noteKey: "settings.about_screen.trademarks.ionicons" },
+  { name: "Inter", noteKey: "settings.about_screen.trademarks.inter" },
 ];
 
 export default function AboutScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const styles = useStyles();
+  const theme = useAppTheme();
+  const { t } = useT();
   const params = useLocalSearchParams<{ tab?: string }>();
   const requested = typeof params.tab === "string" ? params.tab : "";
-  const active: TabKey = TABS.some((t) => t.key === requested)
+  const active: TabKey = TABS.some((tab) => tab.key === requested)
     ? (requested as TabKey)
     : "updates";
 
@@ -119,8 +125,8 @@ export default function AboutScreen() {
       await Linking.openURL(url);
     } catch {
       toast.error(
-        "No mail app available",
-        "This device can't open a mail composer, so feedback couldn't be started.",
+        t("settings.about_screen.feedback.mail_error.title"),
+        t("settings.about_screen.feedback.mail_error.message"),
       );
     }
   };
@@ -136,7 +142,7 @@ export default function AboutScreen() {
         >
           <Ionicons name="arrow-back" size={22} color={theme.colors.text} />
         </Pressable>
-        <Text style={styles.navTitle}>About</Text>
+        <Text style={styles.navTitle}>{t("settings.about_screen.title")}</Text>
         <View style={{ width: 34 }} />
       </View>
 
@@ -159,7 +165,7 @@ export default function AboutScreen() {
             <Text
               style={[styles.tabText, active === tab.key && styles.tabTextActive]}
             >
-              {tab.label}
+              {t(tab.labelKey)}
             </Text>
           </Pressable>
         ))}
@@ -170,7 +176,7 @@ export default function AboutScreen() {
 
         {active === "updates" ? (
           <>
-            <Text style={styles.version}>Version {versionLabel()}</Text>
+            <Text style={styles.version}>{t("settings.version", { version: versionLabel() })}</Text>
             <Pressable
               accessibilityRole="button"
               accessibilityState={{ disabled: checking, busy: checking }}
@@ -187,7 +193,7 @@ export default function AboutScreen() {
               ) : (
                 <Ionicons name="cloud-download-outline" size={17} color={theme.colors.onPrimary} />
               )}
-              <Text style={styles.checkLabel}>Check for updates</Text>
+              <Text style={styles.checkLabel}>{t("settings.about.updates")}</Text>
             </Pressable>
             {checkResult ? (
               <View
@@ -215,8 +221,7 @@ export default function AboutScreen() {
               </View>
             ) : null}
             <Text style={styles.smallNote}>
-              Updates are delivered by the store you installed from — this app
-              checks the published listing, it doesn&apos;t install over itself.
+              {t("settings.about_screen.update_note")}
             </Text>
           </>
         ) : null}
@@ -224,20 +229,23 @@ export default function AboutScreen() {
         {active === "whatsnew" ? (
           <>
             {RELEASE_NOTES.map((note) => (
-              <View key={note.version} style={styles.card}>
+              <View key={note.versionKey} style={styles.card}>
                 <Text style={styles.noteHead}>
-                  {note.version} · {note.date}
+                  {t("settings.about_screen.release_notes.header", {
+                    version: t(note.versionKey),
+                    date: t(note.dateKey),
+                  })}
                 </Text>
-                {note.items.map((item) => (
+                {note.itemKeys.map((item) => (
                   <View key={item} style={styles.bulletRow}>
                     <View style={styles.bullet} />
-                    <Text style={styles.bulletText}>{item}</Text>
+                    <Text style={styles.bulletText}>{t(item)}</Text>
                   </View>
                 ))}
               </View>
             ))}
             <Text style={styles.smallNote}>
-              Release notes describe only shipped features in this build.
+              {t("settings.about_screen.release_notes.note")}
             </Text>
           </>
         ) : null}
@@ -245,9 +253,7 @@ export default function AboutScreen() {
         {active === "feedback" ? (
           <>
             <Text style={styles.body}>
-              Tell us what worked, what didn&apos;t, or what you&apos;d build next. The
-              composer opens pre-filled with your app version and device so we
-              can reproduce what you saw.
+              {t("settings.about_screen.feedback.body")}
             </Text>
             <Pressable
               accessibilityRole="button"
@@ -255,12 +261,12 @@ export default function AboutScreen() {
               style={({ pressed }) => [styles.checkBtn, pressed && { opacity: 0.85 }]}
             >
               <Ionicons name="chatbox-ellipses-outline" size={17} color={theme.colors.onPrimary} />
-              <Text style={styles.checkLabel}>Open feedback email</Text>
+              <Text style={styles.checkLabel}>{t("settings.about_screen.feedback.open")}</Text>
             </Pressable>
             <Text style={styles.smallNote}>
               {supportEmail()
-                ? `Feedback goes to ${supportEmail()}.`
-                : "No support address is configured yet, so the composer opens blank — add expo.extra.supportEmail in app.json to set the recipient."}
+                ? t("settings.about_screen.feedback.note_with_email", { email: supportEmail() })
+                : t("settings.about_screen.feedback.note_no_email")}
             </Text>
           </>
         ) : null}
@@ -268,13 +274,12 @@ export default function AboutScreen() {
         {active === "trademarks" ? (
           <>
             <Text style={styles.body}>
-              OOTDify uses these third-party products. All trademarks belong to
-              their respective owners; this app is not endorsed by them.
+              {t("settings.about_screen.trademarks.body")}
             </Text>
             {TRADEMARKS.map((row) => (
               <View key={row.name} style={styles.card}>
                 <Text style={styles.tmName}>{row.name}</Text>
-                <Text style={styles.tmNote}>{row.note}</Text>
+                <Text style={styles.tmNote}>{t(row.noteKey)}</Text>
               </View>
             ))}
           </>
@@ -284,7 +289,7 @@ export default function AboutScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme: Theme) => ({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   navRow: {
     flexDirection: "row",
@@ -335,7 +340,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: theme.borderRadius.md,
     backgroundColor: theme.colors.surface,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 0.5,
     borderColor: theme.colors.border,
   },
   resultBoxHighlight: { borderColor: theme.colors.primary },
@@ -343,7 +348,7 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 0.5,
     borderColor: theme.colors.border,
     padding: 16,
     gap: 8,
@@ -360,4 +365,4 @@ const styles = StyleSheet.create({
   bulletText: { flex: 1, fontSize: 13.5, lineHeight: 19, color: theme.colors.text },
   tmName: { fontSize: 14.5, fontWeight: "800", color: theme.colors.text },
   tmNote: { fontSize: 13, lineHeight: 18, color: theme.colors.textMuted },
-});
+}));
