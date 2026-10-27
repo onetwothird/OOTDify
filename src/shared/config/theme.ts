@@ -1,10 +1,10 @@
 // C:\OOTDify\src\shared\config\theme.ts
-// OOTDify design tokens — strict black / white / gray (editorial monochrome).
-// One near-black ink, one muted gray, one light gray surface, nothing warm.
+// OOTDify design tokens, drawn from the mascot penguin: royal blue body, sky
+// blue cape, white belly, navy outline. Light mode is the penguin by day (icy
+// page, royal blue emphasis, navy type); dark mode is the penguin at night.
 //
 // There are TWO palettes: light and dark. Both keep the same key set, so any
-// `theme.colors.X` reference resolves in either mode. The light palette is the
-// original one, byte-identical, so light mode looks exactly as it always has.
+// `theme.colors.X` reference resolves in either mode.
 //
 // Screens must NOT import `theme` directly for colours. They call `useAppTheme()`
 // (see src/shared/theme/ThemeProvider.tsx), which returns the palette currently
@@ -40,61 +40,59 @@ export type ThemeColors = {
 };
 
 export const lightColors: ThemeColors = {
-  // Light gray page background (needle-point white, not cream).
-  background: "#F5F5F5",
+  // Icy page, the white of the penguin's belly with a breath of blue.
+  background: "#EEF4FB",
   // Cards / sheets.
   surface: "#FFFFFF",
   // Raised-but-quiet fills (chips, icon tiles).
-  surfaceAlt: "#EDEDED",
-  border: "#E3E3E3",
-  // Primary ink (buttons, active states, headings).
-  primary: "#111111",
-  primaryMuted: "#F0F0F0",
-  text: "#161616",
-  textMuted: "#6E6E6E",
-  // Single expressive accent — charcoal, used only as a highlight.
-  accent: "#3A3A3A",
-  success: "#2E7D4F",
-  warning: "#A35C2A",
-  danger: "#B23A2E",
+  surfaceAlt: "#E1EBF7",
+  border: "#D3E0F0",
+  // Penguin royal blue: buttons, active states, the tab bar's selected item.
+  primary: "#2F5BC4",
+  primaryMuted: "#E4ECFA",
+  // Navy ink instead of black, so type sits in the same family as the blues.
+  text: "#14213F",
+  textMuted: "#52617F",
+  // The cape's deeper blue: favourites, tags, small highlights.
+  accent: "#1F6FB8",
+  success: "#2E8A57",
+  warning: "#B5641F",
+  danger: "#C8402F",
   onPrimary: "#FFFFFF",
-  onPrimaryMuted: "#B8B8B8",
-  onPrimarySubtle: "#373737",
-  onPrimaryFaint: "#1D1D1D",
-  textFaint: "#F5F5F5",
+  // White blended onto `primary` at 68% / 20% / 9%.
+  onPrimaryMuted: "#BCCBEC",
+  onPrimarySubtle: "#597CD0",
+  onPrimaryFaint: "#426AC9",
+  textFaint: "#E6EEF8",
 };
 
-// Dark palette: the same monochrome editorial system, inverted. Not a naive
-// flip — surfaces step *up* in lightness as they come forward, text is softened
-// off pure white to reduce halation on OLED, and the semantic colours are
-// lightened so they stay legible against a dark background.
+// Dark palette: the penguin at night. Navy layers that step lighter as they
+// come forward, and the cape's sky blue as the emphasis colour, bright enough
+// to carry buttons against the dark page.
 export const darkColors: ThemeColors = {
   // Deepest layer: the page behind everything.
-  background: "#0F0F0F",
+  background: "#0B1633",
   // Cards / sheets — one step forward from the page.
-  surface: "#1A1A1A",
+  surface: "#14224A",
   // Raised-but-quiet fills (chips, icon tiles).
-  surfaceAlt: "#262626",
-  border: "#333333",
-  // In dark mode the "ink" that reads as emphasis is near-white, so buttons and
-  // headings stay high-contrast against the dark page.
-  primary: "#F2F2F2",
-  primaryMuted: "#242424",
-  text: "#F2F2F2",
-  textMuted: "#A0A0A0",
-  // Accent lifts off charcoal so it remains a visible highlight.
-  accent: "#C8C8C8",
-  success: "#5FBF8A",
-  warning: "#D89A5E",
-  danger: "#E2725F",
-  // Text/iconography drawn ON `primary` fills. In dark mode `primary` is light,
-  // so this must be dark to stay readable (it is the inverse of light mode).
-  onPrimary: "#111111",
-  // Same roles as light mode: dark ink blended onto the light primary.
-  onPrimaryMuted: "#595959",
-  onPrimarySubtle: "#D3D3D3",
-  onPrimaryFaint: "#E7E7E7",
-  textFaint: "#252525",
+  surfaceAlt: "#1C2D5E",
+  border: "#2A3D73",
+  // Sky blue from the cape: buttons, active states.
+  primary: "#5BB8EE",
+  primaryMuted: "#182A59",
+  text: "#EAF1FB",
+  textMuted: "#9FB2D6",
+  accent: "#8ACFF5",
+  success: "#5FCB8E",
+  warning: "#F0A35E",
+  danger: "#F07A68",
+  // Navy ink on the light sky-blue `primary`.
+  onPrimary: "#0B1633",
+  // Navy blended onto `primary` at 62% / 20% / 9%.
+  onPrimaryMuted: "#29547A",
+  onPrimarySubtle: "#4B98C9",
+  onPrimaryFaint: "#54A9DD",
+  textFaint: "#16244F",
 };
 
 export const theme = {
