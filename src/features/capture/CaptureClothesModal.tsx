@@ -54,6 +54,10 @@ const activeUri = (e: CapturedEntry) =>
     ? e.isolation.uri
     : e.uri;
 
+/** What the AI described for this photo (null while pending, on error, or when it saw nothing). */
+const garmentOf = (e: CapturedEntry) =>
+  e.isolation === "pending" || e.isolation.status === "error" ? null : e.isolation.garment;
+
 export default function CaptureClothesModal() {
   const insets = useSafeAreaInsets();
   const styles = useStyles();
@@ -88,8 +92,19 @@ export default function CaptureClothesModal() {
     // (and can switch back to the original) before anything is saved.
     for (const entry of added) {
       void isolateCapturedPhoto(entry.uri).then((outcome) => {
+        // The AI's category is only a suggestion: it fills an empty choice and
+        // the user can still change it.
+        const suggested = outcome.status === "error" ? null : outcome.garment?.category ?? null;
         setEntries((prev) =>
-          prev.map((e) => (e.id === entry.id ? { ...e, isolation: outcome } : e)),
+          prev.map((e) =>
+            e.id === entry.id
+              ? {
+                  ...e,
+                  isolation: outcome,
+                  category: e.category || (suggested && CATEGORIES.includes(suggested) ? suggested : ""),
+                }
+              : e,
+          ),
         );
       });
     }
@@ -160,11 +175,15 @@ export default function CaptureClothesModal() {
           throw new Error(t("capture.error.missing_category"));
         }
         const storageRef = await uploadToWardrobeBucket(activeUri(entry), `item-${Date.now()}.jpg`, "image/jpeg");
+        const garment = garmentOf(entry);
         const row = await insertClothingItem({
-          name: entry.category,
+          name: garment?.name || entry.category,
           category: entry.category,
+          color: garment?.color ?? undefined,
           image_url: storageRef,
-          tags: [],
+          tags: [garment?.pattern, garment?.fit].filter(
+            (tag): tag is string => Boolean(tag) && tag !== "unknown",
+          ),
         });
         saved.push(row);
       } catch (e) {
@@ -383,8 +402,20 @@ function IsolationStatus({ entry, onToggle }: { entry: CapturedEntry; onToggle: 
       </View>
     );
   }
+  const garment = outcome.status === "error" ? null : outcome.garment;
+  const described = garment?.description ? (
+    <View style={styles.isoRow}>
+      <Ionicons name="sparkles-outline" size={14} color={theme.colors.text} />
+      <Text style={styles.isoText}>
+        {[garment.name, garment.description].filter(Boolean).join(" — ")}
+      </Text>
+    </View>
+  ) : null;
+
   if (outcome.status === "isolated") {
     return (
+      <>
+      {described}
       <Pressable
         accessibilityRole="switch"
         accessibilityState={{ checked: entry.useCutout }}
@@ -404,6 +435,7 @@ function IsolationStatus({ entry, onToggle }: { entry: CapturedEntry; onToggle: 
           {entry.useCutout ? t("capture.isolate.use_original") : t("capture.isolate.use_cutout")}
         </Text>
       </Pressable>
+      </>
     );
   }
   const reason =
@@ -411,12 +443,15 @@ function IsolationStatus({ entry, onToggle }: { entry: CapturedEntry; onToggle: 
       ? t(`capture.isolate.reason.${outcome.reason}`)
       : t("capture.isolate.reason.unavailable");
   return (
-    <View style={styles.isoRow}>
-      <Ionicons name="information-circle-outline" size={14} color={theme.colors.textMuted} />
-      <Text style={styles.isoText} numberOfLines={2}>
-        {t("capture.isolate.kept", { reason })}
-      </Text>
-    </View>
+    <>
+      {described}
+      <View style={styles.isoRow}>
+        <Ionicons name="information-circle-outline" size={14} color={theme.colors.textMuted} />
+        <Text style={styles.isoText} numberOfLines={2}>
+          {t("capture.isolate.kept", { reason })}
+        </Text>
+      </View>
+    </>
   );
 }
 
