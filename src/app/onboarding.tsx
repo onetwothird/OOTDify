@@ -25,6 +25,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { OCCASIONS } from "../features/clothing/types";
 import { clearOnboardingPending } from "../features/profile/onboarding";
+import { clampNickname, NICKNAME_MAX } from "../features/profile/names";
 import { AppButton } from "../shared/components/AppButton";
 import { ErrorState } from "../shared/components/StateViews";
 import { LoadingState } from "../shared/components/LoadingState";
@@ -48,7 +49,6 @@ function toggle(set: Set<string>, key: string): Set<string> {
 }
 
 // Short enough to fit the Home greeting on one line.
-const NICKNAME_MAX = 8;
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
@@ -69,7 +69,7 @@ export default function OnboardingScreen() {
   const load = useCallback(async () => {
     try {
       const { profile } = await getProfile();
-      setNickname((profile.display_name ?? profile.first_name ?? "").trim().slice(0, NICKNAME_MAX));
+      setNickname(clampNickname(profile.display_name ?? profile.first_name ?? ""));
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : t("onboarding.error.load"));
     } finally {
@@ -86,7 +86,7 @@ export default function OnboardingScreen() {
         setLoadError(null);
         const { profile } = await getProfile();
         if (cancelled) return;
-        setNickname((profile.display_name ?? profile.first_name ?? "").trim().slice(0, NICKNAME_MAX));
+        setNickname(clampNickname(profile.display_name ?? profile.first_name ?? ""));
       } catch (e) {
         if (cancelled) return;
         setLoadError(e instanceof Error ? e.message : t("onboarding.error.load"));
@@ -112,7 +112,7 @@ export default function OnboardingScreen() {
   const save = useCallback(async () => {
     setSaving(true);
     try {
-      const name = nickname.trim().slice(0, NICKNAME_MAX);
+      const name = clampNickname(nickname);
       await updateProfile({
         display_name: name || null,
         preferred_styles: Array.from(stylesSel),
