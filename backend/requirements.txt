@@ -15,6 +15,9 @@ python-dotenv>=1.0,<2
 # ---- Supabase (backend service-role client for DB + private storage) ----
 supabase>=2.6,<3
 
+# ---- Cloudinary (backend-only avatar hosting) ----
+cloudinary>=1.40,<2
+
 # ---- Testing the API from a script (backend/scripts/test_api.py) ----
 requests>=2.31.0
 
