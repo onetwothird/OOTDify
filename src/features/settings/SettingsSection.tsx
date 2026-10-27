@@ -79,7 +79,24 @@ export function SettingsSection() {
       );
       return;
     }
-    setBiometricLock(next);
+    if (!next) {
+      setBiometricLock(false);
+      return;
+    }
+    // Prove the sensor works before relying on it, so nobody locks themselves
+    // out with a fingerprint the phone will not accept.
+    void (async () => {
+      try {
+        const result = await LocalAuthentication.authenticateAsync({
+          promptMessage: t("settings.biometric.confirm_prompt"),
+          cancelLabel: t("lock.cancel"),
+          disableDeviceFallback: false,
+        });
+        if (result.success) setBiometricLock(true);
+      } catch {
+        Alert.alert(t("settings.biometric.alert.title"), t("lock.failed"));
+      }
+    })();
   };
 
   return (
