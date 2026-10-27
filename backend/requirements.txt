@@ -18,6 +18,9 @@ supabase>=2.6,<3
 # ---- Cloudinary (backend-only avatar hosting) ----
 cloudinary>=1.40,<2
 
+# ---- Claude vision (garment description on capture) ----
+anthropic>=0.60
+
 # ---- Testing the API from a script (backend/scripts/test_api.py) ----
 requests>=2.31.0
 
