@@ -5,8 +5,7 @@
 // an icon + wordmark (no bitmap).
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { StatusBar } from "expo-status-bar";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppButton } from "../../shared/components/AppButton";
 import { PRIVACY_ROUTE, TERMS_ROUTE } from "../../shared/config/legal";
@@ -46,21 +45,19 @@ export default function LandingScreen() {
 
   return (
     <View style={styles.screen}>
-      <StatusBar style="light" />
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + theme.spacing.lg }]}
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
         <View style={[styles.hero, { paddingTop: insets.top + 14 }]}>
-          {/* Decorative washes — plain views (no gradients, no images). */}
-          <View style={[styles.blob, styles.blobA]} pointerEvents="none" />
-          <View style={[styles.blob, styles.blobB]} pointerEvents="none" />
-
           <View style={styles.brandRow}>
-            <View style={styles.brandTile}>
-              <Ionicons name="shirt-outline" size={16} color={theme.colors.onPrimary} />
-            </View>
+            <Image
+              source={require("../../../assets/images/ootdify-icon.png")}
+              style={styles.brandIcon}
+              resizeMode="contain"
+              accessibilityIgnoresInvertColors
+            />
             <Text style={styles.brandName}>OOTDify</Text>
           </View>
 
@@ -140,47 +137,23 @@ const useStyles = makeStyles((theme: Theme) => ({
     alignSelf: "center",
   },
   hero: {
-    backgroundColor: theme.colors.primary,
     paddingHorizontal: theme.spacing.lg,
-    paddingBottom: 72,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
-    overflow: "hidden",
-  },
-  blob: {
-    position: "absolute",
-    borderRadius: 999,
-    backgroundColor: theme.colors.onPrimaryFaint,
-  },
-  blobA: { width: 240, height: 240, top: -100, right: -80 },
-  blobB: {
-    width: 170,
-    height: 170,
-    bottom: -70,
-    left: -60,
-    backgroundColor: theme.colors.onPrimaryFaint,
+    paddingBottom: theme.spacing.lg,
   },
   brandRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  brandTile: {
-    width: 30,
-    height: 30,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: theme.colors.onPrimarySubtle,
-  },
+  brandIcon: { width: 34, height: 34, borderRadius: 10 },
   brandName: {
     fontSize: 20,
     fontWeight: "800",
     letterSpacing: -0.4,
-    color: theme.colors.onPrimary,
+    color: theme.colors.text,
   },
   kicker: {
     marginTop: theme.spacing.xl,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "700",
-    letterSpacing: 2,
-    color: theme.colors.onPrimaryMuted,
+    letterSpacing: 1.5,
+    color: theme.colors.textMuted,
   },
   display: {
     marginTop: 10,
@@ -188,19 +161,18 @@ const useStyles = makeStyles((theme: Theme) => ({
     lineHeight: 44,
     fontWeight: "800",
     letterSpacing: -1.5,
-    color: theme.colors.onPrimary,
+    color: theme.colors.text,
   },
   lede: {
     marginTop: 12,
     fontSize: 15,
     lineHeight: 22,
     fontWeight: "400",
-    color: theme.colors.onPrimaryMuted,
+    color: theme.colors.textMuted,
     maxWidth: 320,
   },
   body: {
     flex: 1,
-    marginTop: -42,
     paddingHorizontal: theme.spacing.md,
   },
   featureCard: {
@@ -209,11 +181,6 @@ const useStyles = makeStyles((theme: Theme) => ({
     backgroundColor: theme.colors.surface,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: theme.colors.border,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 24,
-    elevation: 6,
   },
   featureRow: {
     flexDirection: "row",
