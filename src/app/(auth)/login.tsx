@@ -18,12 +18,18 @@ import { AppButton } from "../../shared/components/AppButton";
 import { AuthCard, AuthHero } from "../../shared/components/AuthShell";
 import { FormField } from "../../shared/components/FormField";
 import { OAuthButtons } from "../../shared/components/OAuthButtons";
-import { theme } from "../../shared/config/theme";
+import { useAppTheme } from "../../shared/theme/ThemeProvider";
+import { makeStyles } from "../../shared/theme/makeStyles";
+import type { Theme } from "../../shared/config/theme";
+import { useT } from "../../shared/i18n/useT";
 import { signInWithFacebook, signInWithGoogle } from "../../shared/lib/oauth";
 import { supabase } from "../../shared/lib/supabase";
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
+  const styles = useStyles();
+  const theme = useAppTheme();
+  const { t } = useT();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -36,13 +42,13 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     if (busy) return;
     if (!email || !password) {
-      Alert.alert("Missing details", "Please enter both your email and password.");
+      Alert.alert(t("auth.login.missing.title"), t("auth.login.missing.message"));
       return;
     }
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      Alert.alert("Login failed", error.message);
+      Alert.alert(t("auth.login.failed.title"), error.message);
     } else {
       router.replace("/(tabs)/home");
     }
@@ -62,8 +68,8 @@ export default function LoginScreen() {
       if (session) router.replace("/(tabs)/home");
     } catch (error: unknown) {
       Alert.alert(
-        "Google sign-in failed",
-        error instanceof Error ? error.message : "Please try again.",
+        t("auth.login.google_failed.title"),
+        error instanceof Error ? error.message : t("auth.common.try_again"),
       );
     } finally {
       setGoogleLoading(false);
@@ -81,8 +87,8 @@ export default function LoginScreen() {
       if (session) router.replace("/(tabs)/home");
     } catch (error: unknown) {
       Alert.alert(
-        "Facebook sign-in failed",
-        error instanceof Error ? error.message : "Please try again.",
+        t("auth.login.facebook_failed.title"),
+        error instanceof Error ? error.message : t("auth.common.try_again"),
       );
     } finally {
       setFacebookLoading(false);
@@ -102,18 +108,18 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <AuthHero
-            title="Welcome back"
-            subtitle="Log in to pick up right where you left off."
+            title={t("auth.login.title")}
+            subtitle={t("auth.login.subtitle")}
             onBack={() => router.back()}
           />
 
           <AuthCard>
             <FormField
-              label="Email address"
+              label={t("auth.common.email_label")}
               icon="mail-outline"
               value={email}
               onChangeText={setEmail}
-              placeholder="you@example.com"
+              placeholder={t("auth.common.email_placeholder")}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
@@ -124,12 +130,12 @@ export default function LoginScreen() {
             />
 
             <FormField
-              label="Password"
+              label={t("auth.common.password_label")}
               icon="lock-closed-outline"
               secure
               value={password}
               onChangeText={setPassword}
-              placeholder="Your password"
+              placeholder={t("auth.login.password_placeholder")}
               autoCapitalize="none"
               autoComplete="current-password"
               textContentType="password"
@@ -144,11 +150,11 @@ export default function LoginScreen() {
               hitSlop={8}
               style={styles.forgotWrap}
             >
-              <Text style={styles.forgotText}>Forgot password?</Text>
+              <Text style={styles.forgotText}>{t("auth.login.forgot")}</Text>
             </Pressable>
 
             <AppButton
-              label="Log in"
+              label={t("auth.login.submit")}
               onPress={handleLogin}
               loading={loading}
               disabled={busy}
@@ -157,7 +163,7 @@ export default function LoginScreen() {
 
             <View style={styles.dividerRow}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or continue with</Text>
+              <Text style={styles.dividerText}>{t("auth.common.continue_with")}</Text>
               <View style={styles.dividerLine} />
             </View>
 
@@ -171,18 +177,18 @@ export default function LoginScreen() {
           </AuthCard>
 
           <Text style={styles.note}>
-            Your wardrobe, photos and outfits stay in your own private account.
+            {t("auth.login.note")}
           </Text>
         </ScrollView>
 
         <View style={[styles.footer, { paddingBottom: insets.bottom + theme.spacing.md }]}>
-          <Text style={styles.footerText}>New to OOTDify? </Text>
+          <Text style={styles.footerText}>{t("auth.login.footer.question")}</Text>
           <Pressable
             accessibilityRole="button"
             onPress={() => router.push("/signup")}
             hitSlop={8}
           >
-            <Text style={styles.footerLink}>Create an account</Text>
+            <Text style={styles.footerLink}>{t("auth.login.footer.action")}</Text>
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -190,7 +196,7 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme: Theme) => ({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   flex: { flex: 1 },
   scroll: {
@@ -235,4 +241,4 @@ const styles = StyleSheet.create({
   },
   footerText: { fontSize: 14, fontWeight: "500", color: theme.colors.textMuted },
   footerLink: { fontSize: 14, fontWeight: "800", color: theme.colors.text },
-});
+}));
