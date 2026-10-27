@@ -513,11 +513,11 @@ const useStyles = makeStyles((theme: Theme) => ({
     borderTopColor: theme.colors.onPrimarySubtle,
   },
   stat: { flex: 1, alignItems: "center", gap: 2 },
-  statNumber: { fontSize: 20, fontWeight: "800", color: theme.colors.onPrimary },
+  statNumber: { fontSize: 20, fontWeight: "700", color: theme.colors.onPrimary },
   statLabel: { fontSize: 11.5, fontWeight: "600", color: theme.colors.onPrimaryMuted },
   sectionLabelText: {
     fontSize: 13,
-    fontWeight: "800",
+    fontWeight: "700",
     color: theme.colors.textMuted,
     marginTop: 10,
   },
@@ -564,13 +564,13 @@ const useStyles = makeStyles((theme: Theme) => ({
   heroActionText: {
     color: theme.colors.onPrimary,
     fontSize: 12.5,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   checkHead: { flexDirection: "row", alignItems: "center", gap: 8 },
   checkDot: { width: 9, height: 9, borderRadius: 5 },
   checkDotOk: { backgroundColor: theme.colors.success },
   checkDotWarn: { backgroundColor: theme.colors.warning },
-  checkTitle: { fontSize: 14, fontWeight: "800", color: theme.colors.text },
+  checkTitle: { fontSize: 14, fontWeight: "700", color: theme.colors.text },
   checkText: {
     fontSize: 12.5,
     lineHeight: 18,
@@ -586,7 +586,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   heroName: {
     color: theme.colors.onPrimary,
     fontSize: 19,
-    fontWeight: "800",
+    fontWeight: "700",
     letterSpacing: -0.3,
   },
   heroEmail: {
@@ -599,7 +599,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   nameField: { flex: 1, minWidth: 0 },
   fieldLabel: {
     fontSize: 10.5,
-    fontWeight: "800",
+    fontWeight: "700",
     letterSpacing: 1,
     color: theme.colors.textMuted,
     marginBottom: 2,
@@ -607,7 +607,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   genderGroup: { gap: 8 },
   nameInput: {
     fontSize: 16,
-    fontWeight: "700",
+    fontWeight: "600",
     color: theme.colors.text,
     paddingVertical: 8,
     paddingHorizontal: 10,
@@ -617,7 +617,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     backgroundColor: theme.colors.surfaceAlt,
   },
   prefGroup: { gap: 8 },
-  prefLabel: { fontSize: 12, fontWeight: "700", color: theme.colors.textMuted },
+  prefLabel: { fontSize: 12, fontWeight: "600", color: theme.colors.textMuted },
   prefChips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   prefChip: {
     paddingHorizontal: 12,
