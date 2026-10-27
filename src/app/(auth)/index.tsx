@@ -10,32 +10,39 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppButton } from "../../shared/components/AppButton";
 import { PRIVACY_ROUTE, TERMS_ROUTE } from "../../shared/config/legal";
-import { theme } from "../../shared/config/theme";
+import { useAppTheme } from "../../shared/theme/ThemeProvider";
+import { makeStyles } from "../../shared/theme/makeStyles";
+import type { Theme } from "../../shared/config/theme";
+import { useT } from "../../shared/i18n/useT";
+import type { TranslationKey } from "../../shared/i18n/translate";
 
-const FEATURES: {
+const FEATURE_KEYS: {
   icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-  body: string;
+  titleKey: TranslationKey;
+  bodyKey: TranslationKey;
 }[] = [
   {
     icon: "shirt-outline",
-    title: "Your wardrobe, catalogued",
-    body: "Add each piece once and find it instantly.",
+    titleKey: "auth.landing.feature.wardrobe.title",
+    bodyKey: "auth.landing.feature.wardrobe.body",
   },
   {
     icon: "body-outline",
-    title: "AI body analysis",
-    body: "Pose and segmentation from your own scans.",
+    titleKey: "auth.landing.feature.body_scan.title",
+    bodyKey: "auth.landing.feature.body_scan.body",
   },
   {
     icon: "calendar-outline",
-    title: "Plan by date",
-    body: "Save and schedule outfits on a real calendar.",
+    titleKey: "auth.landing.feature.plan.title",
+    bodyKey: "auth.landing.feature.plan.body",
   },
 ];
 
 export default function LandingScreen() {
   const insets = useSafeAreaInsets();
+  const theme = useAppTheme();
+  const styles = useStyles();
+  const { t } = useT();
 
   return (
     <View style={styles.screen}>
@@ -57,29 +64,28 @@ export default function LandingScreen() {
             <Text style={styles.brandName}>OOTDify</Text>
           </View>
 
-          <Text style={styles.kicker}>WARDROBE · AI STYLING</Text>
+          <Text style={styles.kicker}>{t("auth.landing.kicker")}</Text>
           <Text style={styles.display}>
-            Dress well,{"\n"}effortlessly.
+            {t("auth.landing.display")}
           </Text>
           <Text style={styles.lede}>
-            Understand your body with AI, organise every piece you own, and plan
-            real outfits for the days ahead.
+            {t("auth.landing.lede")}
           </Text>
         </View>
 
         <View style={styles.body}>
           <View style={styles.featureCard}>
-            {FEATURES.map((feature, index) => (
+            {FEATURE_KEYS.map((feature, index) => (
               <View
-                key={feature.title}
+                key={feature.titleKey}
                 style={[styles.featureRow, index > 0 && styles.featureDivider]}
               >
                 <View style={styles.featureIcon}>
                   <Ionicons name={feature.icon} size={20} color={theme.colors.text} />
                 </View>
                 <View style={styles.featureText}>
-                  <Text style={styles.featureTitle}>{feature.title}</Text>
-                  <Text style={styles.featureBody}>{feature.body}</Text>
+                  <Text style={styles.featureTitle}>{t(feature.titleKey)}</Text>
+                  <Text style={styles.featureBody}>{t(feature.bodyKey)}</Text>
                 </View>
               </View>
             ))}
@@ -87,36 +93,36 @@ export default function LandingScreen() {
 
           <View style={styles.actions}>
             <AppButton
-              label="Create an account"
+              label={t("auth.landing.create_account")}
               onPress={() => router.push("/signup")}
               style={styles.pill}
             />
             <AppButton
-              label="Log in"
+              label={t("auth.landing.login")}
               variant="secondary"
               onPress={() => router.push("/login")}
               style={styles.pill}
             />
             <Text style={styles.legal}>
-              By continuing you agree to our{" "}
+              {t("auth.landing.legal.prefix")}
               <Text
                 accessibilityRole="link"
                 suppressHighlighting={false}
                 style={styles.legalLink}
                 onPress={() => router.push(TERMS_ROUTE)}
               >
-                Terms of Service
-              </Text>{" "}
-              and{" "}
+                {t("auth.landing.legal.terms")}
+              </Text>
+              {t("auth.landing.legal.and")}
               <Text
                 accessibilityRole="link"
                 suppressHighlighting={false}
                 style={styles.legalLink}
                 onPress={() => router.push(PRIVACY_ROUTE)}
               >
-                Privacy Policy
+                {t("auth.landing.legal.privacy")}
               </Text>
-              .
+              {t("auth.landing.legal.suffix")}
             </Text>
           </View>
         </View>
@@ -125,7 +131,7 @@ export default function LandingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme: Theme) => ({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   content: {
     flexGrow: 1,
@@ -244,4 +250,4 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontWeight: "800",
   },
-});
+}));
