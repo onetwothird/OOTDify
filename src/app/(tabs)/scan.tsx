@@ -484,7 +484,7 @@ export default function ScanScreen() {
                 t("scan.consent.b5"),
               ].map((b) => (
                 <View key={b} style={styles.bulletRow}>
-                  <Ionicons name="checkmark-circle-outline" size={16} color={theme.colors.primary} />
+                  <Ionicons name="checkmark-circle-outline" size={16} color={theme.colors.brand} />
                   <Text style={styles.bulletText}>{b}</Text>
                 </View>
               ))}
@@ -498,7 +498,7 @@ export default function ScanScreen() {
               <Switch
                 value={agree}
                 onValueChange={setAgree}
-                trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+                trackColor={{ false: theme.colors.border, true: theme.colors.brand }}
                 thumbColor={theme.colors.surface}
               />
               <Text style={styles.consentToggleLabel}>
@@ -578,7 +578,7 @@ export default function ScanScreen() {
                     style={styles.camIconBtn}
                     onPress={() => setFacing((f) => (f === "front" ? "back" : "front"))}
                   >
-                    <Ionicons name="camera-reverse-outline" size={22} color={theme.colors.onPrimary} />
+                    <Ionicons name="camera-reverse-outline" size={22} color="#FFFFFF" />
                   </Pressable>
                 </View>
                 <Pressable
@@ -629,7 +629,7 @@ export default function ScanScreen() {
                 disabled={uploading}
               >
                 {uploading ? (
-                  <ActivityIndicator color={theme.colors.onPrimary} />
+                  <ActivityIndicator color={theme.colors.onBrand} />
                 ) : (
                   <Text style={styles.primaryBtnText}>{t("scan.preview.analyze")}</Text>
                 )}
@@ -639,11 +639,11 @@ export default function ScanScreen() {
         ) : (
           <View style={styles.scanActions}>
             <Pressable accessibilityRole="button" style={styles.scanBtn} onPress={startCapture}>
-              <Ionicons name="camera-outline" size={22} color={theme.colors.onPrimary} />
+              <Ionicons name="camera-outline" size={22} color={theme.colors.onBrand} />
               <Text style={styles.scanBtnText}>{t("scan.action.scan")}</Text>
             </Pressable>
             <Pressable accessibilityRole="button" style={styles.scanBtnGhost} onPress={pickPhoto}>
-              <Ionicons name="images-outline" size={22} color={theme.colors.primary} />
+              <Ionicons name="images-outline" size={22} color={theme.colors.brand} />
               <Text style={styles.scanBtnGhostText}>{t("scan.action.choose")}</Text>
             </Pressable>
           </View>
@@ -654,7 +654,7 @@ export default function ScanScreen() {
             <Ionicons
               name={lastAnalysis.detected ? "checkmark-circle" : "alert-circle-outline"}
               size={16}
-              color={lastAnalysis.detected ? theme.colors.primary : theme.colors.warning}
+              color={lastAnalysis.detected ? theme.colors.brand : theme.colors.warning}
             />
             <Text style={styles.analysisText}>
               {lastAnalysis.detected
@@ -709,7 +709,7 @@ export default function ScanScreen() {
                     onPress={() => removeBodyPhoto(p.id)}
                     style={styles.photoDelete}
                   >
-                    <Ionicons name="trash-outline" size={14} color={theme.colors.onPrimary} />
+                    <Ionicons name="trash-outline" size={14} color="#FFFFFF" />
                   </Pressable>
                   {selectedBodyId === p.id ? (
                     <View style={styles.photoSelectedRing}>
@@ -799,7 +799,7 @@ export default function ScanScreen() {
           >
             {creating ? (
               <View style={styles.creatingBtnRow}>
-                <ActivityIndicator color={theme.colors.onPrimary} size="small" />
+                <ActivityIndicator color={theme.colors.onBrand} size="small" />
                 <Text style={styles.primaryBtnText}>{t("scan.tryon.creating")}</Text>
               </View>
             ) : (
@@ -940,7 +940,7 @@ function StepIndicator({ current }: { current: number }) {
                 ]}
               >
                 {done ? (
-                  <Ionicons name="checkmark" size={10} color={theme.colors.onPrimary} />
+                  <Ionicons name="checkmark" size={10} color={theme.colors.onBrand} />
                 ) : (
                   <Text style={[styles.stepDotText, active && styles.stepDotTextActive]}>
                     {step}
@@ -1033,7 +1033,7 @@ function JobStatusPill({ status }: { status: TryOnJob["status"] }) {
   const colors: Record<TryOnJob["status"], string> = {
     uploading: theme.colors.textMuted,
     queued: theme.colors.textMuted,
-    processing: theme.colors.primary,
+    processing: theme.colors.brand,
     completed: theme.colors.success,
     failed: theme.colors.warning,
   };
@@ -1105,14 +1105,14 @@ const useStyles = makeStyles((theme: Theme) => ({
     alignItems: "center",
     justifyContent: "center",
   },
-  stepDotDone: { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
+  stepDotDone: { backgroundColor: theme.colors.brand, borderColor: theme.colors.brand },
   stepDotActive: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.brand,
+    borderColor: theme.colors.brand,
     transform: [{ scale: 1.08 }],
   },
   stepDotText: { fontSize: 11, fontWeight: "700", color: theme.colors.textMuted },
-  stepDotTextActive: { color: theme.colors.onPrimary },
+  stepDotTextActive: { color: theme.colors.onBrand },
   stepConnector: {
     flex: 1,
     height: 2,
@@ -1121,7 +1121,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     marginHorizontal: 3,
     alignSelf: "flex-start",
   },
-  stepConnectorDone: { backgroundColor: theme.colors.primary },
+  stepConnectorDone: { backgroundColor: theme.colors.brand },
   stepLabel: {
     fontSize: 9.5,
     fontWeight: "600",
@@ -1173,7 +1173,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     paddingVertical: 14,
     alignItems: "center",
   },
-  primaryBtnText: { color: theme.colors.onPrimary, fontWeight: "600", fontSize: 15 },
+  primaryBtnText: { color: theme.colors.onBrand, fontWeight: "600", fontSize: 15 },
   btnDisabled: { opacity: 0.4 },
   flex: { flex: 1 },
   secondaryBtn: {
@@ -1217,7 +1217,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
   shutterInner: { width: 56, height: 56, borderRadius: 28, backgroundColor: theme.colors.surface },
   cancelCapture: { alignSelf: "center", padding: 10 },
-  cancelCaptureText: { color: theme.colors.onPrimary, fontWeight: "600", fontSize: 14 },
+  cancelCaptureText: { color: "#FFFFFF", fontWeight: "600", fontSize: 14 },
   previewBox: { gap: 12 },
   previewImage: { width: "100%", aspectRatio: 3 / 4, borderRadius: theme.borderRadius.lg },
   previewActions: { flexDirection: "row", gap: 10 },
@@ -1233,7 +1233,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     borderRadius: theme.borderRadius.md,
     paddingVertical: 14,
   },
-  scanBtnText: { color: theme.colors.onPrimary, fontWeight: "600", fontSize: 14 },
+  scanBtnText: { color: theme.colors.onBrand, fontWeight: "600", fontSize: 14 },
   scanBtnGhost: {
     flex: 1,
     flexDirection: "row",
@@ -1271,7 +1271,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     borderWidth: 2,
     borderColor: "transparent",
   },
-  photoCardSelected: { borderColor: theme.colors.primary },
+  photoCardSelected: { borderColor: theme.colors.brand },
   photoImage: { width: 108, height: 128, backgroundColor: theme.colors.primaryMuted },
   photoPlaceholder: { backgroundColor: theme.colors.border },
   photoBadgeRow: {
@@ -1359,7 +1359,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     paddingVertical: 10,
     paddingHorizontal: 16,
   },
-  inlineCtaText: { color: theme.colors.onPrimary, fontWeight: "600", fontSize: 13 },
+  inlineCtaText: { color: theme.colors.onBrand, fontWeight: "600", fontSize: 13 },
 
   // jobs
   jobCard: {
