@@ -120,6 +120,9 @@ describe("themeForScheme", () => {
         onPrimary: ratio(palette.onPrimary, palette.primary) >= 4.5,
         // Text drawn on blue `brand` action buttons.
         onBrand: ratio(palette.onBrand, palette.brand) >= 4.5,
+        // The dark feature card (Outfits "Build") and its secondary line.
+        onFeature: ratio(palette.onFeature, palette.feature) >= 4.5,
+        onFeatureMuted: ratio(palette.onFeatureMuted, palette.feature) >= 4.5,
         // The orange accent is used for small text (tags) on cards and pages.
         accentOnCard: ratio(palette.accent, palette.surface) >= 4.5,
         accentOnBg: ratio(palette.accent, palette.background) >= 4.5,
@@ -131,6 +134,8 @@ describe("themeForScheme", () => {
         mutedOnCard: true,
         onPrimary: true,
         onBrand: true,
+        onFeature: true,
+        onFeatureMuted: true,
         accentOnCard: true,
         accentOnBg: true,
       });
