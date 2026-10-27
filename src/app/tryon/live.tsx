@@ -211,11 +211,11 @@ const useStyles = makeStyles((theme: Theme) => ({
   name: { ...theme.typography.subheading, color: theme.colors.text },
   status: { ...theme.typography.caption, color: theme.colors.textMuted },
   primaryBtn: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.brand,
     borderRadius: theme.borderRadius.md,
     paddingVertical: 14,
     alignItems: "center",
   },
-  primaryBtnText: { color: theme.colors.onPrimary, fontWeight: "700", fontSize: 15 },
+  primaryBtnText: { color: theme.colors.onPrimary, fontWeight: "600", fontSize: 15 },
   disclaimer: { ...theme.typography.caption, color: theme.colors.textMuted },
 }));
