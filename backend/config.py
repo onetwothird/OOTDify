@@ -100,6 +100,10 @@ class Config:
     # Seconds between worker polls for queued try-on jobs (local dev value;
     # in production prefer a proper queue such as Redis/Celery or Postgres LISTEN).
     TRYON_POLL_INTERVAL = float(os.getenv("TRYON_POLL_INTERVAL", "5.0"))
+    # A job still 'processing' this long after its last update was interrupted
+    # (container restart / crash mid-job); the worker marks it failed so it
+    # never spins forever in the app. Must exceed the slowest real job.
+    TRYON_STALE_AFTER_SECONDS = int(os.getenv("TRYON_STALE_AFTER_SECONDS", "900"))
     # Run the background try-on worker inside this Flask process.
     TRYON_WORKER_ENABLED = os.getenv("TRYON_WORKER_ENABLED", "1").lower() in {
         "1",
