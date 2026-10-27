@@ -357,7 +357,7 @@ export function OutfitCalendar({ outfits, onOpenOutfit }: Props) {
                     </Text>
                   </View>
                   {active ? (
-                    <Ionicons name="checkmark-circle" size={22} color={theme.colors.primary} />
+                    <Ionicons name="checkmark-circle" size={22} color={theme.colors.brand} />
                   ) : (
                     <Ionicons name="chevron-forward" size={18} color={theme.colors.textMuted} />
                   )}
@@ -459,7 +459,7 @@ const useStyles = makeStyles((theme) => ({
   },
   dayToday: {
     borderWidth: 1.5,
-    borderColor: theme.colors.primary,
+    borderColor: theme.colors.brand,
   },
   dayPlanned: { backgroundColor: theme.colors.primary },
   dayNum: { fontSize: 12, fontWeight: "600", color: theme.colors.text },
@@ -538,5 +538,5 @@ const useStyles = makeStyles((theme) => ({
     borderRadius: theme.borderRadius.md,
     backgroundColor: theme.colors.brand,
   },
-  openBtnText: { fontSize: 14, fontWeight: "600", color: theme.colors.onPrimary },
+  openBtnText: { fontSize: 14, fontWeight: "600", color: theme.colors.onBrand },
 }));
