@@ -147,7 +147,7 @@ export default function BackupScreen() {
         {/* ---------------------------------------------------------- Export */}
         <View style={styles.card}>
           <View style={styles.cardTitleRow}>
-            <Ionicons name="cloud-upload-outline" size={18} color={theme.colors.primary} />
+            <Ionicons name="cloud-upload-outline" size={18} color={theme.colors.brand} />
             <Text style={styles.cardTitle}>{t("settings.backup_screen.export.title")}</Text>
           </View>
           <Text style={styles.cardHint}>
@@ -169,7 +169,7 @@ export default function BackupScreen() {
         {/* ---------------------------------------------------------- Restore */}
         <View style={styles.card}>
           <View style={styles.cardTitleRow}>
-            <Ionicons name="cloud-download-outline" size={18} color={theme.colors.primary} />
+            <Ionicons name="cloud-download-outline" size={18} color={theme.colors.brand} />
             <Text style={styles.cardTitle}>{t("settings.backup_screen.restore.title")}</Text>
           </View>
           <Text style={styles.cardHint}>
@@ -235,9 +235,9 @@ function AppActionRow({
       style={({ pressed }) => [styles.actionBtn, pressed && !loading && { opacity: 0.85 }, loading && { opacity: 0.6 }]}
     >
       {loading ? (
-        <ActivityIndicator size="small" color={theme.colors.onPrimary} />
+        <ActivityIndicator size="small" color={theme.colors.onBrand} />
       ) : (
-        <Ionicons name={icon} size={17} color={theme.colors.onPrimary} />
+        <Ionicons name={icon} size={17} color={theme.colors.onBrand} />
       )}
       <Text style={styles.actionLabel}>{label}</Text>
     </Pressable>
@@ -288,5 +288,5 @@ const useStyles = makeStyles((theme: Theme) => ({
     paddingVertical: 12,
     paddingHorizontal: 18,
   },
-  actionLabel: { fontSize: 13.5, fontWeight: "700", color: theme.colors.onPrimary },
+  actionLabel: { fontSize: 13.5, fontWeight: "700", color: theme.colors.onBrand },
 }));
