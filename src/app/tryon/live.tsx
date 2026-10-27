@@ -216,6 +216,6 @@ const useStyles = makeStyles((theme: Theme) => ({
     paddingVertical: 14,
     alignItems: "center",
   },
-  primaryBtnText: { color: theme.colors.onPrimary, fontWeight: "600", fontSize: 15 },
+  primaryBtnText: { color: theme.colors.onBrand, fontWeight: "600", fontSize: 15 },
   disclaimer: { ...theme.typography.caption, color: theme.colors.textMuted },
 }));
