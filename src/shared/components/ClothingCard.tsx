@@ -74,7 +74,7 @@ export const ClothingCard = memo(function ClothingCard({
               <Ionicons
                 name={favorited ? "heart" : "heart-outline"}
                 size={18}
-                color={favorited ? theme.colors.primary : theme.colors.textMuted}
+                color={favorited ? theme.colors.brand : theme.colors.textMuted}
               />
             </Pressable>
           ) : null}
