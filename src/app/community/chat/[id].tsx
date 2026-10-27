@@ -43,7 +43,10 @@ import { clockLabel, dayLabel } from "../../../features/community/format";
 import { ProfileAvatar } from "../../../features/profile/ProfileAvatar";
 import { ErrorState } from "../../../shared/components/StateViews";
 import { HeaderIconButton } from "../../../shared/components/ScreenHeader";
-import { theme } from "../../../shared/config/theme";
+import { makeStyles } from "../../../shared/theme/makeStyles";
+import { useAppTheme } from "../../../shared/theme/ThemeProvider";
+import type { Theme } from "../../../shared/config/theme";
+import { useT } from "../../../shared/i18n/useT";
 import { supabase } from "../../../shared/lib/supabase";
 import { toast } from "../../../shared/lib/toast";
 
@@ -53,8 +56,6 @@ const CLUSTER_GAP_MS = 5 * 60_000;
 const PIN_THRESHOLD_PX = 60;
 // Corner radius used where a bubble tucks against its cluster neighbours.
 const TUCK_RADIUS = 6;
-// Neutral, non-fabricated stand-in while a realtime sender name resolves.
-const PENDING_NAME = "Member";
 
 /** Local calendar-day key so day separators match `dayLabel`'s boundaries. */
 function dayKey(iso: string): string {
@@ -65,6 +66,9 @@ function dayKey(iso: string): string {
 export default function ChatThreadScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const styles = useStyles();
+  const theme = useAppTheme();
+  const { t } = useT();
   const { id } = useLocalSearchParams<{ id: string }>();
   const conversationId = typeof id === "string" ? id : "";
   const { width } = useWindowDimensions();
@@ -76,7 +80,7 @@ export default function ChatThreadScreen() {
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
-  const [title, setTitle] = useState("Chat");
+  const [title, setTitle] = useState(() => t("community.chat.title.default"));
   // Set when this conversation is a public group room, so the header can show
   // its title/category and a group subtitle instead of a DM peer's.
   const [groupMeta, setGroupMeta] = useState<{ title: string; category: string | null } | null>(
@@ -133,7 +137,7 @@ export default function ChatThreadScreen() {
         // The pinned community room has a known title; DMs resolve the peer name.
         if (conversationId === COMMUNITY_ROOM_ID) {
           if (!alive) return;
-          setTitle("Community Chat");
+          setTitle(t("community.chat.title.community_chat"));
           return;
         }
         // A public group room is named by its own title, not by a peer.
@@ -158,9 +162,9 @@ export default function ChatThreadScreen() {
         const peer = await fetchUserProfile(otherId);
         if (!alive) return;
         setPeerId(otherId);
-        rememberName(otherId, peer?.display_name || peer?.first_name || "OOTDify member");
+        rememberName(otherId, peer?.display_name || peer?.first_name || t("community.post.default_author"));
         rememberAvatar(otherId, peer?.avatar_url ?? null);
-        setTitle(peer?.display_name || peer?.first_name || "Chat");
+        setTitle(peer?.display_name || peer?.first_name || t("community.chat.title.default"));
       } catch {
         /* title stays "Chat" — non-fatal */
       }
@@ -168,7 +172,7 @@ export default function ChatThreadScreen() {
     return () => {
       alive = false;
     };
-  }, [conversationId, rememberName, rememberAvatar]);
+  }, [conversationId, rememberName, rememberAvatar, t]);
 
   const load = useCallback(async () => {
     if (!conversationId) return;
@@ -233,7 +237,7 @@ export default function ChatThreadScreen() {
           .then((peer) => {
             rememberName(
               message.sender_id,
-              peer?.display_name || peer?.first_name || "OOTDify member",
+              peer?.display_name || peer?.first_name || t("community.post.default_author"),
             );
             rememberAvatar(message.sender_id, peer?.avatar_url ?? null);
           })
@@ -308,11 +312,11 @@ export default function ChatThreadScreen() {
       setNewCount(0);
       await load(); // full refetch keeps ordering + names exact
     } catch (e) {
-      toast.error("Could not send", communityErrorMessage(e));
+      toast.error(t("community.chat.send_error.title"), communityErrorMessage(e));
     } finally {
       setSending(false);
     }
-  }, [draft, sending, conversationId, load]);
+  }, [draft, sending, conversationId, load, t]);
 
   const headerInitial =
     conversationId === COMMUNITY_ROOM_ID
@@ -323,12 +327,12 @@ export default function ChatThreadScreen() {
   // Honest subtitle: no presence feed exists, so nothing claims "online".
   const subtitle =
     conversationId === COMMUNITY_ROOM_ID
-      ? "Everyone on OOTDify"
+      ? t("community.chat.subtitle.everyone")
       : groupMeta
         ? groupMeta.category
-          ? `Community · ${groupMeta.category}`
-          : "Community"
-        : "Direct message";
+          ? t("community.chat.subtitle.community_category", { category: groupMeta.category })
+          : t("community.chat.subtitle.community")
+        : t("community.chat.subtitle.dm");
 
   const showNewPill =
     newCount > 0 && Boolean(conversationId) && messages !== null && !error;
@@ -341,7 +345,7 @@ export default function ChatThreadScreen() {
       <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Back"
+          accessibilityLabel={t("community.chat.back_a11y")}
           hitSlop={8}
           onPress={() => router.back()}
           style={({ pressed }) => [styles.headerBtn, pressed && { opacity: 0.6 }]}
@@ -371,7 +375,7 @@ export default function ChatThreadScreen() {
         </View>
         <HeaderIconButton
           icon="refresh"
-          accessibilityLabel="Reload messages"
+          accessibilityLabel={t("community.chat.reload_a11y")}
           onPress={() => void load()}
         />
       </View>
@@ -385,7 +389,7 @@ export default function ChatThreadScreen() {
         <View style={styles.thread}>
           {!conversationId ? (
             <View style={styles.stateFill}>
-              <ErrorState message="This chat link is missing its conversation id." />
+              <ErrorState message={t("community.chat.missing_id")} />
             </View>
           ) : messages === null && !error ? (
             <View style={styles.stateFill}>
@@ -417,7 +421,7 @@ export default function ChatThreadScreen() {
                     size={34}
                     color={theme.colors.textMuted}
                   />
-                  <Text style={styles.emptyText}>No messages yet — say hello.</Text>
+                  <Text style={styles.emptyText}>{t("community.chat.empty_thread")}</Text>
                 </View>
               }
               renderItem={({ item, index }) => {
@@ -447,7 +451,7 @@ export default function ChatThreadScreen() {
                   !(gapToNext >= 0 && gapToNext <= CLUSTER_GAP_MS);
 
                 const displayName =
-                  item.senderName || names[item.sender_id] || PENDING_NAME;
+                  item.senderName || names[item.sender_id] || t("community.chat.default_member_name");
                 const initial = (displayName[0] ?? "?").toUpperCase();
                 // Real ref from the initial fetch, or one resolved lazily for
                 // realtime inserts; null falls back to the honest initial.
@@ -516,15 +520,13 @@ export default function ChatThreadScreen() {
             <View style={styles.pillLayer} pointerEvents="box-none">
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`Scroll to ${newCount} new ${
-                  newCount === 1 ? "message" : "messages"
-                }`}
+                accessibilityLabel={t("community.chat.scroll_a11y", { count: newCount })}
                 onPress={() => jumpToBottom(true)}
                 style={({ pressed }) => [styles.newPill, pressed && { opacity: 0.85 }]}
               >
                 <Ionicons name="arrow-down" size={14} color={theme.colors.onPrimary} />
                 <Text style={styles.newPillText}>
-                  {newCount === 1 ? "1 new message" : `${newCount} new messages`}
+                  {t("community.chat.new_pill", { count: newCount })}
                 </Text>
               </Pressable>
             </View>
@@ -537,14 +539,14 @@ export default function ChatThreadScreen() {
             style={styles.composerInput}
             value={draft}
             onChangeText={setDraft}
-            placeholder="Message…"
+            placeholder={t("community.chat.composer_placeholder")}
             placeholderTextColor={theme.colors.textMuted}
             multiline
             maxLength={2000}
           />
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Send message"
+            accessibilityLabel={t("community.chat.send_a11y")}
             disabled={!draft.trim() || sending}
             onPress={() => void send()}
             style={[styles.sendBtn, (!draft.trim() || sending) && styles.sendBtnDisabled]}
@@ -561,7 +563,7 @@ export default function ChatThreadScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme: Theme) => ({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   header: {
     flexDirection: "row",
@@ -694,4 +696,4 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   sendBtnDisabled: { opacity: 0.4 },
-});
+}));
