@@ -23,6 +23,7 @@ import { CatalogItem, OCCASIONS } from "../../features/clothing/types";
 import { TodayLookCard } from "../../features/outfit/components/TodayLookCard";
 import { fetchOutfitPlans, OutfitPlan, toISODate } from "../../features/outfit/planner";
 import { ProfileAvatar } from "../../features/profile/ProfileAvatar";
+import { ProfilePhotoSheet } from "../../features/profile/ProfilePhotoSheet";
 import { useAvatarStore } from "../../features/profile/avatarStore";
 import { applyPendingAvatar } from "../../features/profile/avatar";
 import { isOnboardingPending } from "../../features/profile/onboarding";
@@ -74,6 +75,7 @@ export default function HomeScreen() {
   const avatarRef = useAvatarStore((s) => s.ref);
   const setAvatarRef = useAvatarStore((s) => s.setRef);
   const [greetingLoading, setGreetingLoading] = useState(true);
+  const [photoSheetOpen, setPhotoSheetOpen] = useState(false);
   const onboardingChecked = useRef(false);
 
   const fetchRecommendations = useCallback(async (occ: string) => {
@@ -185,7 +187,7 @@ export default function HomeScreen() {
           nickname={nickname}
           avatarRef={avatarRef}
           loading={greetingLoading}
-          onOpenProfile={() => router.push("/(tabs)/profile")}
+          onOpenProfile={() => setPhotoSheetOpen(true)}
           onOpenSettings={() => router.push("/settings/general")}
         />
 
@@ -327,6 +329,15 @@ export default function HomeScreen() {
           </>
         )}
       </ScrollView>
+
+      <ProfilePhotoSheet
+        visible={photoSheetOpen}
+        initial={(nickname?.[0] ?? "").toUpperCase()}
+        avatarRef={avatarRef}
+        onChanged={setAvatarRef}
+        onOpenProfile={() => router.push("/(tabs)/profile")}
+        onClose={() => setPhotoSheetOpen(false)}
+      />
     </View>
   );
 }
