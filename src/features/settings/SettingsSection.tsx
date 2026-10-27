@@ -11,7 +11,6 @@ import {
   LanguageCode,
   useSettingsStore,
 } from "./settingsStore";
-import { fetchShowOnlineStatus, setShowOnlineStatus } from "../community/socialService";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import type { Theme } from "../../shared/config/theme";
@@ -52,25 +51,6 @@ export function SettingsSection() {
   const setAppearance = useSettingsStore((s) => s.setAppearance);
   const biometricLock = useSettingsStore((s) => s.biometricLock);
   const setBiometricLock = useSettingsStore((s) => s.setBiometricLock);
-
-  // Stored on the server: it decides what friends are allowed to read.
-  const [showOnline, setShowOnline] = useState<boolean | null>(null);
-  useEffect(() => {
-    let alive = true;
-    void fetchShowOnlineStatus()
-      .then((v) => alive && setShowOnline(v))
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, []);
-  const toggleOnline = (next: boolean) => {
-    setShowOnline(next);
-    void setShowOnlineStatus(next).catch(() => {
-      setShowOnline(!next);
-      Alert.alert(t("settings.online.title"), t("friends.toast.error"));
-    });
-  };
 
   const [bioAvailable, setBioAvailable] = useState<boolean | null>(null);
   useEffect(() => {
@@ -193,25 +173,19 @@ export function SettingsSection() {
           />
         </View>
 
-        <View style={styles.cardDivider} />
-
-        <View style={styles.switchRow}>
-          <Ionicons name="radio-button-on-outline" size={20} color={theme.colors.brand} />
-          <View style={styles.switchBody}>
-            <Text style={styles.rowLabel}>{t("settings.online.title")}</Text>
-            <Text style={styles.rowHint}>{t("settings.online.hint")}</Text>
-          </View>
-          <Switch
-            value={showOnline ?? true}
-            onValueChange={toggleOnline}
-            disabled={showOnline === null}
-            trackColor={{ true: theme.colors.brand, false: theme.colors.border }}
-            thumbColor={theme.colors.surface}
-          />
-        </View>
       </View>
 
       {/* Help */}
+      <SectionLabel text={t("notifications.title")} />
+      <View style={styles.card}>
+        <Row
+          icon="notifications-outline"
+          label={t("notifications.settings")}
+          hint={t("notifications.settings.row_hint")}
+          onPress={() => router.push("/settings/notifications")}
+        />
+      </View>
+
       <SectionLabel text={t("settings.section.help")} />
       <View style={styles.card}>
         <Row
