@@ -105,3 +105,15 @@ export function firstUnseenIndex(posts: MyDayPostRow[], viewedPostIds: ReadonlyS
   const i = posts.findIndex((p) => !viewedPostIds.has(p.id));
   return i === -1 ? 0 : i;
 }
+
+export type PickedStatus = "online" | "idle" | "dnd";
+export type Presence = PickedStatus | "offline";
+
+/**
+ * What a friend's dot shows: the status they picked while they are checking
+ * in, and offline once they stop (or hide their status, so no row is read).
+ */
+export function presenceOf(lastSeenAt: string | null | undefined, status: string | null | undefined, now: number): Presence {
+  if (!isOnline(lastSeenAt, now)) return "offline";
+  return status === "idle" || status === "dnd" ? status : "online";
+}

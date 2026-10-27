@@ -51,6 +51,8 @@ import type { Theme } from "../../../shared/config/theme";
 import { useT } from "../../../shared/i18n/useT";
 import { supabase } from "../../../shared/lib/supabase";
 import { toast } from "../../../shared/lib/toast";
+import { fetchUnreadCount, markChatRead } from "../../../features/notifications/service";
+import { useNotificationsStore } from "../../../features/notifications/store";
 
 // Consecutive messages from one sender cluster together for at most 5 minutes.
 const CLUSTER_GAP_MS = 5 * 60_000;
@@ -205,6 +207,20 @@ export default function ChatThreadScreen() {
       setError(communityErrorMessage(e));
     }
   }, [conversationId, rememberAvatar]);
+
+  // Opening a chat reads its message notifications; while it stays open, new
+  // ones are read on arrival (see NotificationsHost).
+  const setActiveChat = useNotificationsStore((s) => s.setActiveChat);
+  const setUnread = useNotificationsStore((s) => s.setUnread);
+  useEffect(() => {
+    if (!conversationId) return;
+    setActiveChat(conversationId);
+    void markChatRead(conversationId)
+      .then(fetchUnreadCount)
+      .then(setUnread)
+      .catch(() => {});
+    return () => setActiveChat(null);
+  }, [conversationId, setActiveChat, setUnread]);
 
   // Load initial messages — inline async in effect to avoid setState-in-effect lint error.
   useEffect(() => {

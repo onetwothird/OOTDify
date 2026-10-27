@@ -23,6 +23,8 @@ import { CATALOG_CATEGORIES, OCCASIONS } from "../../features/clothing/types";
 import { ProfileAvatar } from "../../features/profile/ProfileAvatar";
 import { captureSelfie, promptAvatarChange } from "../../features/profile/avatar";
 import { useAvatarStore } from "../../features/profile/avatarStore";
+import { clampNickname, namesFromMetadata, NICKNAME_MAX } from "../../features/profile/names";
+import { supabase } from "../../shared/lib/supabase";
 import { AppButton } from "../../shared/components/AppButton";
 import { ErrorState } from "../../shared/components/StateViews";
 import { LoadingState } from "../../shared/components/LoadingState";
@@ -78,6 +80,7 @@ export default function ProfileScreen() {
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [nickname, setNickname] = useState("");
   // Shared so the home header shows a change the moment it happens.
   const avatarRef = useAvatarStore((s) => s.ref);
   const setAvatarRef = useAvatarStore((s) => s.setRef);
@@ -96,10 +99,16 @@ export default function ProfileScreen() {
   // Core loader — effect-safe (no synchronous setState); state starts as loading.
   const fetchProfile = useCallback(async () => {
     try {
-      const { profile: p, email: mail } = await getProfile();
+      const [{ profile: p, email: mail }, { data: auth }] = await Promise.all([
+        getProfile(),
+        supabase.auth.getSession(),
+      ]);
+      // The name given at sign-up lives on the account until it is saved here.
+      const signUp = namesFromMetadata(auth.session?.user?.user_metadata);
       setEmail(mail);
-      setFirstName(p.first_name ?? "");
-      setLastName(p.last_name ?? "");
+      setFirstName(p.first_name || signUp.first);
+      setLastName(p.last_name || signUp.last);
+      setNickname(clampNickname(p.display_name || p.first_name || signUp.first));
       setAvatarRef(p.avatar_url ?? null);
       setGender(p.gender ?? "");
       setStylesSel(new Set(p.preferred_styles ?? []));
@@ -143,12 +152,13 @@ export default function ProfileScreen() {
     try {
       const f = firstName.trim();
       const l = lastName.trim();
-      const derived = [f, l].filter(Boolean).join(" ") || null;
+      // The nickname is what the app calls you; it no longer becomes the full name.
+      const nick = clampNickname(nickname) || clampNickname(f);
       await updateProfile({
         first_name: f || null,
         last_name: l || null,
         gender: gender || null,
-        display_name: derived,
+        display_name: nick || null,
         preferred_styles: Array.from(stylesSel),
         preferred_colors: Array.from(colorsSel),
         preferred_occasions: Array.from(occasionsSel),
@@ -324,6 +334,27 @@ export default function ProfileScreen() {
 
             <SectionLabel text={t("profile.personal_details.label")} />
             <View style={styles.card}>
+              <View>
+                <View style={styles.nickHead}>
+                  <Text style={styles.fieldLabel}>{t("profile.nickname")}</Text>
+                  <Text style={styles.counter}>
+                    {Array.from(nickname).length}/{NICKNAME_MAX}
+                  </Text>
+                </View>
+                <TextInput
+                  style={styles.nameInput}
+                  value={nickname}
+                  onChangeText={(text) => {
+                    setNickname(Array.from(text).slice(0, NICKNAME_MAX).join(""));
+                    markDirty();
+                  }}
+                  placeholder={t("profile.nickname.placeholder")}
+                  placeholderTextColor={theme.colors.textMuted}
+                  maxLength={NICKNAME_MAX * 2}
+                  autoCorrect={false}
+                />
+                <Text style={styles.fieldHint}>{t("profile.nickname.hint", { max: NICKNAME_MAX })}</Text>
+              </View>
               <View style={[styles.nameRow, condensed && styles.nameRowStacked]}>
                 <View style={styles.nameField}>
                   <Text style={styles.fieldLabel}>{t("profile.first_name")}</Text>
@@ -605,6 +636,9 @@ const useStyles = makeStyles((theme: Theme) => ({
     marginBottom: 2,
   },
   genderGroup: { gap: 8 },
+  nickHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" },
+  counter: { fontSize: 11.5, fontWeight: "600", color: theme.colors.textMuted },
+  fieldHint: { fontSize: 12, color: theme.colors.textMuted, marginTop: 6 },
   nameInput: {
     fontSize: 16,
     fontWeight: "600",

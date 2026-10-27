@@ -18,6 +18,7 @@ import { withAuthRedirectHeld } from "../../shared/lib/authRedirectHold";
 import { supabase } from "../../shared/lib/supabase";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
+import { unregisterPush } from "../notifications/service";
 import { useAvatarStore } from "./avatarStore";
 import { ProfileAvatar } from "./ProfileAvatar";
 
@@ -67,6 +68,8 @@ export function LogOutSheet({ visible, onClose }: { visible: boolean; onClose: (
     // landing page on the signed-out session.
     void withAuthRedirectHeld(async () => {
       try {
+        // This phone stops getting the account's notifications first.
+        await unregisterPush().catch(() => {});
         await supabase.auth.signOut();
         onClose();
         router.replace("/login");

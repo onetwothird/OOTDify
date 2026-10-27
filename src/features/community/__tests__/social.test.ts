@@ -3,6 +3,7 @@ import {
   friendStateWith,
   groupMyDay,
   isOnline,
+  presenceOf,
   ONLINE_WINDOW_MS,
   splitFriendships,
   type FriendshipRow,
@@ -77,5 +78,25 @@ describe("firstUnseenIndex", () => {
     const posts = [post("a", "x", 30), post("b", "x", 5)];
     expect(firstUnseenIndex(posts, new Set(["a"]))).toBe(1);
     expect(firstUnseenIndex(posts, new Set(["a", "b"]))).toBe(0);
+  });
+});
+
+describe("presenceOf", () => {
+  const recent = new Date(NOW - 30_000).toISOString();
+  const stale = new Date(NOW - ONLINE_WINDOW_MS - 1).toISOString();
+
+  it("shows the status the friend picked while they are around", () => {
+    expect(presenceOf(recent, "online", NOW)).toBe("online");
+    expect(presenceOf(recent, "idle", NOW)).toBe("idle");
+    expect(presenceOf(recent, "dnd", NOW)).toBe("dnd");
+  });
+
+  it("is offline once they stop checking in, whatever they picked", () => {
+    expect(presenceOf(stale, "dnd", NOW)).toBe("offline");
+    expect(presenceOf(null, "online", NOW)).toBe("offline");
+  });
+
+  it("treats an unknown status as online", () => {
+    expect(presenceOf(recent, "weird", NOW)).toBe("online");
   });
 });
