@@ -128,6 +128,15 @@ class Config:
     # Buckets that hold user-owned private objects (deleted on account deletion).
     PRIVATE_BUCKETS = ("users", "wardrobe", "tryons", "avatars")
 
+    # ------------------------------ Cloudinary -----------------------------
+    # Backend-only credentials (avatars are hosted here; other images still
+    # live in Supabase Storage). Leave empty to disable avatar uploads.
+    CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME", "")
+    CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY", "")
+    CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET", "")
+    # Top-level folder for every object this app uploads.
+    CLOUDINARY_FOLDER = os.getenv("CLOUDINARY_FOLDER", "ootdify")
+
     # ----------------------------- Rate limiting ---------------------------
     # Simple in-memory limits (per authenticated user, per rule name).
     RATE_LIMIT_DEFAULT_MAX = int(os.getenv("RATE_LIMIT_DEFAULT_MAX", "120"))
