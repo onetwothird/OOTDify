@@ -32,6 +32,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCaptureModalStore } from "../../features/capture/captureModalStore";
 import { fetchCatalog, insertSavedOutfit } from "../../features/clothing/service";
 import { CatalogItem } from "../../features/clothing/types";
+import { useLiveGarment } from "../../features/tryon/ar/liveGarmentStore";
 import { useTryOnSelection } from "../../features/tryon/selectionStore";
 import { useWardrobeStore } from "../../features/wardrobe/store";
 import {
@@ -349,6 +350,22 @@ export default function ScanScreen() {
         },
       ],
     );
+  };
+
+  // Live preview takes exactly one garment (the one selected below).
+  const startLiveTryOn = () => {
+    const [id] = Array.from(selectedClothing);
+    const item =
+      clothingSource === "catalog"
+        ? catalogItems.find((c) => c.id === id)
+        : closetItems.find((c) => c.id === id);
+    if (!item?.image_url) return;
+    useLiveGarment.getState().set({
+      imageRef: item.image_url,
+      category: item.category ?? null,
+      name: item.name || t("scan.item_fallback"),
+    });
+    router.push("/tryon/live");
   };
 
   const toggleClothing = (id: string) => {
@@ -823,6 +840,15 @@ export default function ScanScreen() {
               <Text style={styles.primaryBtnText}>{t("scan.tryon.start")}</Text>
             )}
           </Pressable>
+          {selectedClothing.size === 1 ? (
+            <Pressable
+              accessibilityRole="button"
+              style={[styles.secondaryBtn, styles.liveBtn]}
+              onPress={startLiveTryOn}
+            >
+              <Text style={styles.secondaryBtnText}>{t("scan.tryon.live")}</Text>
+            </Pressable>
+          ) : null}
           {runError ? <Text style={styles.errorText}>{runError}</Text> : null}
         </View>
 
@@ -1193,6 +1219,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     paddingHorizontal: 24,
   },
   secondaryBtnText: { color: theme.colors.text, fontWeight: "700", fontSize: 14 },
+  liveBtn: { marginTop: 10 },
   linkBtn: { paddingVertical: 6, paddingHorizontal: 8 },
   linkBtnText: { color: theme.colors.primary, fontWeight: "700", fontSize: 13 },
   errorText: { color: theme.colors.warning, fontSize: 12.5, marginTop: 8 },
