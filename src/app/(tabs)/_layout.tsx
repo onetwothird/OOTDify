@@ -5,6 +5,7 @@ import { Animated, BackHandler, Easing, Platform, View } from "react-native";
 import CaptureClothesModal from "../../features/capture/CaptureClothesModal";
 import { LogOutSheet } from "../../features/profile/LogOutSheet";
 import { usePresenceHeartbeat } from "../../features/community/usePresenceHeartbeat";
+import { NotificationsHost } from "../../features/notifications/NotificationsHost";
 import { CreateMenu } from "../../features/capture/CreateMenu";
 import { useAvatarStore } from "../../features/profile/avatarStore";
 import { ProfileAvatar } from "../../features/profile/ProfileAvatar";
@@ -165,6 +166,7 @@ export default function TabLayout() {
       ) : null}
 
       {/* Capture modal is mounted once here so any tab can open it. */}
+      <NotificationsHost />
       <LogOutSheet visible={logOutOpen} onClose={() => setLogOutOpen(false)} />
       <CaptureClothesModal />
     </>
