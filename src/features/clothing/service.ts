@@ -278,7 +278,7 @@ export async function uploadToWardrobeBucket(
   const type = upload === uri ? mime : "image/jpeg";
   const { data, error } = await supabase.storage
     .from("wardrobe")
-    .upload(path, formFile(upload, name, type), { contentType: type });
+    .upload(path, formFile(upload), { contentType: type });
   if (error) throw error;
   // Store the private ref (bucket/uid/name) — resolved to a signed URL to render.
   return `wardrobe/${data.path}`;
