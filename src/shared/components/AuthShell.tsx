@@ -1,22 +1,14 @@
 // C:\OOTDify\src\shared\components\AuthShell.tsx
-// Presentational shell for the auth screens: a brand lockup, a large left-aligned
-// title and a surface card for the form. It is drawn entirely from theme tokens
-// on the page background (no `primary` slab), so Light, Dark and System look
-// right everywhere and the status bar set by the root layout stays legible.
-// Shared so login, signup and password reset stay identical.
+// Presentational shell for the auth screens: a wordmark, a large left-aligned
+// title and the form card hung from a clothes rail (matching the landing
+// page; see ClothesRail.tsx). Drawn entirely from theme tokens. Shared so
+// login, signup and password reset stay identical.
 import { Ionicons } from "@expo/vector-icons";
-import { ReactNode, useEffect, useState } from "react";
-import {
-  Animated,
-  Easing,
-  Image,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ReactNode } from "react";
+import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { Rail, useSwing } from "./ClothesRail";
 import { makeStyles } from "../theme/makeStyles";
 import { useAppTheme } from "../theme/ThemeProvider";
 
@@ -49,15 +41,7 @@ export function AuthHero({ title, subtitle, onBack }: HeroProps) {
           <View style={styles.backSpacer} />
         )}
 
-        <View style={styles.brandRow}>
-          <Image
-            source={require("../../../assets/images/ootdify-icon.png")}
-            style={styles.brandIcon}
-            resizeMode="contain"
-            accessibilityIgnoresInvertColors
-          />
-          <Text style={styles.brandName}>OOTDify</Text>
-        </View>
+        <Text style={styles.brandName}>OOTDify</Text>
 
         <View style={styles.backSpacer} />
       </View>
@@ -70,46 +54,39 @@ export function AuthHero({ title, subtitle, onBack }: HeroProps) {
   );
 }
 
-/** Surface card for the form; fades/slides in on mount. */
+// Where the card's two strings loop over the rail, as fractions of its width.
+const CARD_RINGS = [0.18, 0.82];
+
+/**
+ * The form card, hung from a rail on two strings like a garment tag. It swings
+ * a few degrees into place once on mount (skipped under Reduce Motion).
+ */
 export function AuthCard({ children }: { children: ReactNode }) {
-  // Lazy state holds one Animated.Value for the lifetime of the screen. A ref
-  // would be equivalent at runtime but reads as a render-time access here.
-  const [progress] = useState(() => new Animated.Value(0));
-
-  useEffect(() => {
-    const animation = Animated.timing(progress, {
-      toValue: 1,
-      duration: 380,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    });
-    animation.start();
-    return () => animation.stop();
-  }, [progress]);
-
   const styles = useStyles();
+  const rotate = useSwing({ from: 4, rest: 0, duration: 900 });
 
   return (
-    <Animated.View
-      style={[
-        styles.card,
-        {
-          opacity: progress,
-          transform: [
-            {
-              translateY: progress.interpolate({
-                inputRange: [0, 1],
-                outputRange: [18, 0],
-              }),
-            },
-          ],
-        },
-      ]}
-    >
-      {children}
-    </Animated.View>
+    <View style={styles.cardWrap}>
+      <Rail rings={CARD_RINGS} />
+      <Animated.View style={[styles.hung, { transform: [{ rotate }] }]}>
+        <View style={styles.strings}>
+          {CARD_RINGS.map((at) => (
+            <View key={at} style={[styles.string, { left: `${at * 100}%` }]} />
+          ))}
+        </View>
+        <View style={styles.card}>
+          {CARD_RINGS.map((at) => (
+            <View key={at} style={[styles.hole, { left: `${at * 100}%` }]} />
+          ))}
+          {children}
+        </View>
+      </Animated.View>
+    </View>
   );
 }
+
+const STRING = 22;
+const HOLE = 10;
 
 const useStyles = makeStyles((theme) => ({
   hero: {
@@ -133,8 +110,6 @@ const useStyles = makeStyles((theme) => ({
   },
   backSpacer: { width: 40, height: 40 },
   pressed: { opacity: 0.7 },
-  brandRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  brandIcon: { width: 30, height: 30, borderRadius: 9 },
   brandName: {
     color: theme.colors.text,
     fontSize: 16,
@@ -156,11 +131,34 @@ const useStyles = makeStyles((theme) => ({
     marginTop: 8,
     maxWidth: 320,
   },
+  cardWrap: { marginHorizontal: theme.spacing.md },
+  hung: { transformOrigin: "top" },
+  strings: { height: STRING },
+  string: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    width: StyleSheet.hairlineWidth * 2,
+    marginLeft: -StyleSheet.hairlineWidth,
+    backgroundColor: theme.colors.textMuted,
+  },
   card: {
-    marginHorizontal: theme.spacing.md,
     padding: 20,
+    paddingTop: 20 + HOLE + 6,
     borderRadius: theme.borderRadius.lg,
     backgroundColor: theme.colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+  },
+  // The punched holes the strings pass through.
+  hole: {
+    position: "absolute",
+    top: 10,
+    width: HOLE,
+    height: HOLE,
+    marginLeft: -HOLE / 2,
+    borderRadius: HOLE / 2,
+    backgroundColor: theme.colors.background,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: theme.colors.border,
   },
