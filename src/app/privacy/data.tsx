@@ -7,7 +7,6 @@ import {
   Pressable,
   ScrollView,
   Share,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -17,7 +16,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "../../shared/components/Button";
 import { ErrorState } from "../../shared/components/StateViews";
 import { LoadingState } from "../../shared/components/LoadingState";
-import { theme } from "../../shared/config/theme";
+import { makeStyles } from "../../shared/theme/makeStyles";
+import { useAppTheme } from "../../shared/theme/ThemeProvider";
+import type { Theme } from "../../shared/config/theme";
+import { useT } from "../../shared/i18n/useT";
+import type { TranslationKey } from "../../shared/i18n/translate";
 import { supabase } from "../../shared/lib/supabase";
 import {
   deleteAccount,
@@ -29,6 +32,9 @@ import {
 export default function PrivacyDataScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const styles = useStyles();
+  const theme = useAppTheme();
+  const { t } = useT();
 
   const [summary, setSummary] = useState<PrivacySummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,11 +51,11 @@ export default function PrivacyDataScreen() {
       const summary = await getPrivacySummary();
       setSummary(summary);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load your data summary.");
+      setError(e instanceof Error ? e.message : t("privacy.data.error.load"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   // Handler-facing wrapper: show the spinner and clear the previous error.
   const load = useCallback(async () => {
@@ -84,8 +90,8 @@ export default function PrivacyDataScreen() {
       }
     } catch (e) {
       Alert.alert(
-        "Export failed",
-        e instanceof Error ? e.message : "Could not export your data.",
+        t("privacy.data.export_error.title"),
+        e instanceof Error ? e.message : t("privacy.data.export_error.message_default"),
       );
     } finally {
       setExporting(false);
@@ -94,23 +100,23 @@ export default function PrivacyDataScreen() {
 
   const confirmDelete = () => {
     Alert.alert(
-      "Delete your account?",
-      "This permanently removes, from the server: your profile, body photos and their analyses, wardrobe items, try-on jobs and generated images, saved outfits, favorites and viewing history.\n\nThere is no undo.",
+      t("privacy.data.delete_confirm.title"),
+      t("privacy.data.delete_confirm.message"),
       [
-        { text: "Cancel", style: "cancel" },
-        { text: "Continue…", style: "destructive", onPress: finalDelete },
+        { text: t("privacy.data.delete_confirm.cancel"), style: "cancel" },
+        { text: t("privacy.data.delete_confirm.continue"), style: "destructive", onPress: finalDelete },
       ],
     );
   };
 
   const finalDelete = () => {
     Alert.alert(
-      "Final confirmation",
-      "We can't restore anything after this. Delete your account and all data?",
+      t("privacy.data.final_confirm.title"),
+      t("privacy.data.final_confirm.message"),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t("privacy.data.final_confirm.cancel"), style: "cancel" },
         {
-          text: "Delete everything",
+          text: t("privacy.data.final_confirm.delete_everything"),
           style: "destructive",
           onPress: () => {
             void (async () => {
@@ -119,8 +125,8 @@ export default function PrivacyDataScreen() {
                 await deleteAccount();
               } catch (e) {
                 Alert.alert(
-                  "Deletion failed",
-                  e instanceof Error ? e.message : "Please try again later.",
+                  t("privacy.data.deletion_failed.title"),
+                  e instanceof Error ? e.message : t("privacy.data.deletion_failed.message_default"),
                 );
                 setDeleting(false);
                 return;
@@ -139,14 +145,14 @@ export default function PrivacyDataScreen() {
   };
 
   const rows = summary
-    ? [
-        { label: "Body photos", value: summary.bodyPhotos, icon: "body-outline" as const },
-        { label: "Wardrobe items", value: summary.wardrobeItems, icon: "shirt-outline" as const },
-        { label: "Try-on jobs", value: summary.tryOnJobs, icon: "sparkles-outline" as const },
-        { label: "Saved outfits", value: summary.savedOutfits, icon: "layers-outline" as const },
-        { label: "Favorites", value: summary.favorites, icon: "heart-outline" as const },
-        { label: "Recently viewed", value: summary.recentlyViewed, icon: "time-outline" as const },
-      ]
+    ? ([
+        { labelKey: "privacy.data.stored.body_photos", value: summary.bodyPhotos, icon: "body-outline" as const },
+        { labelKey: "privacy.data.stored.wardrobe_items", value: summary.wardrobeItems, icon: "shirt-outline" as const },
+        { labelKey: "privacy.data.stored.tryon_jobs", value: summary.tryOnJobs, icon: "sparkles-outline" as const },
+        { labelKey: "privacy.data.stored.saved_outfits", value: summary.savedOutfits, icon: "layers-outline" as const },
+        { labelKey: "privacy.data.stored.favorites", value: summary.favorites, icon: "heart-outline" as const },
+        { labelKey: "privacy.data.stored.recently_viewed", value: summary.recentlyViewed, icon: "time-outline" as const },
+      ] satisfies { labelKey: TranslationKey; value: number; icon: keyof typeof Ionicons.glyphMap }[])
     : [];
 
   return (
@@ -155,59 +161,56 @@ export default function PrivacyDataScreen() {
         <Pressable accessibilityRole="button" onPress={() => router.back()} hitSlop={8} style={styles.navBtn}>
           <Ionicons name="arrow-back" size={22} color={theme.colors.text} />
         </Pressable>
-        <Text style={styles.navTitle}>Privacy & Data</Text>
+        <Text style={styles.navTitle}>{t("profile.privacy.data")}</Text>
         <View style={{ width: 34 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {loading ? (
-          <LoadingState label="Loading your data summary" />
+          <LoadingState label={t("privacy.data.loading")} />
         ) : error ? (
           <ErrorState message={error} onRetry={load} />
         ) : summary ? (
           <>
             <Text style={styles.intro}>
-              Everything below is yours. We store the minimum needed to run the
-              app, and every photo or generated image lives in a private bucket
-              only you can access.
+              {t("privacy.data.intro")}
             </Text>
 
-            <Text style={styles.sectionLabel}>WHAT WE STORE</Text>
+            <Text style={styles.sectionLabel}>{t("privacy.data.stored.label")}</Text>
             <View style={styles.card}>
               {rows.map((r) => (
-                <View key={r.label} style={styles.statRow}>
+                <View key={r.labelKey} style={styles.statRow}>
                   <Ionicons name={r.icon} size={18} color={theme.colors.primary} />
-                  <Text style={styles.statLabel}>{r.label}</Text>
+                  <Text style={styles.statLabel}>{t(r.labelKey)}</Text>
                   <Text style={styles.statValue}>{r.value}</Text>
                 </View>
               ))}
             </View>
 
-            <Text style={styles.sectionLabel}>YOUR CONTROLS</Text>
+            <Text style={styles.sectionLabel}>{t("privacy.data.controls.label")}</Text>
             <View style={styles.card}>
               <Row
                 icon="scan-outline"
-                label="Manage body photos"
-                hint="View or delete scans stored on your account"
+                label={t("privacy.data.controls.manage_photos.label")}
+                hint={t("privacy.data.controls.manage_photos.hint")}
                 onPress={() => router.push("/(tabs)/scan")}
               />
               <Row
                 icon="download-outline"
-                label="Download My Data"
-                hint="Export a copy of everything we hold about you"
+                label={t("privacy.data.controls.download.label")}
+                hint={t("privacy.data.controls.download.hint")}
                 onPress={downloadData}
                 busy={exporting}
               />
             </View>
 
-            <Text style={styles.sectionLabel}>DANGER ZONE</Text>
+            <Text style={styles.sectionLabel}>{t("privacy.data.danger.label")}</Text>
             <View style={[styles.card, styles.dangerCard]}>
               <Text style={styles.dangerText}>
-                Deleting your account removes all of the data listed above from
-                our servers and cannot be undone.
+                {t("privacy.data.danger.text")}
               </Text>
               <Button
-                title={deleting ? "Deleting…" : "Delete account"}
+                title={deleting ? t("privacy.data.danger.deleting") : t("privacy.data.danger.delete")}
                 loading={deleting}
                 onPress={confirmDelete}
                 style={styles.dangerBtn}
@@ -215,8 +218,7 @@ export default function PrivacyDataScreen() {
             </View>
 
             <Text style={styles.footnote}>
-              This is a partial, honest snapshot. The Delete Account action is
-              performed server-side and also removes your sign-in credentials.
+              {t("privacy.data.footnote")}
             </Text>
           </>
         ) : null}
@@ -228,7 +230,7 @@ export default function PrivacyDataScreen() {
           onPress={() => setExportPreview(null)}
         >
           <Pressable style={[styles.modalCard, { marginBottom: 12 }]} onPress={() => undefined}>
-            <Text style={styles.modalTitle}>Your data export</Text>
+            <Text style={styles.modalTitle}>{t("privacy.data.modal.title")}</Text>
             <Text style={styles.modalSub}>{exportPreview.filename}</Text>
             <TextInput
               style={styles.exportText}
@@ -242,7 +244,7 @@ export default function PrivacyDataScreen() {
               style={styles.modalClose}
               onPress={() => setExportPreview(null)}
             >
-              <Text style={styles.modalCloseText}>Done</Text>
+              <Text style={styles.modalCloseText}>{t("privacy.data.modal.done")}</Text>
             </Pressable>
           </Pressable>
         </Pressable>
@@ -264,6 +266,8 @@ function Row({
   onPress: () => void;
   busy?: boolean;
 }) {
+  const styles = useStyles();
+  const theme = useAppTheme();
   return (
     <Pressable
       accessibilityRole="button"
@@ -284,7 +288,7 @@ function Row({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme: Theme) => ({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   navRow: {
     flexDirection: "row",
@@ -307,7 +311,7 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 0.5,
     borderColor: theme.colors.border,
     padding: 14,
     gap: 12,
@@ -359,4 +363,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   modalCloseText: { color: theme.colors.onPrimary, fontWeight: "700", fontSize: 14 },
-});
+}));
