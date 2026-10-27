@@ -1,13 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Tabs, usePathname, useRouter } from "expo-router";
+import { Tabs, usePathname } from "expo-router";
 import { useEffect, useState } from "react";
 import { Animated, BackHandler, Easing, Platform, View } from "react-native";
 import CaptureClothesModal from "../../features/capture/CaptureClothesModal";
 import { LogOutSheet } from "../../features/profile/LogOutSheet";
+import { usePresenceHeartbeat } from "../../features/community/usePresenceHeartbeat";
 import { CreateMenu } from "../../features/capture/CreateMenu";
 import { useAvatarStore } from "../../features/profile/avatarStore";
 import { ProfileAvatar } from "../../features/profile/ProfileAvatar";
-import { supabase } from "../../shared/lib/supabase";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import type { Theme } from "../../shared/config/theme";
@@ -23,8 +23,9 @@ export default function TabLayout() {
   const { t } = useT();
   const theme = useAppTheme();
   const styles = useStyles();
-  const router = useRouter();
   const barHeight = useTabBarHeight();
+  // Signed in and in the app: let friends see the green dot.
+  usePresenceHeartbeat();
   const bottomInset = barHeight - TAB_BAR_CONTENT - 6;
 
   // The tab bar (and the floating Create stack with it) slides away while a

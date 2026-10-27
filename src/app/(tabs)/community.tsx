@@ -2,6 +2,8 @@
 // Community — the social half of OOTDify:
 //   Feed  · other users' shared outfits, likes, comments, DM shortcut
 //   Chats · the shared Community Chat room + your 1:1 conversations
+//   Friends · requests, your friends with online dots, and finding people
+// My Day circles sit above the feed.
 //
 // Real data only: everything comes from the community tables in
 // supabase/schema.sql through the community service. Until that schema is
@@ -24,6 +26,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PostCard } from "../../features/community/components/PostCard";
 import { ShareOutfitModal } from "../../features/community/components/ShareOutfitModal";
 import { CreateRoomModal } from "../../features/community/components/CreateRoomModal";
+import { FriendsPanel } from "../../features/community/components/FriendsPanel";
+import { MyDayTray } from "../../features/community/components/MyDayTray";
 import { RoomIcon } from "../../features/community/components/RoomIcon";
 import {
   communityErrorMessage,
@@ -49,7 +53,7 @@ import { toast } from "../../shared/lib/toast";
 import { useT } from "../../shared/i18n/useT";
 import { useHideOnScroll, useTabBarSpace } from "../../shared/navigation/useTabChrome";
 
-type Tab = "feed" | "chats";
+type Tab = "feed" | "chats" | "friends";
 
 /**
  * Single horizontal gutter shared by the header, the segmented switcher and
@@ -341,7 +345,7 @@ export default function CommunityScreen() {
 
       {/* ------------------------------------------------ Segmented switcher */}
       <View style={styles.segment}>
-        {(["feed", "chats"] as Tab[]).map((key) => (
+        {(["feed", "chats", "friends"] as Tab[]).map((key) => (
           <Pressable
             key={key}
             accessibilityRole="tab"
@@ -350,13 +354,19 @@ export default function CommunityScreen() {
             style={[styles.segmentBtn, tab === key && styles.segmentBtnActive]}
           >
             <Text style={[styles.segmentText, tab === key && styles.segmentTextActive]}>
-              {key === "feed" ? t("community.tab.feed") : t("community.tab.chats")}
+              {key === "feed"
+                ? t("community.tab.feed")
+                : key === "chats"
+                  ? t("community.tab.chats")
+                  : t("community.tab.friends")}
             </Text>
           </Pressable>
         ))}
       </View>
 
-      {tab === "feed" ? (
+      {tab === "friends" ? (
+        <FriendsPanel bottomSpace={tabBarSpace} onScroll={hideOnScroll.onScroll} />
+      ) : tab === "feed" ? (
         posts === null && !feedError ? (
           <ActivityIndicator color={theme.colors.brand} style={styles.centered} />
         ) : feedError ? (
@@ -366,6 +376,7 @@ export default function CommunityScreen() {
             data={posts ?? []}
             keyExtractor={(p) => p.id}
             renderItem={renderFeedItem}
+            ListHeaderComponent={<MyDayTray />}
             contentContainerStyle={[styles.listContent, { paddingBottom: tabBarSpace }]}
             {...hideOnScroll}
             showsVerticalScrollIndicator={false}
