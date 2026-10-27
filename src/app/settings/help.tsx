@@ -61,7 +61,7 @@ export default function HelpScreen() {
             </View>
             <View style={styles.stepBody}>
               <View style={styles.stepTitleRow}>
-                <Ionicons name={step.icon} size={18} color={theme.colors.primary} />
+                <Ionicons name={step.icon} size={18} color={theme.colors.brand} />
                 <Text style={styles.stepTitle}>{t(step.titleKey)}</Text>
               </View>
               <Text style={styles.stepText}>{t(step.bodyKey)}</Text>
