@@ -93,7 +93,7 @@ export default function TabLayout() {
         screenOptions={{
           headerShown: false,
           tabBarShowLabel: true,
-          tabBarActiveTintColor: theme.colors.primary,
+          tabBarActiveTintColor: theme.colors.brand,
           tabBarInactiveTintColor: theme.colors.textMuted,
           tabBarLabelStyle: styles.tabLabel,
           // Sized from the real bottom inset so icons and labels sit above the
@@ -192,7 +192,7 @@ function TabAvatar({ focused }: { focused: boolean }) {
       <Ionicons
         name={focused ? "person-circle" : "person-circle-outline"}
         size={26}
-        color={focused ? theme.colors.primary : theme.colors.textMuted}
+        color={focused ? theme.colors.brand : theme.colors.textMuted}
       />
     );
   }
