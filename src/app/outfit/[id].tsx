@@ -9,10 +9,10 @@ import { useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { CatalogItem } from "../../features/clothing/types";
+import { OutfitPiece, pieceHref } from "../../features/clothing/pieces";
 import {
   deleteSavedOutfit,
-  fetchCatalog,
+  fetchOutfitPieces,
   fetchSavedOutfits,
   SavedOutfit,
 } from "../../features/clothing/service";
@@ -33,7 +33,7 @@ export default function OutfitDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const [outfit, setOutfit] = useState<SavedOutfit | null>(null);
-  const [items, setItems] = useState<CatalogItem[]>([]);
+  const [items, setItems] = useState<OutfitPiece[]>([]);
   const [heroUri, setHeroUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -63,8 +63,8 @@ export default function OutfitDetailScreen() {
         setOutfit(row);
         const ids = row.clothing_ids ?? [];
         if (ids.length) {
-          const { data } = await fetchCatalogish(ids);
-          if (alive) setItems(data);
+          const pieces = await fetchOutfitPieces(ids);
+          if (alive) setItems(pieces);
         }
         if (row.result_url) {
           const u = await resolveMediaUrl(row.result_url, 900);
@@ -151,7 +151,7 @@ export default function OutfitDetailScreen() {
                 key={it.id}
                 accessibilityRole="button"
                 style={({ pressed }) => [styles.itemRow, pressed && { opacity: 0.9 }]}
-                onPress={() => router.push(`/catalog/${it.id}`)}
+                onPress={() => router.push(pieceHref(it))}
               >
                 <ItemThumb ref={it.image_url} />
                 <View style={styles.itemBody}>
@@ -171,13 +171,6 @@ export default function OutfitDetailScreen() {
 }
 
 /** Fetch catalog rows by ids (server-side `.in` filter — never loads the whole catalog). */
-async function fetchCatalogish(ids: string[]): Promise<{ data: CatalogItem[] }> {
-  if (!ids.length) return { data: [] };
-  const rows = await fetchCatalog({ ids });
-  const byId = new Map(rows.map((c) => [c.id, c]));
-  const data = ids.map((i) => byId.get(i)).filter((v): v is CatalogItem => !!v);
-  return { data };
-}
 
 function ItemThumb({ ref: imageRef }: { ref: string | null }) {
   const styles = useStyles();
