@@ -106,6 +106,8 @@ export interface UserProfile {
   gender: string | null;
   avatar_url: string | null;
   body_photo_url: string | null;
+  /** Short intro for the profile page (<= 160 chars). Absent until the bio migration runs. */
+  bio?: string | null;
   preferred_styles: string[];
   preferred_colors: string[];
   sizes: string[];
@@ -399,6 +401,7 @@ export async function updateProfile(
       | "sizes"
       | "preferred_categories"
       | "preferred_occasions"
+      | "bio"
     >
   >,
 ): Promise<UserProfile> {
