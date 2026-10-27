@@ -101,6 +101,30 @@ capture (background removed on capture, `FEATURE_GUIDE.md` §3). Plan:
   - [ ] Wardrobe search and category chips filter your clothes.
   - [ ] Item page → **Try it live** opens the live preview with that garment.
 
+## 3c. Auth/profile/settings polish + garment capture (`feat/closet-first`, not checked on a phone)
+
+Verified: `tsc` clean, lint 0 errors, Jest 124/124, backend pytest 110/110.
+
+- [ ] Railway: set `ANTHROPIC_API_KEY` (and optionally `GARMENT_VISION_MODEL`),
+      then open `<railway-url>/health` and confirm `garment_vision_configured`
+      and `cloudinary_configured` are both `true`.
+- [ ] Profile photo: if changing it still fails, `cloudinary_configured: false`
+      on Railway means the three `CLOUDINARY_*` vars are missing (the app shows a
+      503 "not available right now"). Otherwise copy the `POST /api/profile/avatar`
+      Railway log lines.
+- [ ] Login, Signup, landing and Forgot password look right in Light, Dark and System
+      (status bar readable, no white slab in Dark).
+- [ ] Android back on Home asks "Log out?"; Stay keeps you in, Log out signs out.
+- [ ] Profile: jump bar (You / Style / Settings / Privacy) scrolls to each part.
+- [ ] Outfits: Build and AI Picker tiles sit under the title and open the right screens.
+- [ ] Settings: gap between each label and card; "Updates & feedback" and "About" are
+      separate, and each opens only its own tabs.
+- [ ] Capture a photo of a person wearing a plain t-shirt: the crop is the shirt,
+      category/name/colour are pre-filled, and a description line shows.
+- [ ] Decide: save the AI description. `clothing_items` has no description column;
+      it needs a `schema.sql` change you run in Supabase.
+- [ ] Add the AI-photo processing (Anthropic) to the privacy policy/consent text.
+
 ## 4. Waiting on your input (FEATURE_GUIDE)
 
 - [ ] **#1 Button positioning** — which screens look awkward? (screenshots help)
