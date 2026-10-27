@@ -251,7 +251,7 @@ export default function CaptureClothesModal() {
           onPress={takePhoto}
           style={({ pressed }) => [styles.captureBtn, pressed && styles.pressed]}
         >
-          <Ionicons name="camera-outline" size={18} color={theme.colors.onPrimary} />
+          <Ionicons name="camera-outline" size={18} color={theme.colors.onBrand} />
           <Text style={styles.captureBtnText}>{t("capture.action.camera")}</Text>
         </Pressable>
         <Pressable
@@ -441,7 +441,7 @@ const useStyles = makeStyles((theme) => ({
     fontWeight: "600",
     color: theme.colors.textMuted,
   },
-  clearAll: { fontSize: 12.5, fontWeight: "600", color: theme.colors.primary },
+  clearAll: { fontSize: 12.5, fontWeight: "600", color: theme.colors.brand },
 
   itemsList: { flexShrink: 1 },
   itemsListContent: { gap: 10, paddingBottom: 4 },
@@ -533,7 +533,7 @@ const useStyles = makeStyles((theme) => ({
     paddingVertical: 13,
     minHeight: 46,
   },
-  captureBtnText: { color: theme.colors.onPrimary, fontWeight: "600", fontSize: 14 },
+  captureBtnText: { color: theme.colors.onBrand, fontWeight: "600", fontSize: 14 },
   captureBtnAlt: {
     flex: 1,
     flexDirection: "row",
