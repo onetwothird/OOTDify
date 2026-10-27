@@ -45,10 +45,10 @@ export function EmptyState({
         <Pressable
           accessibilityRole="button"
           onPress={onAction}
-          style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+          style={({ pressed }) => [styles.button, styles.emptyButton, pressed && styles.buttonPressed]}
         >
-          {actionIcon ? <Ionicons name={actionIcon} size={17} color={theme.colors.onBrand} /> : null}
-          <Text style={styles.buttonText}>{actionLabel}</Text>
+          {actionIcon ? <Ionicons name={actionIcon} size={17} color={theme.colors.onPrimary} /> : null}
+          <Text style={[styles.buttonText, styles.emptyButtonText]}>{actionLabel}</Text>
         </Pressable>
       ) : null}
     </View>
@@ -151,6 +151,14 @@ const useStyles = makeStyles((theme) => ({
     borderRadius: theme.borderRadius.pill,
     backgroundColor: theme.colors.brand,
   },
+  // The empty state's invitation: a light denim tint with denim ink and a
+  // denim outline, so it stands apart from the app's solid blue buttons.
+  emptyButton: {
+    backgroundColor: theme.colors.primary,
+    borderWidth: 1.5,
+    borderColor: theme.colors.brand,
+  },
+  emptyButtonText: { color: theme.colors.onPrimary },
   buttonPressed: { opacity: 0.85 },
   buttonText: { color: theme.colors.onBrand, fontWeight: "600", fontSize: 14.5 },
 }));
