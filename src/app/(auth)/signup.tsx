@@ -11,7 +11,6 @@
 import { Ionicons } from "@expo/vector-icons";
 
 import { router } from "expo-router";
-import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
   Alert,
@@ -244,7 +243,6 @@ export default function SignupScreen() {
 
   return (
     <View style={styles.screen}>
-      <StatusBar style="light" />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.flex}
@@ -675,7 +673,9 @@ const useStyles = makeStyles((theme: Theme) => ({
     marginTop: theme.spacing.md,
     padding: 12,
     borderRadius: theme.borderRadius.md,
-    backgroundColor: "rgba(178,58,46,0.08)",
+    backgroundColor: theme.colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: theme.colors.danger,
   },
   errorText: { flex: 1, fontSize: 12.5, lineHeight: 18, fontWeight: "600", color: theme.colors.danger },
 
