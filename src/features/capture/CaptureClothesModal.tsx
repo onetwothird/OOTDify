@@ -24,6 +24,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppButton } from "../../shared/components/AppButton";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
+import { useT } from "../../shared/i18n/useT";
 import { insertClothingItem, uploadToWardrobeBucket } from "../clothing/service";
 import { ClothingItem } from "../clothing/types";
 import { WardrobeStore } from "../wardrobe/store";
@@ -37,6 +38,7 @@ export default function CaptureClothesModal() {
   const insets = useSafeAreaInsets();
   const styles = useStyles();
   const theme = useAppTheme();
+  const { t, tl } = useT();
   const isOpen = useCaptureModalStore((s) => s.isOpen);
   const close = useCaptureModalStore((s) => s.close);
 
@@ -63,8 +65,8 @@ export default function CaptureClothesModal() {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
       Alert.alert(
-        "Camera access needed",
-        "We only use the camera to photograph the clothes you choose to add to your wardrobe.",
+        t("capture.camera.permission.title"),
+        t("capture.camera.permission.message"),
       );
       return;
     }
@@ -114,7 +116,7 @@ export default function CaptureClothesModal() {
     for (const entry of entries) {
       try {
         if (!entry.category) {
-          throw new Error("Pick a category first.");
+          throw new Error(t("capture.error.missing_category"));
         }
         const storageRef = await uploadToWardrobeBucket(entry.uri, `item-${Date.now()}.jpg`, "image/jpeg");
         const row = await insertClothingItem({
@@ -138,18 +140,18 @@ export default function CaptureClothesModal() {
 
     if (saved.length === 0) {
       Alert.alert(
-        "Nothing saved",
+        t("capture.alert.nothing_saved.title"),
         failed > 0
-          ? "We couldn't upload those photos. Check your connection and try again."
-          : "Pick a category for each photo, then save.",
+          ? t("capture.alert.nothing_saved.upload_failed")
+          : t("capture.alert.nothing_saved.pick_category"),
       );
       return;
     }
 
     Alert.alert(
-      "Added to your wardrobe",
-      `${saved.length} item${saved.length > 1 ? "s" : ""} saved to your closet` +
-        (failed ? ` (${failed} failed).` : "."),
+      t("capture.alert.added.title"),
+      t("capture.alert.added.message", { count: saved.length }) +
+        (failed ? t("capture.alert.added.failed_suffix", { count: failed }) : ""),
     );
     handleClose();
   };
@@ -172,14 +174,14 @@ export default function CaptureClothesModal() {
               <Ionicons name="camera" size={20} color={theme.colors.onPrimary} />
             </View>
             <View style={styles.headerText}>
-              <Text style={styles.title}>Add to Closet</Text>
+              <Text style={styles.title}>{t("capture.title")}</Text>
               <Text style={styles.headerSub}>
-                New pieces stay private — only ever shown to you.
+                {t("capture.subtitle")}
               </Text>
             </View>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Close"
+              accessibilityLabel={t("capture.close_a11y")}
               hitSlop={8}
               onPress={handleClose}
               style={styles.closeBtn}
@@ -195,7 +197,7 @@ export default function CaptureClothesModal() {
               style={({ pressed }) => [styles.captureBtn, pressed && styles.pressed]}
             >
               <Ionicons name="camera-outline" size={18} color={theme.colors.onPrimary} />
-              <Text style={styles.captureBtnText}>Camera</Text>
+              <Text style={styles.captureBtnText}>{t("capture.action.camera")}</Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"
@@ -203,7 +205,7 @@ export default function CaptureClothesModal() {
               style={({ pressed }) => [styles.captureBtnAlt, pressed && styles.pressed]}
             >
               <Ionicons name="images-outline" size={18} color={theme.colors.text} />
-              <Text style={styles.captureBtnAltText}>Library</Text>
+              <Text style={styles.captureBtnAltText}>{t("capture.action.library")}</Text>
             </Pressable>
           </View>
 
@@ -212,20 +214,19 @@ export default function CaptureClothesModal() {
               <View style={styles.emptyIcon}>
                 <Ionicons name="shirt-outline" size={24} color={theme.colors.text} />
               </View>
-              <Text style={styles.emptyTitle}>No photos yet</Text>
+              <Text style={styles.emptyTitle}>{t("capture.empty.title")}</Text>
               <Text style={styles.emptyText}>
-                Take a photo or pick from your library, then tag each piece with a
-                category. We never guess what it is.
+                {t("capture.empty.message")}
               </Text>
             </View>
           ) : (
             <>
               <View style={styles.listHead}>
                 <Text style={styles.listHeadText}>
-                  {entries.length} photo{entries.length > 1 ? "s" : ""} · tag each piece
+                  {t("capture.list.header", { count: entries.length })}
                 </Text>
                 <Pressable accessibilityRole="button" hitSlop={8} onPress={reset}>
-                  <Text style={styles.clearAll}>Clear all</Text>
+                  <Text style={styles.clearAll}>{t("capture.clear_all")}</Text>
                 </Pressable>
               </View>
               <ScrollView
@@ -250,7 +251,7 @@ export default function CaptureClothesModal() {
                         </View>
                         <Pressable
                           accessibilityRole="button"
-                          accessibilityLabel="Remove photo"
+                          accessibilityLabel={t("capture.remove_a11y")}
                           hitSlop={6}
                           style={styles.removeBadge}
                           onPress={() => removeEntry(idx)}
@@ -260,7 +261,7 @@ export default function CaptureClothesModal() {
                       </View>
                       <View style={styles.itemBody}>
                         <Text style={[styles.itemLabel, !chosen && styles.itemLabelMuted]}>
-                          {chosen ? entry.category : "Choose a category"}
+                          {chosen ? tl("category", entry.category) : t("capture.choose_category")}
                         </Text>
                         <ScrollView
                           horizontal
@@ -286,7 +287,7 @@ export default function CaptureClothesModal() {
                                   />
                                 ) : null}
                                 <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                                  {cat}
+                                  {tl("category", cat)}
                                 </Text>
                               </Pressable>
                             );
@@ -303,7 +304,7 @@ export default function CaptureClothesModal() {
           {entries.length === 0 ? null : (
             <>
               <AppButton
-                label={`Save ${entries.length} item${entries.length > 1 ? "s" : ""}`}
+                label={t("capture.save", { count: entries.length })}
                 icon="checkmark"
                 loading={processing}
                 disabled={!allCategorized}
@@ -311,8 +312,8 @@ export default function CaptureClothesModal() {
               />
               <Text style={[styles.hint, { marginBottom: 4 }]}>
                 {allCategorized
-                  ? "All tagged — ready to save."
-                  : "Pick a category for every photo to save."}
+                  ? t("capture.hint.ready")
+                  : t("capture.hint.incomplete")}
               </Text>
             </>
           )}
