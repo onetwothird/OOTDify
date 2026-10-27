@@ -17,6 +17,7 @@
 // (see apiClient.ts). Raw backend details never reach the UI.
 
 import { API_AI_TIMEOUT_MS, API_TIMEOUT_MS, API_BASE_URL } from "../shared/config/api";
+import { shrinkForUpload } from "../shared/lib/shrinkImage";
 import {
   ApiError,
   apiRequest,
@@ -227,7 +228,7 @@ export async function analyzeImage(
   timeoutMs = API_AI_TIMEOUT_MS,
 ): Promise<{ kind: string; analysis: AnalyzeResult }> {
   const formData = new FormData();
-  formData.append("image", toNativeFormFile(photoUri));
+  formData.append("image", toNativeFormFile(await shrinkForUpload(photoUri)));
   formData.append("kind", kind);
 
   const payload = (await apiRequest<{ success: boolean; kind: string; analysis: AnalyzeResult }>(
@@ -259,7 +260,7 @@ export async function isolateClothing(
   timeoutMs = API_AI_TIMEOUT_MS,
 ): Promise<ClothingIsolation> {
   const formData = new FormData();
-  formData.append("image", toNativeFormFile(photoUri));
+  formData.append("image", toNativeFormFile(await shrinkForUpload(photoUri)));
 
   const payload = (await apiRequest<{ success: boolean; isolation: ClothingIsolation }>(
     "/api/clothing/isolate",
@@ -281,7 +282,7 @@ export async function uploadBodyPhoto(
   timeoutMs = API_AI_TIMEOUT_MS,
 ): Promise<{ body_photo: BodyPhoto; analysis: AnalyzeResult; signedUrl: string | null }> {
   const formData = new FormData();
-  formData.append("image", toNativeFormFile(photoUri));
+  formData.append("image", toNativeFormFile(await shrinkForUpload(photoUri)));
 
   const payload = (await apiRequest<{
     success: boolean;
@@ -361,7 +362,7 @@ export async function uploadProfileAvatar(
   timeoutMs = API_AI_TIMEOUT_MS,
 ): Promise<UserProfile> {
   const formData = new FormData();
-  formData.append("image", toNativeFormFile(photoUri));
+  formData.append("image", toNativeFormFile(await shrinkForUpload(photoUri)));
 
   const payload = (await apiRequest<{ success: boolean; profile: UserProfile }>(
     "/api/profile/avatar",
@@ -398,7 +399,7 @@ export async function checkProfilePhoto(
   timeoutMs = API_AI_TIMEOUT_MS,
 ): Promise<PhotoCheck> {
   const formData = new FormData();
-  formData.append("image", toNativeFormFile(photoUri));
+  formData.append("image", toNativeFormFile(await shrinkForUpload(photoUri)));
 
   const payload = (await apiRequest<{ success: boolean; check: PhotoCheck }>(
     "/api/profile/photo-check",
