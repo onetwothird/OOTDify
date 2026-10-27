@@ -2,6 +2,7 @@
 
 POST /api/detect                → run YOLO on an uploaded image
 POST /api/analyze               → run YOLO (+pose/+seg for kind=body) — no persistence
+POST /api/clothing/isolate      → cut the main garment out of a photo — no persistence
 GET  /api/detect/annotated/<f>  → serve a previously generated annotated image
 GET  /health                    → liveness probe
 
@@ -11,6 +12,7 @@ is written to storage or the database.
 """
 from __future__ import annotations
 
+import base64
 import logging
 from pathlib import Path
 
@@ -21,6 +23,7 @@ from services import image_service
 from services.auth_service import require_auth
 from services.body_analysis import analyze_body_image
 from services.consent import require_consent
+from services.garment_isolation import isolate_garment
 from services.ratelimit import upload_limits
 from services.yolo_service import get_yolo_service, is_model_loaded
 
@@ -82,6 +85,43 @@ def analyze():
             image_service.cleanup(temp_path)
 
     return jsonify(success=True, kind=kind, analysis=result)
+
+
+@detection_bp.post("/api/clothing/isolate")
+@require_auth
+@upload_limits("isolate_upload")
+@require_consent
+def isolate_clothing():
+    """Cut the main garment out of a capture photo (white background, cropped).
+
+    Stateless: the cut-out comes back inline as base64 JPEG for the user to
+    review — nothing is stored. When the result is not trustworthy
+    (`isolation.ok == false`) no image is returned and the app keeps the
+    original photo.
+    """
+    if "image" not in request.files:
+        return jsonify(success=False, error="No image part in request. Use FormData key 'image'."), 400
+
+    temp_path = None
+    try:
+        temp_path = image_service.ingest_upload(
+            request.files["image"],
+            Config.UPLOAD_FOLDER,
+            max_bytes=Config.MAX_CONTENT_LENGTH,
+        )
+        result = isolate_garment(temp_path)
+    except ValueError as exc:
+        return jsonify(success=False, error=str(exc)), 400
+    except Exception:
+        logger.exception("Clothing isolation failed")
+        return jsonify(success=False, error="Could not process that photo. Please try again."), 500
+    finally:
+        if temp_path is not None:
+            image_service.cleanup(temp_path)
+
+    payload = result.to_dict()
+    payload["image_base64"] = base64.b64encode(result.jpeg).decode("ascii") if result.jpeg else None
+    return jsonify(success=True, isolation=payload)
 
 
 @detection_bp.post("/api/detect")
