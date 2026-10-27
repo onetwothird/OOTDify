@@ -47,6 +47,9 @@ function toggle(set: Set<string>, key: string): Set<string> {
   return next;
 }
 
+// Short enough to fit the Home greeting on one line.
+const NICKNAME_MAX = 10;
+
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -171,10 +174,13 @@ export default function OnboardingScreen() {
                   onChangeText={setNickname}
                   placeholder={t("onboarding.nickname.placeholder")}
                   placeholderTextColor={theme.colors.textMuted}
-                  maxLength={40}
+                  maxLength={NICKNAME_MAX}
                   autoCorrect={false}
                   editable={!busy}
                 />
+                <Text style={styles.counter}>
+                  {nickname.length}/{NICKNAME_MAX}
+                </Text>
               </View>
 
               <PrefGroup
@@ -316,6 +322,7 @@ const useStyles = makeStyles((theme: Theme) => ({
 
   // Nickname field
   field: { gap: 6 },
+  counter: { alignSelf: "flex-end", fontSize: 12, color: theme.colors.textMuted },
   fieldLabel: {
     fontSize: 11,
     fontWeight: "800",
