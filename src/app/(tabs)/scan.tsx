@@ -32,7 +32,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCaptureModalStore } from "../../features/capture/captureModalStore";
 import { fetchCatalog, insertSavedOutfit } from "../../features/clothing/service";
 import { CatalogItem } from "../../features/clothing/types";
-import { useLiveGarment } from "../../features/tryon/ar/liveGarmentStore";
+import { liveGarmentCandidate, useLiveGarment } from "../../features/tryon/ar/liveGarmentStore";
 import { useTryOnSelection } from "../../features/tryon/selectionStore";
 import { useWardrobeStore } from "../../features/wardrobe/store";
 import {
@@ -352,14 +352,14 @@ export default function ScanScreen() {
     );
   };
 
-  // Live preview takes exactly one garment (the one selected below).
+  // Live preview takes exactly one garment from the list on screen.
+  const liveItem =
+    clothingSource === "catalog"
+      ? liveGarmentCandidate(selectedClothing, catalogItems)
+      : liveGarmentCandidate(selectedClothing, closetItems);
   const startLiveTryOn = () => {
-    const [id] = Array.from(selectedClothing);
-    const item =
-      clothingSource === "catalog"
-        ? catalogItems.find((c) => c.id === id)
-        : closetItems.find((c) => c.id === id);
-    if (!item?.image_url) return;
+    const item = liveItem;
+    if (!item) return;
     useLiveGarment.getState().set({
       imageRef: item.image_url,
       category: item.category ?? null,
@@ -840,7 +840,7 @@ export default function ScanScreen() {
               <Text style={styles.primaryBtnText}>{t("scan.tryon.start")}</Text>
             )}
           </Pressable>
-          {selectedClothing.size === 1 ? (
+          {liveItem ? (
             <Pressable
               accessibilityRole="button"
               style={[styles.secondaryBtn, styles.liveBtn]}
