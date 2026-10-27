@@ -189,7 +189,7 @@ const useStyles = makeStyles((theme) => ({
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: theme.borderRadius.pill,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.brand,
   },
   actionText: { color: theme.colors.onPrimary, fontWeight: "500", fontSize: 12.5 },
 }));
