@@ -47,7 +47,7 @@ export function EmptyState({
           onPress={onAction}
           style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
         >
-          {actionIcon ? <Ionicons name={actionIcon} size={17} color={theme.colors.onPrimary} /> : null}
+          {actionIcon ? <Ionicons name={actionIcon} size={17} color={theme.colors.onBrand} /> : null}
           <Text style={styles.buttonText}>{actionLabel}</Text>
         </Pressable>
       ) : null}
@@ -81,7 +81,7 @@ export function ErrorState({
           onPress={onRetry}
           style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
         >
-          <Ionicons name="refresh" size={17} color={theme.colors.onPrimary} />
+          <Ionicons name="refresh" size={17} color={theme.colors.onBrand} />
           <Text style={styles.buttonText}>{t("common.retry")}</Text>
         </Pressable>
       ) : null}
@@ -152,5 +152,5 @@ const useStyles = makeStyles((theme) => ({
     backgroundColor: theme.colors.brand,
   },
   buttonPressed: { opacity: 0.85 },
-  buttonText: { color: theme.colors.onPrimary, fontWeight: "600", fontSize: 14.5 },
+  buttonText: { color: theme.colors.onBrand, fontWeight: "600", fontSize: 14.5 },
 }));
