@@ -83,7 +83,7 @@ export function SettingsSection() {
   };
 
   return (
-    <>
+    <View style={styles.root}>
       <SectionLabel text={t("settings.section.general")} />
 
       {/* General — language / appearance / biometric */}
@@ -178,8 +178,8 @@ export function SettingsSection() {
         />
       </View>
 
-      {/* About */}
-      <SectionLabel text={t("settings.section.about")} />
+      {/* Updates & feedback — separate from About */}
+      <SectionLabel text={t("settings.section.updates")} />
       <View style={styles.card}>
         <Row
           icon="cloud-download-outline"
@@ -198,6 +198,17 @@ export function SettingsSection() {
           label={t("settings.about.feedback")}
           onPress={() => router.push("/settings/about?tab=feedback")}
         />
+      </View>
+
+      {/* About */}
+      <SectionLabel text={t("settings.section.about")} />
+      <View style={styles.card}>
+        <Row
+          icon="information-circle-outline"
+          label={t("settings.about.app")}
+          hint={appVersionLabel(t)}
+          onPress={() => router.push("/settings/about?tab=about")}
+        />
         <View style={styles.rowDivider} />
         <Row
           icon="lock-closed-outline"
@@ -211,9 +222,7 @@ export function SettingsSection() {
           onPress={() => router.push("/settings/about?tab=trademarks")}
         />
       </View>
-
-      <Text style={styles.version}>{appVersionLabel(t)}</Text>
-    </>
+    </View>
   );
 }
 
@@ -257,11 +266,13 @@ function Row({
 }
 
 const useStyles = makeStyles((theme: Theme) => ({
+  // Label-to-card gap is `root.gap`; card-to-next-label adds the label's top margin.
+  root: { gap: 10 },
   sectionLabelRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    marginTop: 10,
+    marginTop: 18,
   },
   sectionBar: {
     width: 14,
@@ -311,11 +322,5 @@ const useStyles = makeStyles((theme: Theme) => ({
   rowDivider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: theme.colors.border,
-  },
-  version: {
-    fontSize: 11,
-    color: theme.colors.textMuted,
-    textAlign: "center",
-    marginTop: 8,
   },
 }));
