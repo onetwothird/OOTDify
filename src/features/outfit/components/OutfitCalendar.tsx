@@ -224,7 +224,7 @@ export function OutfitCalendar({ outfits, onOpenOutfit }: Props) {
       {/* Day grid */}
       {loading ? (
         <View style={styles.gridLoading}>
-          <ActivityIndicator color={theme.colors.primary} />
+          <ActivityIndicator color={theme.colors.brand} />
         </View>
       ) : (
         <View style={styles.grid}>
@@ -312,7 +312,7 @@ export function OutfitCalendar({ outfits, onOpenOutfit }: Props) {
               <Text style={styles.openBtnText}>{t("outfits.action.open_outfit")}</Text>
             </Pressable>
           ) : null}
-          {saving ? <ActivityIndicator color={theme.colors.primary} /> : null}
+          {saving ? <ActivityIndicator color={theme.colors.brand} /> : null}
             </View>
           ) : undefined
         }
