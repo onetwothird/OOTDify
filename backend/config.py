@@ -143,6 +143,13 @@ class Config:
     # Top-level folder for every object this app uploads.
     CLOUDINARY_FOLDER = os.getenv("CLOUDINARY_FOLDER", "ootdify")
 
+    # ------------------------------ Claude vision --------------------------
+    # Describes the garment in a capture photo and finds its bounding box, so a
+    # photo of someone wearing a t-shirt yields just the t-shirt. Leave the key
+    # empty to disable: capture then falls back to the plain cut-out only.
+    ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+    GARMENT_VISION_MODEL = os.getenv("GARMENT_VISION_MODEL", "claude-opus-5-5")
+
     # ----------------------------- Rate limiting ---------------------------
     # Simple in-memory limits (per authenticated user, per rule name).
     RATE_LIMIT_DEFAULT_MAX = int(os.getenv("RATE_LIMIT_DEFAULT_MAX", "120"))

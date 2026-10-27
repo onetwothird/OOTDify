@@ -1,7 +1,6 @@
 // C:\OOTDify\src\app\(auth)\login.tsx
 // Login screen — email/password plus Google and Facebook sign-in.
 import { router } from "expo-router";
-import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
   Alert,
@@ -97,7 +96,6 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.screen}>
-      <StatusBar style="light" />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.flex}

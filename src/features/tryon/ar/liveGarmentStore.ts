@@ -15,6 +15,20 @@ interface LiveGarmentState {
   clear: () => void;
 }
 
+/**
+ * The garment the live preview can open with: exactly one selected item that
+ * is in the list on screen and has an image. Null means "hide the button".
+ */
+export function liveGarmentCandidate<T extends { id: string; image_url: string | null }>(
+  selected: Set<string>,
+  items: T[],
+): (T & { image_url: string }) | null {
+  if (selected.size !== 1) return null;
+  const [id] = Array.from(selected);
+  const item = items.find((i) => i.id === id);
+  return item?.image_url ? (item as T & { image_url: string }) : null;
+}
+
 export const useLiveGarment = create<LiveGarmentState>((set) => ({
   garment: null,
   set: (garment) => set({ garment }),

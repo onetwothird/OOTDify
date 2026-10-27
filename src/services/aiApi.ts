@@ -302,23 +302,37 @@ export interface ClothingIsolation {
   image_base64: string | null;
 }
 
+/** What the AI sees in the capture: the main garment, named and described. */
+export interface GarmentDescription {
+  found: boolean;
+  category: string | null;
+  name: string | null;
+  color: string | null;
+  pattern: string | null;
+  fit: string | null;
+  description: string | null;
+}
+
 export async function isolateClothing(
   photoUri: string,
   timeoutMs = API_AI_TIMEOUT_MS,
-): Promise<ClothingIsolation> {
+): Promise<ClothingIsolation & { garment: GarmentDescription | null }> {
   const formData = new FormData();
   formData.append("image", toNativeFormFile(await shrinkForUpload(photoUri)));
 
-  const payload = (await apiRequest<{ success: boolean; isolation: ClothingIsolation }>(
-    "/api/clothing/isolate",
-    { method: "POST", body: formData },
-    { timeoutMs },
-  )) as unknown;
-  const isolation = (payload as { isolation?: ClothingIsolation }).isolation;
+  const payload = (await apiRequest<{
+    success: boolean;
+    isolation: ClothingIsolation;
+    garment?: GarmentDescription | null;
+  }>("/api/clothing/isolate", { method: "POST", body: formData }, { timeoutMs })) as unknown;
+  const { isolation, garment } = payload as {
+    isolation?: ClothingIsolation;
+    garment?: GarmentDescription | null;
+  };
   if (!isolation) {
     throw new ApiError("invalid-response", "The AI service returned an unexpected response.", 200, payload);
   }
-  return isolation;
+  return { ...isolation, garment: garment ?? null };
 }
 
 // ---------------------------------------------------------------------------

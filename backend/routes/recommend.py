@@ -1,8 +1,8 @@
 """Recommendation routes.
 
-POST /api/recommend — deterministic composer over the real catalog
-(see services/recommender_service.py). Returns real catalog ids with scores;
-the mobile app renders whatever ids come back.
+POST /api/recommend — deterministic scorer over the caller's own closet
+(`clothing_items`, see services/recommender_service.py). Returns the user's
+real item ids with scores; the mobile app renders whatever ids come back.
 
 The recommendation output is the documented AI integration point: swap the
 scorer for a model-based system while keeping the same contract.
@@ -15,7 +15,7 @@ from typing import Optional
 from flask import Blueprint, jsonify, request
 
 from services.auth_service import require_auth, require_user
-from services.catalog_service import load_candidates
+from services.catalog_service import load_closet_candidates
 from services.consent import require_consent
 from services.ratelimit import default_limits
 from services.recommender_service import recommend
@@ -49,9 +49,8 @@ def recommend_endpoint():
 
     profile = ensure_profile(user["id"])
 
-    # Load a bounded, category-balanced slice of the catalog (service-role read;
-    # the UI also has RLS read access).
-    rows = load_candidates()
+    # The caller's own clothes (service-role read, scoped to the token's user).
+    rows = load_closet_candidates(user["id"])
     if not rows:
         return jsonify(success=True, recommendations=[], occasion=occasion or None)
 

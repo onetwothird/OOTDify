@@ -16,10 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
-  fetchCatalog,
-  fetchRecentlyViewed,
   fetchSavedOutfits,
-  recordRecentlyViewed,
   SavedOutfit,
 } from "../../features/clothing/service";
 import { CatalogItem, OCCASIONS } from "../../features/clothing/types";
@@ -43,10 +40,11 @@ import type { Theme } from "../../shared/config/theme";
 import { useResponsiveColumns } from "../../shared/hooks/useResponsiveColumns";
 import { useCurrentPlace } from "../../shared/lib/location";
 import { resolveMediaUrl } from "../../shared/lib/storageUrl";
+import { useCaptureModalStore } from "../../features/capture/captureModalStore";
+import { pieceHref } from "../../features/clothing/pieces";
 import { ApiError, getProfile, recommendCatalog } from "../../services/aiApi";
 import { useT } from "../../shared/i18n/useT";
 
-const HORIZONTAL_CARD_W = 150;
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -61,16 +59,11 @@ export default function HomeScreen() {
   const [recLoading, setRecLoading] = useState(true);
   const [recError, setRecError] = useState<ApiError | null>(null);
 
-  const [trending, setTrending] = useState<CatalogItem[]>([]);
-  const [trendingLoading, setTrendingLoading] = useState(true);
-  const [trendingError, setTrendingError] = useState<string | null>(null);
 
   const closet = useWardrobeStore((s) => s.items);
   const closetLoading = useWardrobeStore((s) => s.loading);
   const [saved, setSaved] = useState<SavedOutfit[]>([]);
   const [savedLoading, setSavedLoading] = useState(true);
-  const [recent, setRecent] = useState<CatalogItem[]>([]);
-  const [recentLoading, setRecentLoading] = useState(true);
 
   const [homeTab, setHomeTab] = useState<"discover" | "wardrobe" | "looks">("discover");
   const [todayPlan, setTodayPlan] = useState<OutfitPlan | null>(null);
@@ -104,31 +97,14 @@ export default function HomeScreen() {
     await fetchRecommendations(occ);
   }, [fetchRecommendations]);
 
-  const loadTrending = useCallback(async () => {
-    try {
-      setTrending(await fetchCatalog({ limit: 6 }));
-    } catch (e) {
-      setTrendingError(e instanceof Error ? e.message : t("home.error.trending"));
-    } finally {
-      setTrendingLoading(false);
-    }
-  }, [t]);
-
   const loadStatic = useCallback(async () => {
     setSavedLoading(true);
-    setRecentLoading(true);
     try {
-      const [rows, history] = await Promise.all([
-        fetchSavedOutfits(),
-        fetchRecentlyViewed(10),
-      ]);
-      setSaved(rows);
-      setRecent(history);
+      setSaved(await fetchSavedOutfits());
     } catch {
       // Ignored
     } finally {
       setSavedLoading(false);
-      setRecentLoading(false);
     }
     void useWardrobeStore.getState().loadFromServer().catch(() => {});
   }, []);
@@ -186,9 +162,6 @@ export default function HomeScreen() {
     Promise.resolve().then(() => fetchRecommendations(occasion)).catch(() => {});
   }, [occasion, fetchRecommendations]);
 
-  useEffect(() => {
-    Promise.resolve().then(() => loadTrending()).catch(() => {});
-  }, [loadTrending]);
 
   useFocusEffect(
     useCallback(() => {
@@ -198,13 +171,12 @@ export default function HomeScreen() {
     }, [loadStatic, loadTodayPlan, loadGreeting]),
   );
 
+  // Recommendations are the user's own closet items.
   const openItem = useCallback(
-    (item: CatalogItem) => {
-      recordRecentlyViewed(item.id).catch(() => {});
-      router.push(`/catalog/${item.id}`);
-    },
+    (item: CatalogItem) => router.push(pieceHref({ id: item.id, source: "closet" })),
     [router],
   );
+  const openCapture = useCaptureModalStore((s) => s.open);
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 8 }]}>
@@ -277,7 +249,13 @@ export default function HomeScreen() {
                 </Pressable>
               </View>
             ) : recommended.length === 0 ? (
-              <Text style={styles.emptyLine}>{t("home.recommended.empty")}</Text>
+              <View style={styles.emptyCloset}>
+                <Text style={styles.emptyLine}>{t("home.recommended.empty")}</Text>
+                <Pressable accessibilityRole="button" style={styles.captureBtn} onPress={openCapture}>
+                  <Ionicons name="camera-outline" size={16} color={theme.colors.onPrimary} />
+                  <Text style={styles.captureBtnText}>{t("home.action.capture")}</Text>
+                </Pressable>
+              </View>
             ) : (
               <View style={styles.grid} onLayout={onLayout}>
                 {recommended.map((item) => (
@@ -286,25 +264,6 @@ export default function HomeScreen() {
               </View>
             )}
 
-            <SectionHeader
-              title={t("home.trending.title")}
-              subtitle={t("home.trending.subtitle")}
-              actionLabel={t("home.action.browse")}
-              onAction={() => router.push("/(tabs)/discover")}
-            />
-            {trendingLoading ? (
-              <SkeletonGrid count={3} />
-            ) : trendingError ? (
-              <Text style={styles.emptyLine}>{trendingError}</Text>
-            ) : trending.length === 0 ? (
-              <Text style={styles.emptyLine}>{t("home.trending.empty")}</Text>
-            ) : (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tileRow}>
-                {trending.map((item) => (
-                  <ClothingCard key={item.id} item={item} width={HORIZONTAL_CARD_W} onPress={() => openItem(item)} />
-                ))}
-              </ScrollView>
-            )}
           </>
         ) : homeTab === "wardrobe" ? (
           <>
@@ -364,19 +323,6 @@ export default function HomeScreen() {
                   <SavedLookRow key={o.id} outfit={o} onPress={() => router.push(`/outfit/${o.id}`)} />
                 ))}
               </View>
-            )}
-
-            <SectionHeader title={t("home.looks.viewed.title")} subtitle={t("home.looks.viewed.subtitle")} />
-            {recentLoading ? (
-              <SkeletonRow />
-            ) : recent.length === 0 ? (
-              <Text style={styles.emptyLine}>{t("home.looks.viewed.empty")}</Text>
-            ) : (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tileRow}>
-                {recent.slice(0, 10).map((item) => (
-                  <ClothingCard key={item.id} item={item} width={HORIZONTAL_CARD_W} onPress={() => openItem(item)} />
-                ))}
-              </ScrollView>
             )}
           </>
         )}
@@ -758,6 +704,17 @@ const useStyles = makeStyles((theme: Theme) => ({
   savedName: { fontSize: 14, fontWeight: "700", color: theme.colors.text },
   savedMeta: { fontSize: 11.5, color: theme.colors.textMuted, marginTop: 2 },
   emptyLine: { fontSize: 13, color: theme.colors.textMuted, lineHeight: 19, paddingVertical: 8 },
+  emptyCloset: { gap: 8, alignItems: "flex-start" },
+  captureBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.borderRadius.pill,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  captureBtnText: { color: theme.colors.onPrimary, fontWeight: "700", fontSize: 13 },
   unavailable: { flexDirection: "row", alignItems: "flex-start", gap: 10, backgroundColor: theme.colors.surfaceAlt, borderRadius: theme.borderRadius.md, padding: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.border },
   unavailableBody: { flex: 1, minWidth: 0 },
   unavailableTitle: { fontSize: 13, fontWeight: "800", color: theme.colors.text },

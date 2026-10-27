@@ -2,7 +2,6 @@
 // Password reset request — shares the auth shell (AuthHero/AuthCard) so the
 // hero, card and field styling match login and signup exactly.
 import { router } from "expo-router";
-import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
   Alert,
@@ -48,7 +47,6 @@ export default function ForgotPasswordScreen() {
 
   return (
     <View style={styles.screen}>
-      <StatusBar style="light" />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.flex}

@@ -30,9 +30,9 @@ import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCaptureModalStore } from "../../features/capture/captureModalStore";
-import { fetchCatalog, insertSavedOutfit } from "../../features/clothing/service";
-import { CatalogItem } from "../../features/clothing/types";
-import { useLiveGarment } from "../../features/tryon/ar/liveGarmentStore";
+import { insertSavedOutfit } from "../../features/clothing/service";
+import { liveGarmentCandidate, useLiveGarment } from "../../features/tryon/ar/liveGarmentStore";
+import { PHOTO_TRYON_AVAILABLE } from "../../features/tryon/config";
 import { useTryOnSelection } from "../../features/tryon/selectionStore";
 import { useWardrobeStore } from "../../features/wardrobe/store";
 import {
@@ -99,8 +99,6 @@ export default function ScanScreen() {
   } | null>(null);
 
   // --- Try-on -----------------------------------------------------------------
-  const [clothingSource, setClothingSource] = useState<"catalog" | "closet">("catalog");
-  const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([]);
   const closetItems = useWardrobeStore((s) => s.items);
   const [selectedClothing, setSelectedClothing] = useState<Set<string>>(new Set());
   const [jobs, setJobs] = useState<TryOnJob[]>([]);
@@ -220,22 +218,6 @@ export default function ScanScreen() {
       .catch(() => {});
   }, [consented, loadBodyPhotos, loadTryOnJobs]);
 
-  // Load catalog for the try-on garment picker.
-  useEffect(() => {
-    if (!consented) return;
-    let alive = true;
-    fetchCatalog({ limit: 40 })
-      .then((rows) => {
-        if (alive) setCatalogItems(rows);
-      })
-      .catch(() => {
-        if (alive) setCatalogItems([]);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [consented]);
-
   // Apply cross-tab preselection once data is available (through a microtask:
   // setState outside the synchronous effect body).
   useEffect(() => {
@@ -244,12 +226,13 @@ export default function ScanScreen() {
     preselected.current = null;
     Promise.resolve().then(() => {
       if (sel.bodyPhotoId) setSelectedBodyId(sel.bodyPhotoId);
-      if (sel.clothingId) {
-        setClothingSource(sel.clothingSource === "item" ? "closet" : "catalog");
+      // Only the user's own clothes can be tried on; catalog preselections
+      // (from legacy product pages) are ignored.
+      if (sel.clothingId && sel.clothingSource === "item") {
         setSelectedClothing(new Set([sel.clothingId]));
       }
     });
-  }, [consented, catalogItems, closetItems, bodyPhotos]);
+  }, [consented, closetItems, bodyPhotos]);
 
   // Poll until the tab has no active jobs. The interval callback is an
   // external-system subscription; it calls the core loader, which never
@@ -352,14 +335,11 @@ export default function ScanScreen() {
     );
   };
 
-  // Live preview takes exactly one garment (the one selected below).
+  // Live preview takes exactly one garment from the closet.
+  const liveItem = liveGarmentCandidate(selectedClothing, closetItems);
   const startLiveTryOn = () => {
-    const [id] = Array.from(selectedClothing);
-    const item =
-      clothingSource === "catalog"
-        ? catalogItems.find((c) => c.id === id)
-        : closetItems.find((c) => c.id === id);
-    if (!item?.image_url) return;
+    const item = liveItem;
+    if (!item) return;
     useLiveGarment.getState().set({
       imageRef: item.image_url,
       category: item.category ?? null,
@@ -370,6 +350,8 @@ export default function ScanScreen() {
 
   const toggleClothing = (id: string) => {
     setSelectedClothing((prev) => {
+      // The live preview shows one piece at a time.
+      if (!PHOTO_TRYON_AVAILABLE) return prev.has(id) ? new Set() : new Set([id]);
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -537,9 +519,11 @@ export default function ScanScreen() {
       >
         <ScreenHeader
           title={t("scan.title")}
-          subtitle={t("scan.subtitle")}
+          subtitle={PHOTO_TRYON_AVAILABLE ? t("scan.subtitle") : t("scan.subtitle_live")}
         />
 
+        {PHOTO_TRYON_AVAILABLE ? (
+          <>
         {/* 5-step workflow: Photo → Clothing → Generate → Review → Save */}
         <StepIndicator
           current={
@@ -725,59 +709,21 @@ export default function ScanScreen() {
           </View>
         )}
 
+          </>
+        ) : null}
+
         {/* ------------------------- Try-on ------------------------- */}
         <Text style={styles.sectionLabel}>{t("scan.tryon.label")}</Text>
         <View style={styles.tryonCard}>
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>{t("scan.tryon.body_photo")}</Text>
-            <Text style={styles.metaValue} numberOfLines={1}>
-              {selectedBodyId ? t("scan.tryon.selected") : t("scan.tryon.none_selected")}
-            </Text>
-          </View>
-          <View style={styles.segRow}>
-            <SegButton
-              label={t("scan.tryon.catalog")}
-              active={clothingSource === "catalog"}
-              onPress={() => setClothingSource("catalog")}
-            />
-            <SegButton
-              label={t("scan.tryon.closet")}
-              active={clothingSource === "closet"}
-              onPress={() => {
-                setClothingSource("closet");
-                if (!closetItems.length) {
-                  void useWardrobeStore.getState().loadFromServer().catch(() => {});
-                }
-              }}
-            />
-          </View>
-
-          {clothingSource === "catalog" ? (
-            catalogItems.length === 0 ? (
-              <Text style={styles.smallHint}>{t("scan.tryon.catalog.loading")}</Text>
-            ) : (
-              <View style={styles.itemGrid} onLayout={onLayout}>
-                {catalogItems.map((item) => (
-                  <Pressable
-                    key={item.id}
-                    accessibilityRole="button"
-                    onPress={() => toggleClothing(item.id)}
-                    style={[styles.pickCard, { width: itemWidth }]}
-                  >
-                    <PickImage source={item.image_url} />
-                    <Text style={styles.pickName} numberOfLines={1}>
-                      {item.name}
-                    </Text>
-                    {selectedClothing.has(item.id) ? (
-                      <View style={styles.pickCheck}>
-                        <Ionicons name="checkmark" size={12} color={theme.colors.onPrimary} />
-                      </View>
-                    ) : null}
-                  </Pressable>
-                ))}
-              </View>
-            )
-          ) : closetItems.length === 0 ? (
+          {PHOTO_TRYON_AVAILABLE ? (
+            <View style={styles.metaRow}>
+              <Text style={styles.metaLabel}>{t("scan.tryon.body_photo")}</Text>
+              <Text style={styles.metaValue} numberOfLines={1}>
+                {selectedBodyId ? t("scan.tryon.selected") : t("scan.tryon.none_selected")}
+              </Text>
+            </View>
+          ) : null}
+          {closetItems.length === 0 ? (
             <View style={styles.emptyCloset}>
               <Text style={styles.smallHint}>
                 {t("scan.tryon.closet.empty")}
@@ -812,8 +758,14 @@ export default function ScanScreen() {
               ))}
             </View>
           )}
+          {closetItems.length > 0 ? (
+            <Pressable accessibilityRole="button" style={styles.captureMore} onPress={openCapture} hitSlop={6}>
+              <Ionicons name="camera-outline" size={15} color={theme.colors.text} />
+              <Text style={styles.captureMoreText}>{t("scan.tryon.closet.capture")}</Text>
+            </Pressable>
+          ) : null}
 
-          {creating ? (
+          {PHOTO_TRYON_AVAILABLE && creating ? (
             <View style={styles.creatingPanel}>
               <SkeletonBlock aspectRatio={0.8} radius={theme.borderRadius.md} />
               <View style={styles.creatingCopy}>
@@ -825,6 +777,7 @@ export default function ScanScreen() {
             </View>
           ) : null}
 
+          {PHOTO_TRYON_AVAILABLE ? (
           <Pressable
             accessibilityRole="button"
             style={[styles.primaryBtn, creating && styles.btnDisabled]}
@@ -840,18 +793,37 @@ export default function ScanScreen() {
               <Text style={styles.primaryBtnText}>{t("scan.tryon.start")}</Text>
             )}
           </Pressable>
-          {selectedClothing.size === 1 ? (
-            <Pressable
-              accessibilityRole="button"
-              style={[styles.secondaryBtn, styles.liveBtn]}
-              onPress={startLiveTryOn}
-            >
-              <Text style={styles.secondaryBtnText}>{t("scan.tryon.live")}</Text>
-            </Pressable>
+          ) : null}
+          {PHOTO_TRYON_AVAILABLE ? (
+            liveItem ? (
+              <Pressable
+                accessibilityRole="button"
+                style={[styles.secondaryBtn, styles.liveBtn]}
+                onPress={startLiveTryOn}
+              >
+                <Text style={styles.secondaryBtnText}>{t("scan.tryon.live")}</Text>
+              </Pressable>
+            ) : null
+          ) : closetItems.length > 0 ? (
+            <>
+              <Pressable
+                accessibilityRole="button"
+                style={[styles.primaryBtn, styles.liveBtn, !liveItem && styles.btnDisabled]}
+                onPress={startLiveTryOn}
+                disabled={!liveItem}
+              >
+                <Text style={styles.primaryBtnText}>{t("scan.tryon.live")}</Text>
+              </Pressable>
+              <Text style={styles.smallHint}>
+                {liveItem ? t("scan.tryon.photo_unavailable") : t("scan.tryon.pick_one")}
+              </Text>
+            </>
           ) : null}
           {runError ? <Text style={styles.errorText}>{runError}</Text> : null}
         </View>
 
+        {PHOTO_TRYON_AVAILABLE || jobs.length > 0 ? (
+          <>
         {/* ------------------------- Jobs ------------------------- */}
         <Text style={styles.sectionLabel}>{t("scan.jobs.label")}</Text>
         {jobsLoading && jobs.length === 0 ? (
@@ -868,8 +840,11 @@ export default function ScanScreen() {
           jobs.map((job) => <JobCard key={job.id} job={job} onDelete={removeJob} onRetry={retryJob} onSave={saveJobAsOutfit} />)
         )}
 
+          </>
+        ) : null}
+
         <Text style={styles.footnote}>
-          {t("scan.footnote")}
+          {PHOTO_TRYON_AVAILABLE ? t("scan.footnote") : t("scan.footnote_live")}
         </Text>
       </ScrollView>
     </View>
@@ -912,27 +887,6 @@ function PickImage({ source }: { source: string | null }) {
     <Image source={{ uri }} style={styles.pickImage} contentFit="cover" transition={150} />
   ) : (
     <View style={[styles.pickImage, styles.pickImagePlaceholder]} />
-  );
-}
-
-function SegButton({
-  label,
-  active,
-  onPress,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  const styles = useStyles();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={[styles.segBtn, active && styles.segBtnActive]}
-    >
-      <Text style={[styles.segBtnText, active && styles.segBtnTextActive]}>{label}</Text>
-    </Pressable>
   );
 }
 
@@ -1220,6 +1174,8 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
   secondaryBtnText: { color: theme.colors.text, fontWeight: "700", fontSize: 14 },
   liveBtn: { marginTop: 10 },
+  captureMore: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", paddingVertical: 6 },
+  captureMoreText: { color: theme.colors.text, fontWeight: "700", fontSize: 13 },
   linkBtn: { paddingVertical: 6, paddingHorizontal: 8 },
   linkBtnText: { color: theme.colors.primary, fontWeight: "700", fontSize: 13 },
   errorText: { color: theme.colors.warning, fontSize: 12.5, marginTop: 8 },

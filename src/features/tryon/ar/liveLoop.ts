@@ -32,6 +32,26 @@ export const INITIAL_LIVE_STATE: LiveLoopState = {
   signedOut: false,
 };
 
+/**
+ * Wraps `fn` so a call starts only after the previous call settled. Shared
+ * across loop restarts so a stopped loop's pending camera capture never
+ * overlaps the new loop's first one ("camera busy" on Android).
+ */
+export function serializeCalls<A extends unknown[], T>(fn: (...args: A) => Promise<T>): (...args: A) => Promise<T> {
+  let last: Promise<unknown> = Promise.resolve();
+  return (...args: A) => {
+    const run = () => fn(...args);
+    const next = last.then(run, run);
+    last = next.catch(() => undefined);
+    return next;
+  };
+}
+
+/** The loop state if it belongs to `key` (e.g. the camera facing), else a fresh one. */
+export function liveStateFor(stored: { key: string; state: LiveLoopState }, key: string): LiveLoopState {
+  return stored.key === key ? stored.state : INITIAL_LIVE_STATE;
+}
+
 /** How long to wait before the next round. */
 export function nextLoopDelay(outcome: LoopOutcome, failureStreak: number): number {
   if (outcome.ok) return LOOP_IDLE_MS;

@@ -18,10 +18,12 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useCaptureModalStore } from "../../features/capture/captureModalStore";
+import { OutfitPiece, pieceHref } from "../../features/clothing/pieces";
 import { CatalogItem, OCCASIONS } from "../../features/clothing/types";
 import {
   deleteSavedOutfit,
-  fetchCatalog,
+  fetchOutfitPieces,
   fetchSavedOutfits,
   insertSavedOutfit,
   SavedOutfit,
@@ -70,7 +72,7 @@ export default function OutfitsScreen() {
   const [savedLoading, setSavedLoading] = useState(true);
   const [savedError, setSavedError] = useState<string | null>(null);
   // clothing_id -> real catalog row, so saved outfits can show item thumbnails.
-  const [catalogById, setCatalogById] = useState<Record<string, CatalogItem>>({});
+  const [piecesById, setPiecesById] = useState<Record<string, OutfitPiece>>({});
 
   // Builder state
   const [builderMode, setBuilderMode] = useState(false);
@@ -90,6 +92,8 @@ export default function OutfitsScreen() {
   const [pool, setPool] = useState<CatalogItem[]>([]);
   const [building, setBuilding] = useState(false);
   const [buildError, setBuildError] = useState<string | null>(null);
+  const [closetTooSmall, setClosetTooSmall] = useState(false);
+  const openCapture = useCaptureModalStore((s) => s.open);
   const [outfit, setOutfit] = useState<Outfit | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -119,20 +123,20 @@ export default function OutfitsScreen() {
       .catch(() => {});
   }, [fetchSavedRows]);
 
-  // Hydrate the real catalog rows referenced by saved outfits so each look can
-  // show its actual item thumbnails. Failures are non-fatal: rows fall back to
-  // the icon when the catalog lookup fails — nothing is faked.
+  // Hydrate the real pieces (closet items, or legacy catalog rows) referenced
+  // by saved outfits so each look can show its actual item thumbnails.
+  // Failures are non-fatal: rows fall back to the icon — nothing is faked.
   useEffect(() => {
     const ids = Array.from(new Set(saved.flatMap((o) => o.clothing_ids ?? [])));
     if (!ids.length) return;
     let cancelled = false;
     void (async () => {
       try {
-        const items = await fetchCatalog({ ids, limit: ids.length });
+        const pieces = await fetchOutfitPieces(ids);
         if (cancelled) return;
-        const map: Record<string, CatalogItem> = {};
-        for (const item of items) map[item.id] = item;
-        setCatalogById((prev) => ({ ...prev, ...map }));
+        const map: Record<string, OutfitPiece> = {};
+        for (const piece of pieces) map[piece.id] = piece;
+        setPiecesById((prev) => ({ ...prev, ...map }));
       } catch {
         // Non-fatal: saved looks still render with the fallback icon.
       }
@@ -145,6 +149,7 @@ export default function OutfitsScreen() {
   const build = async () => {
     setBuilding(true);
     setBuildError(null);
+    setClosetTooSmall(false);
     setOutfit(null);
     try {
       const { recommendations } = await recommendCatalog({
@@ -160,7 +165,7 @@ export default function OutfitsScreen() {
         seed: Math.floor(Date.now() / 60000), // changes at most once a minute
       });
       if (!next) {
-        setBuildError(t("outfits.builder.error.no_items"));
+        setClosetTooSmall(true);
       } else {
         setPool(recommendations);
         setOutfit(next);
@@ -176,9 +181,7 @@ export default function OutfitsScreen() {
     if (!outfit) return;
     setSaving(true);
     try {
-      const clothingIds = outfit.items
-        .filter((e) => e.source === "catalog")
-        .map((e) => e.id);
+      const clothingIds = outfit.items.map((e) => e.id);
       if (!clothingIds.length) {
         toast.info(t("outfits.toast.nothing_to_save.title"), t("outfits.toast.nothing_to_save.message"));
         setSaving(false);
@@ -261,36 +264,45 @@ export default function OutfitsScreen() {
                 ? t("outfits.calendar.subtitle")
                 : t("outfits.subtitle")
           }
-          right={
-            builderMode ? null : (
-              <View style={styles.headerActions}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t("outfits.action.build_a11y")}
-                  hitSlop={6}
-                  onPress={() => setBuilderMode(true)}
-                  style={({ pressed }) => [styles.headerAction, pressed && { opacity: 0.7 }]}
-                >
-                  <Ionicons name="add-circle-outline" size={20} color={theme.colors.primary} />
-                  <Text style={styles.headerActionText}>{t("outfits.action.build")}</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t("outfits.action.ai_picker")}
-                  hitSlop={6}
-                  onPress={() => router.push("/ai-picker")}
-                  style={({ pressed }) => [styles.headerAction, pressed && { opacity: 0.7 }]}
-                >
-                  <Ionicons name="sparkles-outline" size={20} color={theme.colors.primary} />
-                  <Text style={styles.headerActionText}>{t("outfits.action.ai_picker")}</Text>
-                </Pressable>
-              </View>
-            )
-          }
         />
 
         {!builderMode ? (
           <>
+            <View style={styles.actionRow}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t("outfits.action.build_a11y")}
+                onPress={() => setBuilderMode(true)}
+                style={({ pressed }) => [
+                  styles.actionTile,
+                  styles.actionTilePrimary,
+                  pressed && { opacity: 0.85 },
+                ]}
+              >
+                <View style={[styles.actionIcon, styles.actionIconPrimary]}>
+                  <Ionicons name="add" size={20} color={theme.colors.onPrimary} />
+                </View>
+                <Text style={[styles.actionTitle, { color: theme.colors.onPrimary }]}>
+                  {t("outfits.action.build")}
+                </Text>
+                <Text style={[styles.actionHint, { color: theme.colors.onPrimaryMuted }]}>
+                  {t("outfits.action.build_hint")}
+                </Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t("outfits.action.ai_picker")}
+                onPress={() => router.push("/ai-picker")}
+                style={({ pressed }) => [styles.actionTile, pressed && { opacity: 0.85 }]}
+              >
+                <View style={styles.actionIcon}>
+                  <Ionicons name="sparkles" size={18} color={theme.colors.text} />
+                </View>
+                <Text style={styles.actionTitle}>{t("outfits.action.ai_picker")}</Text>
+                <Text style={styles.actionHint}>{t("outfits.action.ai_hint")}</Text>
+              </Pressable>
+            </View>
+
             <View style={styles.segment}>
               <Pressable
                 accessibilityRole="button"
@@ -375,7 +387,7 @@ export default function OutfitsScreen() {
                     <SavedOutfitRow
                       key={o.id}
                       outfit={o}
-                      thumbnails={thumbnailsFor(o, catalogById)}
+                      thumbnails={thumbnailsFor(o, piecesById)}
                       onPress={() => router.push(`/outfit/${o.id}`)}
                       onDelete={() => removeOutfit(o.id)}
                     />
@@ -386,7 +398,7 @@ export default function OutfitsScreen() {
                       <SavedOutfitCard
                         key={o.id}
                         outfit={o}
-                        thumbnails={thumbnailsFor(o, catalogById)}
+                        thumbnails={thumbnailsFor(o, piecesById)}
                         width={gridCardWidth}
                         onPress={() => router.push(`/outfit/${o.id}`)}
                         onDelete={() => removeOutfit(o.id)}
@@ -439,6 +451,14 @@ export default function OutfitsScreen() {
               style={building ? styles.btnDisabled : undefined}
             />
             {buildError ? <Text style={styles.errorText}>{buildError}</Text> : null}
+            {closetTooSmall ? (
+              <View style={styles.closetHint}>
+                <Text style={styles.closetHintText}>{t("outfits.builder.error.no_items")}</Text>
+                <Pressable accessibilityRole="button" style={styles.closetHintBtn} onPress={openCapture}>
+                  <Text style={styles.closetHintBtnText}>{t("home.action.capture")}</Text>
+                </Pressable>
+              </View>
+            ) : null}
 
             {outfit ? (
               <View style={styles.outfitPreview}>
@@ -459,9 +479,7 @@ export default function OutfitsScreen() {
                       width={150}
                       onPress={() =>
                         router.push(
-                          entry.source === "catalog"
-                            ? `/catalog/${entry.id}`
-                            : "/(tabs)/discover",
+                          pieceHref({ id: entry.id, source: entry.source === "catalog" ? "catalog" : "closet" }),
                         )
                       }
                     />
@@ -505,17 +523,16 @@ export default function OutfitsScreen() {
 
 /**
  * First few real thumbnails for a saved look, in the outfit's own item order.
- * Falls back to [] when the catalog rows are unavailable.
+ * Falls back to [] when the pieces are unavailable.
  */
 function thumbnailsFor(
   outfit: SavedOutfit,
-  catalog: Record<string, CatalogItem>,
+  pieces: Record<string, OutfitPiece>,
   max = 4,
 ): string[] {
   const urls: string[] = [];
   for (const id of outfit.clothing_ids ?? []) {
-    const item = catalog[id];
-    const url = item?.thumbnail_url || item?.image_url;
+    const url = pieces[id]?.image_url;
     if (url) urls.push(url);
     if (urls.length >= max) break;
   }
@@ -652,19 +669,30 @@ function SavedOutfitCard({
 const useStyles = makeStyles((theme: Theme) => ({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   content: { paddingHorizontal: 16, paddingBottom: 40, gap: 12 },
-  headerActions: { flexDirection: "row", gap: 14, alignItems: "center" },
-  headerAction: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingVertical: 7,
-    paddingHorizontal: 11,
-    borderRadius: theme.borderRadius.pill,
+  actionRow: { flexDirection: "row", gap: 12 },
+  actionTile: {
+    flex: 1,
+    minWidth: 0,
+    padding: 14,
+    gap: 3,
+    borderRadius: theme.borderRadius.lg,
     backgroundColor: theme.colors.surface,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: theme.colors.border,
   },
-  headerActionText: { fontSize: 12.5, fontWeight: "700", color: theme.colors.primary },
+  actionTilePrimary: { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
+  actionIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  actionIconPrimary: { backgroundColor: theme.colors.onPrimarySubtle },
+  actionTitle: { fontSize: 15, fontWeight: "800", color: theme.colors.text },
+  actionHint: { fontSize: 12, lineHeight: 16, color: theme.colors.textMuted },
   sectionLabel: {
     fontSize: 11,
     fontWeight: "800",
@@ -694,6 +722,15 @@ const useStyles = makeStyles((theme: Theme) => ({
   builder: { gap: 12 },
   btnDisabled: { opacity: 0.4 },
   errorText: { color: theme.colors.warning, fontSize: 12.5 },
+  closetHint: { gap: 8, alignItems: "flex-start", marginTop: 8 },
+  closetHintText: { fontSize: 13, color: theme.colors.textMuted, lineHeight: 19 },
+  closetHintBtn: {
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.borderRadius.pill,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  closetHintBtnText: { color: theme.colors.onPrimary, fontWeight: "700", fontSize: 13 },
   outfitPreview: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.lg,

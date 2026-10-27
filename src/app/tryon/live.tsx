@@ -14,6 +14,7 @@ import { ChalkMarks } from "../../features/tryon/ar/ChalkMarks";
 import { GarmentOverlay } from "../../features/tryon/ar/GarmentOverlay";
 import { useLiveGarment } from "../../features/tryon/ar/liveGarmentStore";
 import { liveStatusKey } from "../../features/tryon/ar/liveStatus";
+import { pickLivePictureSize } from "../../features/tryon/ar/pictureSize";
 import {
   Anchors,
   garmentFit,
@@ -43,6 +44,7 @@ export default function LiveTryOnScreen() {
   const [perm, requestPerm] = useCameraPermissions();
   const [facing, setFacing] = useState<CameraType>("front");
   const [preview, setPreview] = useState<Size | null>(null);
+  const [pictureSize, setPictureSize] = useState<string | undefined>(undefined);
   const cameraRef = useRef<CameraView | null>(null);
 
   const goBack = () => (router.canGoBack() ? router.back() : router.replace("/(tabs)/scan"));
@@ -55,7 +57,7 @@ export default function LiveTryOnScreen() {
 
   const category = garment?.category ?? null;
   const supported = garmentFit(category, []).kind !== "unsupported";
-  const loop = useLivePose(cameraRef, !!garment && !!perm?.granted && supported);
+  const loop = useLivePose(cameraRef, !!garment && !!perm?.granted && supported, facing);
 
   const fit: OverlayFit = useMemo(() => {
     if (!supported) return { kind: "unsupported" };
@@ -86,6 +88,14 @@ export default function LiveTryOnScreen() {
 
   if (!garment) return null;
 
+  // Small 4:3 stills: fast to capture, and aligned with the preview stream.
+  const onCameraReady = () => {
+    cameraRef.current
+      ?.getAvailablePictureSizesAsync()
+      .then((sizes) => setPictureSize(pickLivePictureSize(sizes)))
+      .catch(() => setPictureSize(undefined));
+  };
+
   const onLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
     setPreview({ width, height });
@@ -95,7 +105,14 @@ export default function LiveTryOnScreen() {
     <View style={styles.screen}>
       <View style={styles.stage} onLayout={onLayout}>
         {perm?.granted ? (
-          <CameraView ref={cameraRef} style={styles.camera} facing={facing} animateShutter={false} />
+          <CameraView
+            ref={cameraRef}
+            style={styles.camera}
+            facing={facing}
+            pictureSize={pictureSize}
+            onCameraReady={onCameraReady}
+            animateShutter={false}
+          />
         ) : null}
         {image.uri ? <GarmentOverlay imageUrl={image.uri} rect={rect} faded={faded} /> : null}
         <ChalkMarks anchors={anchors} faded={faded} />

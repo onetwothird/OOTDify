@@ -22,6 +22,9 @@ import {
   fetchMyCloset,
   removeItemFavorite,
 } from "../../features/clothing/service";
+import { garmentFit } from "../../features/tryon/ar/overlayGeometry";
+import { useLiveGarment } from "../../features/tryon/ar/liveGarmentStore";
+import { PHOTO_TRYON_AVAILABLE } from "../../features/tryon/config";
 import { useTryOnSelection } from "../../features/tryon/selectionStore";
 import { useWardrobeStore } from "../../features/wardrobe/store";
 import { AppButton } from "../../shared/components/AppButton";
@@ -158,6 +161,9 @@ export default function ItemDetailScreen() {
     );
   }
 
+  // The live preview needs an image and a category it knows how to place.
+  const canTryLive = !!item.image_url && garmentFit(item.category, []).kind !== "unsupported";
+
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -226,14 +232,31 @@ export default function ItemDetailScreen() {
 
         {/* Actions */}
         <View style={styles.actions}>
-          <AppButton
-            label={t("item.action.try_on")}
-            icon="sparkles-outline"
-            onPress={() => {
-              setClothing(item.id, "item");
-              router.push("/(tabs)/scan");
-            }}
-          />
+          {PHOTO_TRYON_AVAILABLE ? (
+            <AppButton
+              label={t("item.action.try_on")}
+              icon="sparkles-outline"
+              onPress={() => {
+                setClothing(item.id, "item");
+                router.push("/(tabs)/scan");
+              }}
+            />
+          ) : null}
+          {canTryLive ? (
+            <AppButton
+              label={t("scan.tryon.live")}
+              icon="body-outline"
+              variant={PHOTO_TRYON_AVAILABLE ? "secondary" : undefined}
+              onPress={() => {
+                useLiveGarment.getState().set({
+                  imageRef: item.image_url ?? "",
+                  category: item.category,
+                  name: item.name || t("scan.item_fallback"),
+                });
+                router.push("/tryon/live");
+              }}
+            />
+          ) : null}
           <AppButton
             label={t("item.action.edit")}
             variant="secondary"

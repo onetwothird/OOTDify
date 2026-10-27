@@ -139,8 +139,10 @@ items at once)? Needs a decision before implementation.
 
 ## 4. AR try-on
 
-- [ ] Status: scoped (user chose **live 2D overlay**); spike done, build
-  not started. Spike findings (2026-10-27):
+- [x] Status: live 2D overlay built (`/tryon/live`, branch `feat/live-tryon`).
+  The app is closet-only and the photo try-on is hidden behind
+  `PHOTO_TRYON_AVAILABLE` until `VTONProvider.generate()` has a real model.
+  Earlier spike notes: Spike findings (2026-10-27):
   * Server pose (`yolov8n-pose`, 320px, CPU) is ~30–50 ms/frame once warm.
     With `CameraView.takePictureAsync` snapshots + upload, expect roughly
     1–2 overlay updates/sec on LAN: a "live-ish" preview, not smooth AR.

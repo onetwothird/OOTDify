@@ -6,6 +6,7 @@
 
 import { formFile } from "../../shared/lib/formFile";
 import { supabase } from "../../shared/lib/supabase";
+import { OutfitPiece, orderPieces } from "./pieces";
 import { CatalogItem, ClothingItem } from "./types";
 export { uuid } from "../../shared/lib/uuid";
 
@@ -141,6 +142,33 @@ export async function fetchMyCloset(): Promise<ClothingItem[]> {
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []) as ClothingItem[];
+}
+
+/**
+ * The pieces of a saved outfit, in saved order. Closet items first; only ids
+ * not found there are looked up in the legacy catalog (outfits saved before
+ * the app went closet-only).
+ */
+export async function fetchOutfitPieces(ids: string[]): Promise<OutfitPiece[]> {
+  if (!ids.length) return [];
+  const { data, error } = await supabase
+    .from("clothing_items")
+    .select("id, name, category, image_url")
+    .in("id", ids);
+  if (error) throw error;
+  const closet: OutfitPiece[] = (data ?? []).map((r) => ({ ...r, source: "closet" as const }));
+  const found = new Set(closet.map((p) => p.id));
+  const missing = ids.filter((id) => !found.has(id));
+  const catalog: OutfitPiece[] = missing.length
+    ? (await fetchCatalog({ ids: missing, limit: missing.length })).map((c) => ({
+        id: c.id,
+        name: c.name,
+        category: c.category,
+        image_url: c.thumbnail_url || c.image_url,
+        source: "catalog" as const,
+      }))
+    : [];
+  return orderPieces(ids, closet, catalog);
 }
 
 export async function insertClothingItem(item: {

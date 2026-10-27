@@ -23,7 +23,8 @@ from services import image_service
 from services.auth_service import require_auth
 from services.body_analysis import analyze_body_image
 from services.consent import require_consent
-from services.garment_isolation import isolate_garment
+from services import cloudinary_service, garment_vision
+from services.garment_isolation import IsolationResult, isolate_garment
 from services.ratelimit import upload_limits
 from services.yolo_service import get_yolo_service, is_model_loaded
 
@@ -40,6 +41,10 @@ def health():
         service="ootdify-ai",
         version="1.0.0",
         model_loaded=is_model_loaded(),
+        # Booleans only: lets you confirm Railway has the env vars without
+        # exposing them (profile photos need Cloudinary, garment capture Claude).
+        cloudinary_configured=cloudinary_service.is_configured(),
+        garment_vision_configured=garment_vision.is_configured(),
     )
 
 
@@ -103,13 +108,34 @@ def isolate_clothing():
         return jsonify(success=False, error="No image part in request. Use FormData key 'image'."), 400
 
     temp_path = None
+    crop_path = None
+    garment = None
     try:
         temp_path = image_service.ingest_upload(
             request.files["image"],
             Config.UPLOAD_FOLDER,
             max_bytes=Config.MAX_CONTENT_LENGTH,
         )
-        result = isolate_garment(temp_path)
+        source_path = temp_path
+        # Vision first: a photo of someone wearing a t-shirt is cropped to the
+        # t-shirt before the background cut. Any failure falls back to the plain
+        # cut-out of the whole photo — vision never blocks capture.
+        if garment_vision.is_configured():
+            try:
+                garment = garment_vision.describe_garment(temp_path)
+                if garment.found and garment.box:
+                    crop_path = Path(temp_path).with_name(Path(temp_path).stem + "_crop.jpg")
+                    crop_path.write_bytes(garment_vision.crop_to_box(temp_path, garment.box))
+                    source_path = crop_path
+                else:
+                    garment = None
+            except garment_vision.GarmentVisionError:
+                garment = None
+        result = isolate_garment(source_path)
+        if not result.ok and crop_path is not None:
+            # The cut-out was not trustworthy, but the tight crop around the
+            # garment still is "only the garment" — keep that for the user.
+            result = IsolationResult(ok=True, jpeg=crop_path.read_bytes())
     except ValueError as exc:
         return jsonify(success=False, error=str(exc)), 400
     except Exception:
@@ -118,10 +144,16 @@ def isolate_clothing():
     finally:
         if temp_path is not None:
             image_service.cleanup(temp_path)
+        if crop_path is not None:
+            image_service.cleanup(crop_path)
 
     payload = result.to_dict()
     payload["image_base64"] = base64.b64encode(result.jpeg).decode("ascii") if result.jpeg else None
-    return jsonify(success=True, isolation=payload)
+    return jsonify(
+        success=True,
+        isolation=payload,
+        garment=garment.to_dict() if garment else None,
+    )
 
 
 @detection_bp.post("/api/detect")
