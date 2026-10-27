@@ -8,25 +8,29 @@
 // original photo — a bad crop is never silently swapped in.
 import { File, Paths } from "expo-file-system";
 
-import { isolateClothing, type IsolationReason } from "../../services/aiApi";
+import {
+  isolateClothing,
+  type GarmentDescription,
+  type IsolationReason,
+} from "../../services/aiApi";
 
 export type IsolationOutcome =
-  | { status: "isolated"; uri: string }
-  | { status: "kept"; reason: IsolationReason | null }
+  | { status: "isolated"; uri: string; garment: GarmentDescription | null }
+  | { status: "kept"; reason: IsolationReason | null; garment: GarmentDescription | null }
   | { status: "error" };
 
 export async function isolateCapturedPhoto(uri: string): Promise<IsolationOutcome> {
   try {
     const result = await isolateClothing(uri);
     if (!result.ok || !result.image_base64) {
-      return { status: "kept", reason: result.reason };
+      return { status: "kept", reason: result.reason, garment: result.garment };
     }
     const file = new File(
       Paths.cache,
       `cutout-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`,
     );
     file.write(result.image_base64, { encoding: "base64" });
-    return { status: "isolated", uri: file.uri };
+    return { status: "isolated", uri: file.uri, garment: result.garment };
   } catch (e) {
     console.warn("Garment isolation failed:", e);
     return { status: "error" };
