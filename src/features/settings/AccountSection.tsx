@@ -143,7 +143,7 @@ function LinkRow({
 
 const useStyles = makeStyles((theme: Theme) => ({
   group: { gap: 12, marginTop: 24 },
-  label: { fontSize: 13, fontWeight: "800", color: theme.colors.textMuted, marginTop: 4 },
+  label: { fontSize: 13, fontWeight: "700", color: theme.colors.textMuted, marginTop: 4 },
   card: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.lg,
@@ -154,16 +154,16 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
   linkRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   linkBody: { flex: 1, minWidth: 0 },
-  linkLabel: { fontSize: 14, fontWeight: "700", color: theme.colors.text },
+  linkLabel: { fontSize: 14, fontWeight: "600", color: theme.colors.text },
   linkHint: { fontSize: 11.5, color: theme.colors.textMuted, marginTop: 2 },
   serviceRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   serviceDot: { width: 10, height: 10, borderRadius: 5 },
   serviceDotOk: { backgroundColor: theme.colors.success },
   serviceDotWarn: { backgroundColor: theme.colors.warning },
   serviceBody: { flex: 1, minWidth: 0 },
-  serviceTitle: { fontSize: 14, fontWeight: "800", color: theme.colors.text },
+  serviceTitle: { fontSize: 14, fontWeight: "700", color: theme.colors.text },
   serviceText: { fontSize: 12, color: theme.colors.textMuted, lineHeight: 17, marginTop: 2 },
-  serviceRetry: { fontSize: 12.5, fontWeight: "800", color: theme.colors.primary },
+  serviceRetry: { fontSize: 12.5, fontWeight: "700", color: theme.colors.primary },
   signOut: {
     flexDirection: "row",
     alignItems: "center",
@@ -172,5 +172,5 @@ const useStyles = makeStyles((theme: Theme) => ({
     marginTop: 8,
     paddingVertical: 14,
   },
-  signOutText: { color: theme.colors.danger, fontWeight: "700", fontSize: 15 },
+  signOutText: { color: theme.colors.danger, fontWeight: "600", fontSize: 15 },
 }));
