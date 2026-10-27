@@ -648,7 +648,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     marginTop: 2,
     alignSelf: "flex-end",
   },
-  bubbleClockMine: { color: "rgba(255,255,255,0.75)" },
+  bubbleClockMine: { color: theme.colors.onPrimaryMuted },
   pillLayer: { position: "absolute", left: 0, right: 0, bottom: 12, alignItems: "center" },
   newPill: {
     flexDirection: "row",
