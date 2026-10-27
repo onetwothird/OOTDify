@@ -2,7 +2,8 @@
 // OOTDify design tokens: denim and copper. One blue only, a calm,
 // low-saturation denim (`brand`) that never glares, reserved for ACTIONS: main
 // buttons, the + button, the selected tab, links. Structure (avatars, tags,
-// selected chips, toasts) is neutral graphite `primary`; pages and cards are
+// selected chips) is a very light denim tint `primary` with denim ink, and
+// icons, toggles and selection marks use `brand` itself; pages and cards are
 // neutral; copper, like the rivets on a pair of jeans, is the accent for
 // favourites and tags. The mascot's colours follow `brand`.
 //
@@ -56,8 +57,9 @@ export const lightColors: ThemeColors = {
   // Raised-but-quiet fills (chips, icon tiles).
   surfaceAlt: "#ECEEF1",
   border: "#E1E3E8",
-  // Graphite: structural fills (avatars, tags, selected chips).
-  primary: "#252A33",
+  // A very light denim tint: structural fills (avatars, tags, selected
+  // chips), drawn with denim ink (`onPrimary`) on top.
+  primary: "#E5EAF1",
   primaryMuted: "#EEF0F3",
   text: "#1B1F27",
   textMuted: "#5E636D",
@@ -70,11 +72,11 @@ export const lightColors: ThemeColors = {
   // Denim.
   brand: "#3A5A96",
   onBrand: "#FFFFFF",
-  onPrimary: "#FFFFFF",
-  // White blended onto `primary` at 68% / 20% / 9%.
-  onPrimaryMuted: "#B9BBBE",
-  onPrimarySubtle: "#51555C",
-  onPrimaryFaint: "#393D45",
+  onPrimary: "#2F4C82",
+  // Denim ink blended onto `primary`: secondary text / hairlines / glows.
+  onPrimaryMuted: "#506896",
+  onPrimarySubtle: "#C8D1DF",
+  onPrimaryFaint: "#D8DFE9",
   textFaint: "#EEF0F3",
 };
 
@@ -88,7 +90,8 @@ export const darkColors: ThemeColors = {
   // Raised-but-quiet fills (chips, icon tiles).
   surfaceAlt: "#23272E",
   border: "#2E333B",
-  primary: "#E4E7EC",
+  // A dim denim tint, the dark-mode counterpart of the light tint.
+  primary: "#303947",
   primaryMuted: "#22262D",
   text: "#EDEFF2",
   textMuted: "#A5ABB5",
@@ -100,12 +103,12 @@ export const darkColors: ThemeColors = {
   // Washed denim.
   brand: "#7F9CC8",
   onBrand: "#11141A",
-  // Graphite ink on the light `primary`.
-  onPrimary: "#1A1E25",
-  // Graphite blended onto `primary` at 62% / 20% / 9%.
-  onPrimaryMuted: "#676A71",
-  onPrimarySubtle: "#BCBFC4",
-  onPrimaryFaint: "#D2D5DA",
+  // Pale denim ink on the dim tint.
+  onPrimary: "#C3D3EC",
+  // Ink blended onto `primary`: secondary text / hairlines / glows.
+  onPrimaryMuted: "#9AA8BE",
+  onPrimarySubtle: "#485261",
+  onPrimaryFaint: "#3A4453",
   textFaint: "#1E2228",
 };
 
