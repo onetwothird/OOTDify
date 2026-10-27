@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { AppButton } from "../../shared/components/AppButton";
 import { AuthCard, AuthHero } from "../../shared/components/AuthShell";
+import { Pinstripes } from "../../shared/components/ClothesRail";
 import { FormField } from "../../shared/components/FormField";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import type { Theme } from "../../shared/config/theme";
@@ -47,6 +48,7 @@ export default function ForgotPasswordScreen() {
 
   return (
     <View style={styles.screen}>
+      <Pinstripes />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.flex}

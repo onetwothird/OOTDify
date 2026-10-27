@@ -33,6 +33,15 @@ logger = logging.getLogger(__name__)
 detection_bp = Blueprint("detection", __name__)
 
 
+def _cloudinary_check() -> dict:
+    """Only on /health?check=cloudinary: the app polls plain /health, so the
+    live call to Cloudinary runs when someone is diagnosing uploads."""
+    if request.args.get("check") != "cloudinary":
+        return {}
+    error = cloudinary_service.verify_credentials()
+    return {"cloudinary_ok": error is None, "cloudinary_error": error}
+
+
 @detection_bp.get("/health")
 def health():
     """Lightweight endpoint the mobile app (or a load balancer) can ping."""
@@ -45,6 +54,7 @@ def health():
         # exposing them (profile photos need Cloudinary, garment capture Claude).
         cloudinary_configured=cloudinary_service.is_configured(),
         garment_vision_configured=garment_vision.is_configured(),
+        **_cloudinary_check(),
     )
 
 

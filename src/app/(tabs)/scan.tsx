@@ -53,6 +53,7 @@ import { makeStyles } from "../../shared/theme/makeStyles";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import type { Theme } from "../../shared/config/theme";
 import { useT } from "../../shared/i18n/useT";
+import { useHideOnScroll, useTabBarSpace } from "../../shared/navigation/useTabChrome";
 import type { TranslationKey } from "../../shared/i18n/translate";
 import { resolveMediaUrl } from "../../shared/lib/storageUrl";
 import { toast } from "../../shared/lib/toast";
@@ -63,6 +64,9 @@ const CONSENT_KEY = "ootdify.tryon.consent.v1";
 type CameraMode = "idle" | "camera" | "preview";
 
 export default function ScanScreen() {
+  // The tab bar slides away while scrolling down; content clears it at the end.
+  const hideOnScroll = useHideOnScroll();
+  const tabBarSpace = useTabBarSpace();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const styles = useStyles();
@@ -455,8 +459,14 @@ export default function ScanScreen() {
   if (!consented) {
     return (
       <View style={[styles.screen, { paddingTop: insets.top + 8 }]}>
-        <ScrollView contentContainerStyle={styles.consentContent} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={[styles.consentContent, { paddingBottom: tabBarSpace }]}
+          showsVerticalScrollIndicator={false}
+          {...hideOnScroll}
+        >
           <ScreenHeader
+            variant="tab"
+            icon="camera"
             title={t("scan.title")}
             subtitle={t("scan.consent.subtitle")}
           />
@@ -513,11 +523,14 @@ export default function ScanScreen() {
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 8 }]}>
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        {...hideOnScroll}
       >
         <ScreenHeader
+          variant="tab"
+          icon="camera"
           title={t("scan.title")}
           subtitle={PHOTO_TRYON_AVAILABLE ? t("scan.subtitle") : t("scan.subtitle_live")}
         />

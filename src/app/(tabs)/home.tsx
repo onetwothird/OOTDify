@@ -34,6 +34,7 @@ import { ClothingCard } from "../../shared/components/ClothingCard";
 import { SkeletonGrid, SkeletonRow } from "../../shared/components/LoadingState";
 import { Mascot } from "../../shared/components/Mascot";
 import { SectionHeader } from "../../shared/components/SectionHeader";
+import { EmptyState } from "../../shared/components/StateViews";
 import { Skeleton } from "../../shared/components/Skeleton";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import { makeStyles } from "../../shared/theme/makeStyles";
@@ -45,9 +46,13 @@ import { useCaptureModalStore } from "../../features/capture/captureModalStore";
 import { pieceHref } from "../../features/clothing/pieces";
 import { ApiError, getProfile, recommendCatalog } from "../../services/aiApi";
 import { useT } from "../../shared/i18n/useT";
+import { useHideOnScroll, useTabBarSpace } from "../../shared/navigation/useTabChrome";
 
 
 export default function HomeScreen() {
+  // The tab bar slides away while scrolling down; content clears it at the end.
+  const hideOnScroll = useHideOnScroll();
+  const tabBarSpace = useTabBarSpace();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { itemWidth, onLayout } = useResponsiveColumns(120, 12);
@@ -182,13 +187,16 @@ export default function HomeScreen() {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 8 }]}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
+        showsVerticalScrollIndicator={false}
+        {...hideOnScroll}
+      >
         <HomeTopBar
           nickname={nickname}
           avatarRef={avatarRef}
           loading={greetingLoading}
           onOpenProfile={() => setPhotoSheetOpen(true)}
-          onOpenSettings={() => router.push("/settings/general")}
         />
 
         <Hero pieceCount={closet.length} lookCount={saved.length} loading={closetLoading || savedLoading} />
@@ -251,13 +259,15 @@ export default function HomeScreen() {
                 </Pressable>
               </View>
             ) : recommended.length === 0 ? (
-              <View style={styles.emptyCloset}>
-                <Text style={styles.emptyLine}>{t("home.recommended.empty")}</Text>
-                <Pressable accessibilityRole="button" style={styles.captureBtn} onPress={openCapture}>
-                  <Ionicons name="camera-outline" size={16} color={theme.colors.onPrimary} />
-                  <Text style={styles.captureBtnText}>{t("home.action.capture")}</Text>
-                </Pressable>
-              </View>
+              <EmptyState
+                compact
+                icon="sparkles-outline"
+                title={t("home.recommended.empty.title")}
+                message={t("home.recommended.empty")}
+                actionLabel={t("home.action.capture")}
+                actionIcon="camera-outline"
+                onAction={openCapture}
+              />
             ) : (
               <View style={styles.grid} onLayout={onLayout}>
                 {recommended.map((item) => (
@@ -280,18 +290,15 @@ export default function HomeScreen() {
                 {[0, 1, 2].map((i) => <Skeleton key={i} width={110} height={140} radius={theme.borderRadius.md} />)}
               </View>
             ) : closet.length === 0 ? (
-              <View style={styles.emptyCard}>
-                <View style={styles.emptyTop}>
-                  <View style={styles.emptyIconTile}>
-                    <Ionicons name="shirt-outline" size={22} color={theme.colors.text} />
-                  </View>
-                  <View style={styles.emptyBody}>
-                    <Text style={styles.emptyTitle}>{t("home.wardrobe.empty.title")}</Text>
-                    <Text style={styles.emptyText}>{t("home.wardrobe.empty.message")}</Text>
-                  </View>
-                </View>
-                <AppButton label={t("home.wardrobe.empty.button")} size="md" icon="add" onPress={() => router.push("/(tabs)/discover")} style={styles.emptyBtn} />
-              </View>
+              <EmptyState
+                compact
+                icon="shirt-outline"
+                title={t("home.wardrobe.empty.title")}
+                message={t("home.wardrobe.empty.message")}
+                actionLabel={t("home.wardrobe.empty.button")}
+                actionIcon="camera-outline"
+                onAction={openCapture}
+              />
             ) : (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tileRow}>
                 {closet.slice(0, 8).map((item) => (
@@ -318,7 +325,15 @@ export default function HomeScreen() {
             {savedLoading ? (
               <SkeletonRow />
             ) : saved.length === 0 ? (
-              <Text style={styles.emptyLine}>{t("home.looks.recent.empty")}</Text>
+              <EmptyState
+                compact
+                icon="layers-outline"
+                title={t("home.looks.recent.empty.title")}
+                message={t("home.looks.recent.empty")}
+                actionLabel={t("home.looks.recent.empty.action")}
+                actionIcon="add"
+                onAction={() => router.push("/(tabs)/outfits")}
+              />
             ) : (
               <View style={styles.savedList}>
                 {saved.slice(0, 4).map((o) => (
@@ -335,7 +350,6 @@ export default function HomeScreen() {
         initial={(nickname?.[0] ?? "").toUpperCase()}
         avatarRef={avatarRef}
         onChanged={setAvatarRef}
-        onOpenProfile={() => router.push("/(tabs)/profile")}
         onClose={() => setPhotoSheetOpen(false)}
       />
     </View>
@@ -348,20 +362,23 @@ function greetingFor(hour: number, t: any): string {
   return t("home.greeting.evening");
 }
 
+/**
+ * Home header. OOTD is the outfit of the *day*, so the header opens with
+ * today's date on the app's hang tag, then the greeting and where you are,
+ * with your photo on the right.
+ */
 function HomeTopBar({
   nickname,
   avatarRef,
   loading,
   onOpenProfile,
-  onOpenSettings,
 }: {
   nickname: string | null;
   avatarRef: string | null;
   loading: boolean;
   onOpenProfile: () => void;
-  onOpenSettings: () => void;
 }) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const theme = useAppTheme();
   const styles = useStyles();
   const [now, setNow] = useState(() => new Date());
@@ -369,7 +386,7 @@ function HomeTopBar({
     const id = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(id);
   }, []);
-  
+
   const greeting = greetingFor(now.getHours(), t);
   const initial = (nickname?.[0] ?? "").toUpperCase();
   const place = useCurrentPlace();
@@ -386,6 +403,10 @@ function HomeTopBar({
     return () => entrance.stop();
   }, [enter]);
 
+  const day = now.toLocaleDateString(locale, { day: "numeric" });
+  const month = now.toLocaleDateString(locale, { month: "short" }).replace(".", "");
+  const fullDate = now.toLocaleDateString(locale, { weekday: "long", month: "long", day: "numeric" });
+
   return (
     <Animated.View
       style={[
@@ -396,36 +417,46 @@ function HomeTopBar({
         },
       ]}
     >
-      <View style={styles.greetingBody}>
-        <Text style={styles.greetingTitle} numberOfLines={1}>
-          {nickname ? `${greeting}, ${nickname}!` : loading ? "…" : `${greeting}!`}
-        </Text>
-        <Pressable
-          onPress={place.status === "blocked" ? place.request : undefined}
-          disabled={place.status !== "blocked"}
-          style={styles.greetingPlaceRow}
-          hitSlop={6}
-        >
-          <Ionicons name={place.status === "blocked" ? "location-outline" : "location"} size={12} color={theme.colors.textMuted} />
-          <Text style={styles.greetingPlace} numberOfLines={1}>
-            {place.status === "loading"
-              ? t("home.location.finding")
-              : place.status === "ready"
-                ? place.label
-                : t("home.location.off")}
+      <View style={styles.topRow}>
+        <View style={styles.dateTag} accessible accessibilityLabel={fullDate}>
+          <View style={styles.dateTagHole} />
+          <Text style={styles.dateDay}>{day}</Text>
+          <Text style={styles.dateMonth}>{month}</Text>
+        </View>
+
+        <View style={styles.greetingBody}>
+          <Text style={styles.greetingTitle} numberOfLines={2} accessibilityRole="header">
+            {nickname ? `${greeting}, ${nickname}` : loading ? "…" : greeting}
           </Text>
-        </Pressable>
+          <Pressable
+            onPress={place.status === "blocked" ? place.request : undefined}
+            disabled={place.status !== "blocked"}
+            style={styles.greetingPlaceRow}
+            hitSlop={6}
+          >
+            <Ionicons
+              name={place.status === "blocked" ? "location-outline" : "location"}
+              size={13}
+              color={theme.colors.textMuted}
+            />
+            <Text style={styles.greetingPlace} numberOfLines={1}>
+              {place.status === "loading"
+                ? t("home.location.finding")
+                : place.status === "ready"
+                  ? place.label
+                  : t("home.location.off")}
+            </Text>
+          </Pressable>
+        </View>
+
+        <ProfileAvatar
+          size={46}
+          initial={initial}
+          avatarRef={avatarRef}
+          onPress={onOpenProfile}
+          ring={theme.colors.background}
+        />
       </View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t("home.settings_a11y")}
-        hitSlop={6}
-        onPress={onOpenSettings}
-        style={({ pressed }) => [styles.settingsBtn, pressed && { opacity: 0.7 }]}
-      >
-        <Ionicons name="settings-outline" size={20} color={theme.colors.text} />
-      </Pressable>
-      <ProfileAvatar size={40} initial={initial} avatarRef={avatarRef} onPress={onOpenProfile} />
     </Animated.View>
   );
 }
@@ -491,40 +522,27 @@ function Hero({ pieceCount, lookCount, loading }: { pieceCount: number; lookCoun
 
   return (
     <View style={styles.hero}>
-      <View style={[styles.heroBlob, styles.heroBlobA]} pointerEvents="none" />
-      <View style={[styles.heroBlob, styles.heroBlobB]} pointerEvents="none" />
+      <Text style={styles.heroTitle}>{t("home.hero.title")}</Text>
+      <Text style={styles.heroText}>{t("home.hero.description")}</Text>
 
-      <View style={styles.heroTop}>
-        <View style={styles.heroCopy}>
-          <View style={styles.heroPill}>
-            <Ionicons name="sparkles" size={11} color={theme.colors.text} />
-            <Text style={styles.heroPillText}>{t("home.hero.badge")}</Text>
-          </View>
-          <Text style={styles.heroTitle}>{t("home.hero.title")}</Text>
-          <Text style={styles.heroText}>{t("home.hero.description")}</Text>
-        </View>
-
-        <View style={styles.heroStats}>
-          <StatCell icon="shirt-outline" value={loading ? "—" : String(pieceCount)} label={t("home.hero.pieces")} />
-          <View style={styles.heroStatDivider} />
-          <StatCell icon="sparkles-outline" value={loading ? "—" : String(lookCount)} label={t("home.hero.looks")} />
-        </View>
+      <View style={styles.heroStats}>
+        <StatCell
+          value={loading ? "–" : String(pieceCount)}
+          label={t("home.hero.pieces", { count: pieceCount })}
+          onPress={() => router.push("/(tabs)/discover")}
+        />
+        <View style={styles.heroStatDivider} />
+        <StatCell
+          value={loading ? "–" : String(lookCount)}
+          label={t("home.hero.looks", { count: lookCount })}
+          onPress={() => router.push("/(tabs)/outfits")}
+        />
       </View>
 
       <View style={styles.heroButtons}>
         <AppButton label={t("home.hero.btn.create")} icon="shirt-outline" onPress={() => router.push("/ai-picker")} style={styles.heroBtn} />
         <AppButton label={t("home.hero.btn.try")} icon="sparkles-outline" variant="secondary" onPress={() => router.push("/(tabs)/scan")} style={styles.heroBtn} />
       </View>
-
-      <Pressable
-        accessibilityRole="button"
-        onPress={() => router.push("/(tabs)/discover")}
-        style={({ pressed }) => [styles.heroLink, pressed && { opacity: 0.7 }]}
-      >
-        <Ionicons name="folder-open-outline" size={15} color={theme.colors.text} />
-        <Text style={styles.heroLinkText}>{t("home.hero.link.wardrobe")}</Text>
-        <Ionicons name="chevron-forward" size={13} color={theme.colors.textMuted} />
-      </Pressable>
 
       <View style={[styles.heroStageBlob, { width: Math.round(mascot * 1.1), height: Math.round(mascot * 0.2), left: -Math.round(mascot * 0.16) }]} pointerEvents="none" />
 
@@ -562,7 +580,7 @@ function Hero({ pieceCount, lookCount, loading }: { pieceCount: number; lookCoun
           <View style={styles.bubble}>
             <View style={styles.bubbleHead}>
               <Ionicons name={tipIndex === 0 ? "sparkles" : "bulb-outline"} size={13} color={theme.colors.text} />
-              <Text style={styles.bubbleLabel}>{tipIndex === 0 ? t("home.hero.badge").toUpperCase() : t("home.hero.dialogue.label")}</Text>
+              <Text style={styles.bubbleLabel}>{tipIndex === 0 ? t("home.hero.badge") : t("home.hero.dialogue.label")}</Text>
               <Ionicons name="refresh" size={13} color={theme.colors.textMuted} />
             </View>
             <Text style={styles.bubbleText} numberOfLines={3}>
@@ -577,17 +595,20 @@ function Hero({ pieceCount, lookCount, loading }: { pieceCount: number; lookCoun
   );
 }
 
-function StatCell({ icon, value, label }: { icon: keyof typeof Ionicons.glyphMap; value: string; label: string }) {
+function StatCell({ value, label, onPress }: { value: string; label: string; onPress: () => void }) {
   const styles = useStyles();
   const theme = useAppTheme();
   return (
-    <View style={styles.statCell}>
-      <View style={styles.statValueRow}>
-        <Ionicons name={icon} size={13} color={theme.colors.onPrimaryMuted} />
-        <Text style={styles.statValue}>{value}</Text>
-      </View>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${value} ${label}`}
+      onPress={onPress}
+      style={({ pressed }) => [styles.statCell, pressed && { opacity: 0.7 }]}
+    >
+      <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
-    </View>
+      <Ionicons name="chevron-forward" size={14} color={theme.colors.textMuted} />
+    </Pressable>
   );
 }
 
@@ -640,51 +661,59 @@ function SavedLookRow({ outfit, onPress }: { outfit: SavedOutfit; onPress: () =>
 const useStyles = makeStyles((theme: Theme) => ({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   content: { paddingHorizontal: theme.spacing.page, paddingBottom: 40 },
-  topBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: theme.spacing.sm, marginBottom: theme.spacing.xs },
-  greetingBody: { flex: 1, minWidth: 0 },
-  settingsBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  topBar: { marginTop: theme.spacing.sm, marginBottom: theme.spacing.xs },
+  topRow: { flexDirection: "row", alignItems: "center", gap: 14 },
+  // Today's hang tag: squared top, rounded bottom, punched hole — the same
+  // silhouette as ScreenHeader's, carrying the date instead of an icon.
+  dateTag: {
+    width: 54,
+    height: 66,
+    borderTopLeftRadius: 7,
+    borderTopRightRadius: 7,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    backgroundColor: theme.colors.primary,
     alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    justifyContent: "flex-end",
+    paddingBottom: 8,
+    transform: [{ rotate: "-4deg" }],
   },
-  greetingTitle: { fontSize: 20, lineHeight: 26, fontWeight: "800", letterSpacing: -0.4, color: theme.colors.text },
-  greetingPlaceRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
-  greetingPlace: { flex: 1, minWidth: 0, fontSize: 12, lineHeight: 16, fontWeight: "600", color: theme.colors.textMuted },
+  dateTagHole: {
+    position: "absolute",
+    top: 7,
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: theme.colors.background,
+  },
+  dateDay: { fontSize: 24, lineHeight: 26, fontWeight: "800", letterSpacing: -0.8, color: theme.colors.onPrimary },
+  dateMonth: { fontSize: 12, lineHeight: 14, fontWeight: "700", color: theme.colors.onPrimaryMuted },
+  greetingBody: { flex: 1, minWidth: 0 },
+  greetingTitle: { fontSize: 23, lineHeight: 28, fontWeight: "800", letterSpacing: -0.6, color: theme.colors.text },
+  greetingPlaceRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
+  greetingPlace: { flex: 1, minWidth: 0, fontSize: 13, lineHeight: 17, fontWeight: "600", color: theme.colors.textMuted },
+
   bubbleWrap: { flex: 1, minWidth: 0 },
   bubbleTail: { position: "absolute", left: -7, top: 24, width: 14, height: 14, backgroundColor: theme.colors.surface, borderLeftWidth: 1.5, borderBottomWidth: 1.5, borderColor: theme.colors.text, transform: [{ rotate: "45deg" }] },
   bubble: { backgroundColor: theme.colors.surface, borderRadius: theme.borderRadius.md, borderWidth: 1.5, borderColor: theme.colors.text, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 12 },
   bubbleHead: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6 },
-  bubbleLabel: { flex: 1, fontSize: 10, fontWeight: "800", letterSpacing: 1.3, color: theme.colors.textMuted },
+  bubbleLabel: { flex: 1, fontSize: 11.5, fontWeight: "700", color: theme.colors.textMuted },
   bubbleText: { fontSize: 12.5, lineHeight: 18, fontWeight: "600", color: theme.colors.text, minHeight: 54 },
   bubbleCaret: { color: theme.colors.text, fontWeight: "700" },
   hero: { backgroundColor: theme.colors.surface, borderRadius: 28, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.border, padding: 20, marginTop: theme.spacing.sm, overflow: "hidden", shadowColor: "#000", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.07, shadowRadius: 22, elevation: 4 },
-  heroBlob: { position: "absolute", borderRadius: 999, backgroundColor: theme.colors.textFaint },
-  heroBlobA: { width: 220, height: 220, top: -110, right: -70 },
-  heroBlobB: { width: 150, height: 150, bottom: 30, right: -70, backgroundColor: theme.colors.textFaint },
-  heroTop: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
-  heroCopy: { flex: 1, minWidth: 0 },
-  heroPill: { flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start", backgroundColor: theme.colors.surfaceAlt, borderRadius: theme.borderRadius.pill, paddingHorizontal: 10, paddingVertical: 5 },
-  heroPillText: { fontSize: 10.5, fontWeight: "800", letterSpacing: 1.2, color: theme.colors.text },
-  heroTitle: { fontSize: 30, lineHeight: 34, fontWeight: "800", letterSpacing: -0.8, color: theme.colors.text, marginTop: 12 },
-  heroText: { fontSize: 13.5, lineHeight: 19, color: theme.colors.textMuted, marginTop: 8 },
-  heroStats: { backgroundColor: theme.colors.primary, borderRadius: theme.borderRadius.md, paddingHorizontal: 12, paddingVertical: 11, gap: 9, minWidth: 88 },
-  heroStatDivider: { height: StyleSheet.hairlineWidth, backgroundColor: theme.colors.onPrimarySubtle },
-  statCell: { gap: 1 },
-  statValueRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  statValue: { fontSize: 17, fontWeight: "800", letterSpacing: -0.4, color: theme.colors.onPrimary },
-  statLabel: { fontSize: 9.5, fontWeight: "700", letterSpacing: 0.8, color: theme.colors.onPrimaryMuted },
+  heroTitle: { fontSize: 30, lineHeight: 34, fontWeight: "800", letterSpacing: -0.8, color: theme.colors.text },
+  heroText: { fontSize: 14, lineHeight: 20, color: theme.colors.textMuted, marginTop: 8, maxWidth: 420 },
+
+  heroStats: { flexDirection: "row", alignItems: "stretch", marginTop: 14, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border },
+  heroStatDivider: { width: StyleSheet.hairlineWidth, marginVertical: 10, backgroundColor: theme.colors.border },
+  statCell: { flex: 1, flexDirection: "row", alignItems: "baseline", gap: 6, paddingVertical: 12, paddingHorizontal: 4 },
+  statValue: { fontSize: 26, lineHeight: 30, fontWeight: "800", letterSpacing: -0.8, color: theme.colors.text },
+  statLabel: { flex: 1, fontSize: 13.5, fontWeight: "600", color: theme.colors.textMuted },
   heroStageBlob: { position: "absolute", bottom: 0, borderRadius: 999, backgroundColor: theme.colors.textFaint },
   heroSpeak: { flexDirection: "row", alignItems: "center", marginTop: 18 },
-  heroButtons: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 18 },
+  heroButtons: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 6 },
   heroBtn: { flexGrow: 1, flexShrink: 1, flexBasis: 150, minWidth: 130 },
   heroBtnAlt: { backgroundColor: theme.colors.primaryMuted },
-  heroLink: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 4, marginTop: 12, alignSelf: "flex-start" },
-  heroLinkText: { fontSize: 13.5, fontWeight: "700", color: theme.colors.text },
   heroMascot: { position: "absolute" },
   chips: { gap: 8, paddingRight: 16, paddingBottom: 4 },
   chipsSpacer: { height: 4 },
@@ -695,13 +724,6 @@ const useStyles = makeStyles((theme: Theme) => ({
   segmentTextActive: { color: theme.colors.onPrimary },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 12, justifyContent: "flex-start" },
   hRow: { flexDirection: "row", gap: 12 },
-  emptyCard: { backgroundColor: theme.colors.surface, borderRadius: theme.borderRadius.md, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.border, padding: 16, gap: 14 },
-  emptyTop: { flexDirection: "row", alignItems: "center", gap: 12 },
-  emptyIconTile: { width: 44, height: 44, borderRadius: 14, backgroundColor: theme.colors.surfaceAlt, alignItems: "center", justifyContent: "center" },
-  emptyBody: { flex: 1, minWidth: 0 },
-  emptyTitle: { fontSize: 14, fontWeight: "800", color: theme.colors.text },
-  emptyText: { fontSize: 12.5, color: theme.colors.textMuted, marginTop: 2, lineHeight: 17 },
-  emptyBtn: { alignSelf: "stretch" },
   tileRow: { gap: 12, paddingRight: 16 },
   tile: { width: 108 },
   tileImage: { width: 108, height: 128, borderRadius: theme.borderRadius.md, backgroundColor: theme.colors.surfaceAlt },
@@ -714,18 +736,6 @@ const useStyles = makeStyles((theme: Theme) => ({
   savedBody: { flex: 1, minWidth: 0 },
   savedName: { fontSize: 14, fontWeight: "700", color: theme.colors.text },
   savedMeta: { fontSize: 11.5, color: theme.colors.textMuted, marginTop: 2 },
-  emptyLine: { fontSize: 13, color: theme.colors.textMuted, lineHeight: 19, paddingVertical: 8 },
-  emptyCloset: { gap: 8, alignItems: "flex-start" },
-  captureBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.borderRadius.pill,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-  },
-  captureBtnText: { color: theme.colors.onPrimary, fontWeight: "700", fontSize: 13 },
   unavailable: { flexDirection: "row", alignItems: "flex-start", gap: 10, backgroundColor: theme.colors.surfaceAlt, borderRadius: theme.borderRadius.md, padding: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.border },
   unavailableBody: { flex: 1, minWidth: 0 },
   unavailableTitle: { fontSize: 13, fontWeight: "800", color: theme.colors.text },

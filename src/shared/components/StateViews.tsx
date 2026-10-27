@@ -1,8 +1,12 @@
 // C:\OOTDify\src\shared\components\StateViews.tsx
 // Empty / error states with actions. No hardcoded pixel sizes.
+//
+// The empty state is the header's hang tag drawn as a dashed outline — an
+// unfilled tag reads as "nothing on this hanger yet" — with one clear action.
 import { Ionicons } from "@expo/vector-icons";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
+import { useT } from "../i18n/useT";
 import { makeStyles } from "../theme/makeStyles";
 import { useAppTheme } from "../theme/ThemeProvider";
 
@@ -11,6 +15,7 @@ export function EmptyState({
   title,
   message,
   actionLabel,
+  actionIcon,
   onAction,
   compact = false,
 }: {
@@ -18,6 +23,8 @@ export function EmptyState({
   title: string;
   message?: string;
   actionLabel?: string;
+  /** Leading icon on the action button, e.g. "add" or "camera". */
+  actionIcon?: keyof typeof Ionicons.glyphMap;
   onAction?: () => void;
   /** Tighter vertical padding, for empty states followed by more content. */
   compact?: boolean;
@@ -26,8 +33,13 @@ export function EmptyState({
   const theme = useAppTheme();
   return (
     <View style={[styles.box, compact && styles.boxCompact]} testID="empty-state">
-      <Ionicons name={icon} size={40} color={theme.colors.textMuted} />
-      <Text style={styles.title}>{title}</Text>
+      <View style={styles.tag} accessibilityElementsHidden importantForAccessibility="no">
+        <View style={styles.tagHole} />
+        <Ionicons name={icon} size={26} color={theme.colors.textMuted} />
+      </View>
+      <Text style={styles.title} accessibilityRole="header">
+        {title}
+      </Text>
       {message ? <Text style={styles.message}>{message}</Text> : null}
       {actionLabel && onAction ? (
         <Pressable
@@ -35,6 +47,7 @@ export function EmptyState({
           onPress={onAction}
           style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
         >
+          {actionIcon ? <Ionicons name={actionIcon} size={17} color={theme.colors.onPrimary} /> : null}
           <Text style={styles.buttonText}>{actionLabel}</Text>
         </Pressable>
       ) : null}
@@ -51,10 +64,16 @@ export function ErrorState({
 }) {
   const styles = useStyles();
   const theme = useAppTheme();
+  const { t } = useT();
   return (
     <View style={styles.box} testID="error-state">
-      <Ionicons name="alert-circle-outline" size={40} color={theme.colors.textMuted} />
-      <Text style={styles.title}>Something went wrong</Text>
+      <View style={[styles.tag, styles.tagError]} accessibilityElementsHidden importantForAccessibility="no">
+        <View style={styles.tagHole} />
+        <Ionicons name="alert-circle-outline" size={26} color={theme.colors.danger} />
+      </View>
+      <Text style={styles.title} accessibilityRole="header">
+        {t("common.error.title")}
+      </Text>
       <Text style={styles.message}>{message}</Text>
       {onRetry ? (
         <Pressable
@@ -62,7 +81,8 @@ export function ErrorState({
           onPress={onRetry}
           style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
         >
-          <Text style={styles.buttonText}>Try again</Text>
+          <Ionicons name="refresh" size={17} color={theme.colors.onPrimary} />
+          <Text style={styles.buttonText}>{t("common.retry")}</Text>
         </Pressable>
       ) : null}
     </View>
@@ -73,30 +93,64 @@ const useStyles = makeStyles((theme) => ({
   box: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 48,
+    paddingVertical: 44,
     paddingHorizontal: theme.spacing.lg,
     gap: theme.spacing.sm,
   },
-  boxCompact: { paddingVertical: 18 },
+  boxCompact: { paddingVertical: 20 },
+  // Same silhouette as ScreenHeader's tag, outlined instead of filled.
+  tag: {
+    width: 58,
+    height: 68,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+    borderBottomLeftRadius: 18,
+    borderBottomRightRadius: 18,
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    borderColor: theme.colors.textMuted,
+    backgroundColor: theme.colors.surface,
+    alignItems: "center",
+    justifyContent: "flex-end",
+    paddingBottom: 12,
+    marginBottom: theme.spacing.sm,
+    transform: [{ rotate: "-4deg" }],
+  },
+  tagError: { borderColor: theme.colors.danger },
+  tagHole: {
+    position: "absolute",
+    top: 9,
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: theme.colors.textMuted,
+    backgroundColor: theme.colors.background,
+  },
   title: {
-    fontSize: 16,
-    fontWeight: "700",
+    fontSize: 17,
+    fontWeight: "800",
+    letterSpacing: -0.2,
     color: theme.colors.text,
     textAlign: "center",
   },
   message: {
-    fontSize: 13,
+    fontSize: 13.5,
     color: theme.colors.textMuted,
     textAlign: "center",
-    lineHeight: 18,
+    lineHeight: 19,
+    maxWidth: 300,
   },
   button: {
-    marginTop: theme.spacing.sm,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: theme.borderRadius.md,
+    marginTop: theme.spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    minHeight: 44,
+    paddingHorizontal: 22,
+    borderRadius: theme.borderRadius.pill,
     backgroundColor: theme.colors.primary,
   },
   buttonPressed: { opacity: 0.85 },
-  buttonText: { color: theme.colors.onPrimary, fontWeight: "700", fontSize: 14 },
+  buttonText: { color: theme.colors.onPrimary, fontWeight: "700", fontSize: 14.5 },
 }));

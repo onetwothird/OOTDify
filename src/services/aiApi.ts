@@ -106,6 +106,10 @@ export interface UserProfile {
   gender: string | null;
   avatar_url: string | null;
   body_photo_url: string | null;
+  /** Short intro for the profile page (<= 160 chars). Absent until the bio migration runs. */
+  bio?: string | null;
+  /** Banner behind the avatar on the profile page. Absent until the cover migration runs. */
+  cover_url?: string | null;
   preferred_styles: string[];
   preferred_colors: string[];
   sizes: string[];
@@ -399,8 +403,12 @@ export async function updateProfile(
       | "sizes"
       | "preferred_categories"
       | "preferred_occasions"
+      | "bio"
     >
-  >,
+  > & {
+    /** Removal only; a new cover goes through uploadProfileCover. */
+    cover_url?: null;
+  },
 ): Promise<UserProfile> {
   const payload = (await apiRequest<{ success: boolean; profile: UserProfile }>(
     "/api/profile",
@@ -422,11 +430,27 @@ export async function uploadProfileAvatar(
   photoUri: string,
   timeoutMs = API_AI_TIMEOUT_MS,
 ): Promise<UserProfile> {
+  return uploadProfileImage("/api/profile/avatar", photoUri, timeoutMs);
+}
+
+/** Host a new profile cover on Cloudinary; the backend saves it as cover_url. */
+export async function uploadProfileCover(
+  photoUri: string,
+  timeoutMs = API_AI_TIMEOUT_MS,
+): Promise<UserProfile> {
+  return uploadProfileImage("/api/profile/cover", photoUri, timeoutMs);
+}
+
+async function uploadProfileImage(
+  path: "/api/profile/avatar" | "/api/profile/cover",
+  photoUri: string,
+  timeoutMs: number,
+): Promise<UserProfile> {
   const formData = new FormData();
   formData.append("image", toNativeFormFile(await shrinkForUpload(photoUri)));
 
   const payload = (await apiRequest<{ success: boolean; profile: UserProfile }>(
-    "/api/profile/avatar",
+    path,
     { method: "POST", body: formData },
     { timeoutMs },
   )) as unknown;

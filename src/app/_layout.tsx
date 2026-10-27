@@ -25,7 +25,8 @@ import { ActivityIndicator, Image, StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ToastHost } from "../shared/components/ToastHost";
 import { TERMS_VERSION } from "../shared/config/legal";
-import { theme } from "../shared/config/theme";
+import { lightColors, theme } from "../shared/config/theme";
+import { isAuthRedirectHeld } from "../shared/lib/authRedirectHold";
 import { supabase } from "../shared/lib/supabase";
 import { ThemeProvider, useThemeState } from "../shared/theme/ThemeProvider";
 
@@ -115,6 +116,8 @@ function RootLayoutInner() {
 
   useEffect(() => {
     if (!initialized) return;
+    // A screen is mid sign-in/sign-out (email sign-up); it navigates itself.
+    if (isAuthRedirectHeld()) return;
     const inAuthGroup = segments[0] === "(auth)";
     // Terms and Privacy are public reading material: the landing page links to
     // them before anyone has an account. "privacy/data" is NOT public — it
@@ -174,8 +177,9 @@ function RootLayoutInner() {
         <Stack.Screen name="outfit/[id]" />
         <Stack.Screen name="consent" />
         <Stack.Screen name="privacy/data" />
-        <Stack.Screen name="privacy/policy" />
-        <Stack.Screen name="privacy/terms" />
+        {/* Always light (see LegalDocument), so no dark flash during the transition. */}
+        <Stack.Screen name="privacy/policy" options={{ contentStyle: { backgroundColor: lightColors.background } }} />
+        <Stack.Screen name="privacy/terms" options={{ contentStyle: { backgroundColor: lightColors.background } }} />
         <Stack.Screen name="+not-found" />
       </Stack>
       <ToastHost />

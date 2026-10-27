@@ -12,6 +12,7 @@
 //     own the object yet and an anonymous upload would have no owner scope.
 //     `applyPendingAvatar` uploads it, once, right after the account exists.
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { File } from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
 import { Alert } from "react-native";
 
@@ -57,21 +58,28 @@ export async function uploadAvatar(uri: string): Promise<string> {
   return profile.avatar_url;
 }
 
-/** True when the local file is still readable (cache may be reclaimed). */
-async function localFileExists(uri: string): Promise<boolean> {
+/**
+ * True when the local file is still there (cache may be reclaimed). Uses the
+ * file system directly: `fetch(file://…)` is unreliable on Android and made
+ * a perfectly good photo look missing, so it was silently discarded.
+ */
+function localFileExists(uri: string): boolean {
   try {
-    await fetch(uri);
-    return true;
+    return new File(uri).exists;
   } catch {
     return false;
   }
 }
 
 /**
- * Pick (or shoot) a square photo and return its real metadata.
+ * Pick (or shoot) a photo and return its real metadata: square from the front
+ * camera for an avatar, a 16:9 banner from the back camera for a cover.
  * Returns null when the user cancelled or denied the camera.
  */
-export async function pickAvatarPhoto(source: AvatarSource): Promise<PickedPhoto | null> {
+export async function pickAvatarPhoto(
+  source: AvatarSource,
+  shape: "square" | "cover" = "square",
+): Promise<PickedPhoto | null> {
   if (source === "camera") {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
@@ -87,12 +95,13 @@ export async function pickAvatarPhoto(source: AvatarSource): Promise<PickedPhoto
     mediaTypes: ["images"],
     quality: 0.7,
     allowsEditing: true,
-    aspect: [1, 1],
+    aspect: shape === "cover" ? [16, 9] : [1, 1],
   };
+  const cameraType = shape === "cover" ? ImagePicker.CameraType.back : ImagePicker.CameraType.front;
 
   const result =
     source === "camera"
-      ? await ImagePicker.launchCameraAsync({ ...options, cameraType: ImagePicker.CameraType.front as any })
+      ? await ImagePicker.launchCameraAsync({ ...options, cameraType: cameraType as any })
       : await ImagePicker.launchImageLibraryAsync(options);
   if (result.canceled) return null;
 
@@ -255,17 +264,28 @@ export async function applyPendingAvatar(): Promise<string | null> {
   if (!pending) return null;
   if (!belongsTo(pending, user)) return null;
 
-  if (!(await localFileExists(pending.uri))) {
+  if (!localFileExists(pending.uri)) {
     await clearPendingAvatar();
+    toast.error(
+      "Your signup photo is gone",
+      "This phone cleared it before it could upload. Tap your picture to add it again.",
+    );
     return null;
   }
 
+  toast.loading("Adding your profile photo", "Uploading the photo you chose at signup…");
   try {
     const ref = await uploadAvatar(pending.uri);
     await clearPendingAvatar();
+    toast.success("Profile photo added", "Looking good.");
     return ref;
-  } catch {
-    // Transient: keep it and try again on a later launch.
+  } catch (e) {
+    // Transient: keep it and try again on a later launch, but say so.
+    console.warn("[applyPendingAvatar] upload failed:", e);
+    toast.error(
+      "Couldn't add your profile photo",
+      `${e instanceof Error ? e.message : "Please try again in a moment."} We'll retry next time you open the app.`,
+    );
     return null;
   }
 }
