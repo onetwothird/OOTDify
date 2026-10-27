@@ -45,6 +45,12 @@ dictConfig(
             "console": {"class": "logging.StreamHandler", "formatter": "default"},
         },
         "root": {"level": "INFO", "handlers": ["console"]},
+        # The Supabase client (httpx) logs every request at INFO; the try-on
+        # worker polls every few seconds, which buried all other log lines.
+        "loggers": {
+            "httpx": {"level": "WARNING"},
+            "httpcore": {"level": "WARNING"},
+        },
     }
 )
 logger = logging.getLogger(__name__)

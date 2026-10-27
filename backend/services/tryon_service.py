@@ -33,6 +33,7 @@ import tempfile
 import threading
 import time
 import uuid
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -45,6 +46,15 @@ from services.supabase_client import SupabaseNotConfiguredError, get_supabase
 logger = logging.getLogger(__name__)
 
 BUCKET_PREFIXES = tuple(f"{b}/" for b in ("users", "wardrobe", "tryons", "avatars", "clothing"))
+
+# User-facing job errors. The app shows `job.error` verbatim, so unexpected
+# exception text (storage URLs, SDK internals) must never be stored there —
+# it goes to the server log instead.
+GENERIC_ERROR = "Something went wrong while creating your try-on. Please try again."
+INTERRUPTED_ERROR = "This try-on was interrupted by a server restart. Please try again."
+
+# How often the worker sweeps for jobs stuck in 'processing' (seconds).
+STALE_SWEEP_INTERVAL = 60
 
 
 class VtonNotConfiguredError(RuntimeError):
@@ -167,7 +177,32 @@ class TryOnJobStore:
             .execute()
             .data
         )
-        return claimed[0] if claimed else None
+        if claimed:
+            logger.info("Try-on job %s claimed", job["id"])
+            return claimed[0]
+        logger.info("Try-on job %s was claimed by another worker; skipping", job["id"])
+        return None
+
+    def fail_stale_processing(self, stale_after_seconds: int) -> int:
+        """Mark jobs stuck in 'processing' as failed; returns how many.
+
+        A job only stays 'processing' past the threshold when the process that
+        claimed it died mid-job (redeploy, crash, OOM). It is failed rather
+        than re-queued so a job that crashes the worker can't loop forever;
+        the user can retry it explicitly.
+        """
+        cutoff = (datetime.now(timezone.utc) - timedelta(seconds=stale_after_seconds)).isoformat()
+        rows = (
+            self._client.table("try_on_jobs")
+            .update({"status": "failed", "error": INTERRUPTED_ERROR, "updated_at": "now()"})
+            .eq("status", "processing")
+            .lt("updated_at", cutoff)
+            .execute()
+            .data
+        )
+        for row in rows:
+            logger.warning("Try-on job %s was stuck in processing; marked failed", row["id"])
+        return len(rows)
 
     def delete(self, job_id: str) -> None:
         self._client.table("try_on_jobs").delete().eq("id", job_id).execute()
@@ -197,20 +232,25 @@ class TryOnPipeline:
         """
         job_id = job["id"]
         user_id = job["user_id"]
+        started = time.perf_counter()
+        logger.info("Try-on job %s processing started", job_id)
         workdir = Path(tempfile.mkdtemp(prefix=f"tryon_{job_id[:8]}_"))
         try:
             self._run_inner(job, user_id, workdir)
-        except VtonNotConfiguredError as exc:
-            logger.info("Try-on job %s: %s", job_id, exc)
+        except (VtonNotConfiguredError, TryOnError) as exc:
+            # Expected, user-meaningful failures: the message is safe to show.
+            logger.info("Try-on job %s failed: %s", job_id, exc)
             self.store.update(job_id, status="failed", error=str(exc))
-        except Exception as exc:  # anything else also becomes an honest failure
-            logger.exception("Try-on job %s failed", job_id)
-            self.store.update(
-                job_id, status="failed", error=f"Processing failed: {exc}"
-            )
+        except Exception:  # unexpected: log details, store a generic message
+            logger.exception("Try-on job %s failed unexpectedly", job_id)
+            self.store.update(job_id, status="failed", error=GENERIC_ERROR)
         finally:
             shutil.rmtree(workdir, ignore_errors=True)
-            logger.info("Try-on job %s finished; temp files cleaned up", job_id)
+            logger.info(
+                "Try-on job %s finished in %.1fs; temp files cleaned up",
+                job_id,
+                time.perf_counter() - started,
+            )
 
     # ------------------------------------------------------------ internals
     @staticmethod
@@ -259,6 +299,11 @@ class TryOnPipeline:
     def _run_inner(self, job: dict, user_id: str, workdir: Path) -> None:
         from services.body_analysis import analyze_body_image
 
+        # Fail fast: without a model the job can only fail, so don't download
+        # private photos or run three CV models first.
+        if not self.provider.is_configured():
+            self.provider.generate({})  # raises VtonNotConfiguredError
+
         body_photo_id = job.get("body_photo_id")
         if not body_photo_id:
             raise TryOnError("Try-on job has no body photo.")
@@ -283,6 +328,7 @@ class TryOnPipeline:
         person_img = workdir / "person.jpg"
         person_img.write_bytes(_resolve_image_bytes(body["storage_path"]))
         analysis = analyze_body_image(str(person_img))
+        logger.info("Try-on job %s: body re-verified (person=%s)", job["id"], analysis.get("personDetected"))
         if not analysis.get("personDetected"):
             raise TryOnError("No person detected in the body photo — try another photo.")
 
@@ -296,6 +342,7 @@ class TryOnPipeline:
             clothing_paths.append(str(dest))
         if not clothing_paths:
             raise TryOnError("No clothing images found for this try-on.")
+        logger.info("Try-on job %s: %d clothing image(s) fetched; generating", job["id"], len(clothing_paths))
 
         # 4) The integration boundary — real model or honest failure.
         result_path = self.provider.generate(
@@ -315,7 +362,7 @@ class TryOnPipeline:
             "tryons", user_id, result_path, content_type="image/jpeg"
         )
         self.store.update(
-            job_id := job["id"],
+            job["id"],
             status="completed",
             result_url=storage_path,
             error=None,
@@ -361,10 +408,14 @@ def stop_worker() -> None:
 def worker_loop() -> None:
     """Poll for queued jobs and process them one at a time (daemon thread)."""
     logger.info("Try-on worker started (poll interval %.1fs)", Config.TRYON_POLL_INTERVAL)
+    last_sweep = 0.0
     while not _stop.is_set():
         try:
             pipeline = TryOnPipeline()
             while not _stop.is_set():
+                if time.monotonic() - last_sweep >= STALE_SWEEP_INTERVAL:
+                    pipeline.store.fail_stale_processing(Config.TRYON_STALE_AFTER_SECONDS)
+                    last_sweep = time.monotonic()
                 job = pipeline.store.claim_next()
                 if job is None:
                     _stop.wait(Config.TRYON_POLL_INTERVAL)

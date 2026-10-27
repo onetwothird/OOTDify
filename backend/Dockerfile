@@ -50,4 +50,6 @@ EXPOSE 5000
 # Port precedence mirrors config.py: FLASK_PORT (local/compose) beats the
 # platform-injected PORT (Railway) beats the 5000 default.
 # Long timeout covers first-boot weight downloads + model warmup inference.
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${FLASK_PORT:-${PORT:-5000}} --workers 1 --threads 8 --timeout 300 --graceful-timeout 30 app:app"]
+# Access log to stdout so every request (method, path, status, duration in µs)
+# shows in the platform logs — needed to tell dropped requests from app errors.
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${FLASK_PORT:-${PORT:-5000}} --workers 1 --threads 8 --timeout 300 --graceful-timeout 30 --access-logfile - --access-logformat '%(h)s \"%(r)s\" %(s)s %(B)s %(D)sus' app:app"]
