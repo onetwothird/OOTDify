@@ -15,16 +15,16 @@ import { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppButton } from "../../shared/components/AppButton";
+import { Sheet } from "../../shared/components/Sheet";
+import { EmptyState } from "../../shared/components/StateViews";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import { useT } from "../../shared/i18n/useT";
@@ -59,7 +59,6 @@ const garmentOf = (e: CapturedEntry) =>
   e.isolation === "pending" || e.isolation.status === "error" ? null : e.isolation.garment;
 
 export default function CaptureClothesModal() {
-  const insets = useSafeAreaInsets();
   const styles = useStyles();
   const theme = useAppTheme();
   const { t, tl } = useT();
@@ -217,173 +216,145 @@ export default function CaptureClothesModal() {
   };
 
   return (
-    <Modal
+    <Sheet
       visible={isOpen}
-      animationType="slide"
-      transparent
-      statusBarTranslucent
-      navigationBarTranslucent
-      onRequestClose={handleClose}
+      onClose={handleClose}
+      busy={processing}
+      scroll={false}
+      icon="camera"
+      title={t("capture.title")}
+      subtitle={t("capture.subtitle")}
+      footer={
+        entries.length === 0 ? undefined : (
+          <>
+            <AppButton
+              label={t("capture.save", { count: entries.length })}
+              icon="checkmark"
+              loading={processing}
+              disabled={!allCategorized || isolating}
+              onPress={saveEntries}
+            />
+            <Text style={styles.hint}>
+              {isolating
+                ? t("capture.hint.isolating")
+                : allCategorized
+                  ? t("capture.hint.ready")
+                  : t("capture.hint.incomplete")}
+            </Text>
+          </>
+        )
+      }
     >
-      <View style={styles.overlay}>
-        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-          <View style={styles.handle} />
-
-          <View style={styles.header}>
-            <View style={styles.headerIcon}>
-              <Ionicons name="camera" size={20} color={theme.colors.onPrimary} />
-            </View>
-            <View style={styles.headerText}>
-              <Text style={styles.title}>{t("capture.title")}</Text>
-              <Text style={styles.headerSub}>
-                {t("capture.subtitle")}
-              </Text>
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t("capture.close_a11y")}
-              hitSlop={8}
-              onPress={handleClose}
-              style={styles.closeBtn}
-            >
-              <Ionicons name="close" size={20} color={theme.colors.text} />
-            </Pressable>
-          </View>
-
-          <View style={styles.actionsRow}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={takePhoto}
-              style={({ pressed }) => [styles.captureBtn, pressed && styles.pressed]}
-            >
-              <Ionicons name="camera-outline" size={18} color={theme.colors.onPrimary} />
-              <Text style={styles.captureBtnText}>{t("capture.action.camera")}</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={pickFromLibrary}
-              style={({ pressed }) => [styles.captureBtnAlt, pressed && styles.pressed]}
-            >
-              <Ionicons name="images-outline" size={18} color={theme.colors.text} />
-              <Text style={styles.captureBtnAltText}>{t("capture.action.library")}</Text>
-            </Pressable>
-          </View>
-
-          {entries.length === 0 ? (
-            <View style={styles.emptyState}>
-              <View style={styles.emptyIcon}>
-                <Ionicons name="shirt-outline" size={24} color={theme.colors.text} />
-              </View>
-              <Text style={styles.emptyTitle}>{t("capture.empty.title")}</Text>
-              <Text style={styles.emptyText}>
-                {t("capture.empty.message")}
-              </Text>
-            </View>
-          ) : (
-            <>
-              <View style={styles.listHead}>
-                <Text style={styles.listHeadText}>
-                  {t("capture.list.header", { count: entries.length })}
-                </Text>
-                <Pressable accessibilityRole="button" hitSlop={8} onPress={reset}>
-                  <Text style={styles.clearAll}>{t("capture.clear_all")}</Text>
-                </Pressable>
-              </View>
-              <ScrollView
-                style={styles.itemsList}
-                contentContainerStyle={styles.itemsListContent}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-              >
-                {entries.map((entry, idx) => {
-                  const chosen = Boolean(entry.category);
-                  return (
-                    <View key={entry.id} style={styles.itemCard}>
-                      <View style={styles.itemImageWrap}>
-                        <Image
-                          source={{ uri: activeUri(entry) }}
-                          style={styles.itemImage}
-                          contentFit="cover"
-                          transition={150}
-                        />
-                        <View style={styles.itemIndex}>
-                          <Text style={styles.itemIndexText}>{idx + 1}</Text>
-                        </View>
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={t("capture.remove_a11y")}
-                          hitSlop={6}
-                          style={styles.removeBadge}
-                          onPress={() => removeEntry(idx)}
-                        >
-                          <Ionicons name="close" size={12} color={theme.colors.onPrimary} />
-                        </Pressable>
-                      </View>
-                      <View style={styles.itemBody}>
-                        <Text style={[styles.itemLabel, !chosen && styles.itemLabelMuted]}>
-                          {chosen ? tl("category", entry.category) : t("capture.choose_category")}
-                        </Text>
-                        <IsolationStatus entry={entry} onToggle={() => toggleCutout(idx)} />
-
-                        <ScrollView
-                          horizontal
-                          showsHorizontalScrollIndicator={false}
-                          contentContainerStyle={styles.chipRow}
-                          keyboardShouldPersistTaps="handled"
-                        >
-                          {CATEGORIES.map((cat) => {
-                            const active = entry.category === cat;
-                            return (
-                              <Pressable
-                                key={cat}
-                                accessibilityRole="button"
-                                accessibilityState={{ selected: active }}
-                                style={[styles.chip, active && styles.chipActive]}
-                                onPress={() => setCategory(idx, cat)}
-                              >
-                                {active ? (
-                                  <Ionicons
-                                    name="checkmark"
-                                    size={12}
-                                    color={theme.colors.onPrimary}
-                                  />
-                                ) : null}
-                                <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                                  {tl("category", cat)}
-                                </Text>
-                              </Pressable>
-                            );
-                          })}
-                        </ScrollView>
-                      </View>
-                    </View>
-                  );
-                })}
-              </ScrollView>
-            </>
-          )}
-
-          {entries.length === 0 ? null : (
-            <>
-              <AppButton
-                label={t("capture.save", { count: entries.length })}
-                icon="checkmark"
-                loading={processing}
-                disabled={!allCategorized || isolating}
-                onPress={saveEntries}
-              />
-              <Text style={[styles.hint, { marginBottom: 4 }]}>
-                {isolating
-                  ? t("capture.hint.isolating")
-                  : allCategorized
-                    ? t("capture.hint.ready")
-                    : t("capture.hint.incomplete")}
-              </Text>
-            </>
-          )}
-        </View>
+      <View style={styles.actionsRow}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={takePhoto}
+          style={({ pressed }) => [styles.captureBtn, pressed && styles.pressed]}
+        >
+          <Ionicons name="camera-outline" size={18} color={theme.colors.onPrimary} />
+          <Text style={styles.captureBtnText}>{t("capture.action.camera")}</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          onPress={pickFromLibrary}
+          style={({ pressed }) => [styles.captureBtnAlt, pressed && styles.pressed]}
+        >
+          <Ionicons name="images-outline" size={18} color={theme.colors.text} />
+          <Text style={styles.captureBtnAltText}>{t("capture.action.library")}</Text>
+        </Pressable>
       </View>
-    </Modal>
+
+      {entries.length === 0 ? (
+        <EmptyState
+          compact
+          icon="shirt-outline"
+          title={t("capture.empty.title")}
+          message={t("capture.empty.message")}
+        />
+      ) : (
+        <>
+          <View style={styles.listHead}>
+            <Text style={styles.listHeadText}>
+              {t("capture.list.header", { count: entries.length })}
+            </Text>
+            <Pressable accessibilityRole="button" hitSlop={8} onPress={reset}>
+              <Text style={styles.clearAll}>{t("capture.clear_all")}</Text>
+            </Pressable>
+          </View>
+          <ScrollView
+            style={styles.itemsList}
+            contentContainerStyle={styles.itemsListContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {entries.map((entry, idx) => {
+              const chosen = Boolean(entry.category);
+              return (
+                <View key={entry.id} style={styles.itemCard}>
+                  <View style={styles.itemImageWrap}>
+                    <Image
+                      source={{ uri: activeUri(entry) }}
+                      style={styles.itemImage}
+                      contentFit="cover"
+                      transition={150}
+                    />
+                    <View style={styles.itemIndex}>
+                      <Text style={styles.itemIndexText}>{idx + 1}</Text>
+                    </View>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={t("capture.remove_a11y")}
+                      hitSlop={6}
+                      style={styles.removeBadge}
+                      onPress={() => removeEntry(idx)}
+                    >
+                      <Ionicons name="close" size={12} color={theme.colors.onPrimary} />
+                    </Pressable>
+                  </View>
+                  <View style={styles.itemBody}>
+                    <Text style={[styles.itemLabel, !chosen && styles.itemLabelMuted]}>
+                      {chosen ? tl("category", entry.category) : t("capture.choose_category")}
+                    </Text>
+                    <IsolationStatus entry={entry} onToggle={() => toggleCutout(idx)} />
+
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.chipRow}
+                      keyboardShouldPersistTaps="handled"
+                    >
+                      {CATEGORIES.map((cat) => {
+                        const active = entry.category === cat;
+                        return (
+                          <Pressable
+                            key={cat}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: active }}
+                            style={[styles.chip, active && styles.chipActive]}
+                            onPress={() => setCategory(idx, cat)}
+                          >
+                            {active ? (
+                              <Ionicons
+                                name="checkmark"
+                                size={12}
+                                color={theme.colors.onPrimary}
+                              />
+                            ) : null}
+                            <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                              {tl("category", cat)}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                </View>
+              );
+            })}
+          </ScrollView>
+        </>
+      )}
+    </Sheet>
   );
 }
 
@@ -456,82 +427,7 @@ function IsolationStatus({ entry, onToggle }: { entry: CapturedEntry; onToggle: 
 }
 
 const useStyles = makeStyles((theme) => ({
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.45)",
-    justifyContent: "flex-end",
-  },
-  sheet: {
-    backgroundColor: theme.colors.surface,
-    borderTopLeftRadius: theme.borderRadius.xl,
-    borderTopRightRadius: theme.borderRadius.xl,
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    maxHeight: "88%",
-  },
-  handle: {
-    alignSelf: "center",
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: theme.colors.border,
-    marginBottom: 14,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 16,
-  },
-  headerIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: theme.colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerText: { flex: 1, minWidth: 0 },
-  title: { fontSize: 21, fontWeight: "800", color: theme.colors.text, letterSpacing: -0.3 },
-  headerSub: { fontSize: 12.5, color: theme.colors.textMuted, marginTop: 3, lineHeight: 17 },
-  closeBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: theme.colors.surfaceAlt,
-    alignItems: "center",
-    justifyContent: "center",
-  },
 
-  emptyState: {
-    alignItems: "center",
-    gap: 8,
-    paddingVertical: 26,
-    paddingHorizontal: 16,
-    marginBottom: 4,
-    borderWidth: 1.5,
-    borderStyle: "dashed",
-    borderColor: theme.colors.border,
-    borderRadius: theme.borderRadius.lg,
-    marginTop: 14,
-  },
-  emptyIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
-    backgroundColor: theme.colors.surfaceAlt,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 2,
-  },
-  emptyTitle: { fontSize: 15, fontWeight: "800", color: theme.colors.text },
-  emptyText: {
-    fontSize: 13,
-    color: theme.colors.textMuted,
-    textAlign: "center",
-    lineHeight: 19,
-    maxWidth: 280,
-  },
 
   listHead: {
     flexDirection: "row",
