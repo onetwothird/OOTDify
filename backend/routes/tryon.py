@@ -12,7 +12,7 @@ body photo used to create a job must belong to the same user.
 from __future__ import annotations
 
 import logging
-from typing import List
+from typing import List, Optional
 
 from flask import Blueprint, jsonify, request
 
