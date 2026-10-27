@@ -434,7 +434,7 @@ const useStyles = makeStyles((theme) => ({
     justifyContent: "center",
   },
   monthCenter: { alignItems: "center", flex: 1 },
-  monthLabel: { fontSize: 16, fontWeight: "800", color: theme.colors.text },
+  monthLabel: { fontSize: 16, fontWeight: "700", color: theme.colors.text },
   monthMeta: { fontSize: 11, color: theme.colors.textMuted, marginTop: 1 },
 
   weekRow: { flexDirection: "row", marginBottom: 4 },
@@ -442,7 +442,7 @@ const useStyles = makeStyles((theme) => ({
     width: "14.2857%",
     textAlign: "center",
     fontSize: 11,
-    fontWeight: "700",
+    fontWeight: "600",
     color: theme.colors.textMuted,
   },
 
@@ -462,7 +462,7 @@ const useStyles = makeStyles((theme) => ({
     borderColor: theme.colors.primary,
   },
   dayPlanned: { backgroundColor: theme.colors.primary },
-  dayNum: { fontSize: 12, fontWeight: "700", color: theme.colors.text },
+  dayNum: { fontSize: 12, fontWeight: "600", color: theme.colors.text },
   dayNumPlanned: { color: theme.colors.onPrimary },
 
   thumbPlaceholder: {
@@ -486,7 +486,7 @@ const useStyles = makeStyles((theme) => ({
     borderRadius: theme.borderRadius.pill,
     backgroundColor: theme.colors.surfaceAlt,
   },
-  todayBtnText: { fontSize: 12, fontWeight: "700", color: theme.colors.text },
+  todayBtnText: { fontSize: 12, fontWeight: "600", color: theme.colors.text },
 
   // Picker sheet
   pickerList: { flexShrink: 1 },
@@ -500,7 +500,7 @@ const useStyles = makeStyles((theme) => ({
   },
   pickerRowActive: { backgroundColor: theme.colors.surfaceAlt },
   pickerRowBody: { flex: 1, minWidth: 0 },
-  pickerRowName: { fontSize: 14, fontWeight: "700", color: theme.colors.text },
+  pickerRowName: { fontSize: 14, fontWeight: "600", color: theme.colors.text },
   pickerRowMeta: { fontSize: 12, color: theme.colors.textMuted, marginTop: 2 },
   pickerEmpty: {
     alignItems: "center",
@@ -529,14 +529,14 @@ const useStyles = makeStyles((theme) => ({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: theme.colors.border,
   },
-  clearBtnText: { fontSize: 13, fontWeight: "700", color: theme.colors.danger },
+  clearBtnText: { fontSize: 13, fontWeight: "600", color: theme.colors.danger },
   openBtn: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 13,
     borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.brand,
   },
-  openBtnText: { fontSize: 14, fontWeight: "700", color: theme.colors.onPrimary },
+  openBtnText: { fontSize: 14, fontWeight: "600", color: theme.colors.onPrimary },
 }));
