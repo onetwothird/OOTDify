@@ -115,7 +115,7 @@ const useStyles = makeStyles((theme) => ({
   blob: {
     position: "absolute",
     borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: theme.colors.onPrimaryFaint,
   },
   blobA: { width: 230, height: 230, top: -90, right: -70 },
   blobB: {
@@ -123,7 +123,7 @@ const useStyles = makeStyles((theme) => ({
     height: 150,
     bottom: -60,
     left: -50,
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: theme.colors.onPrimaryFaint,
   },
   back: {
     width: 40,
@@ -131,7 +131,7 @@ const useStyles = makeStyles((theme) => ({
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.14)",
+    backgroundColor: theme.colors.onPrimarySubtle,
   },
   pressed: { opacity: 0.7 },
   brandRow: {
@@ -146,7 +146,7 @@ const useStyles = makeStyles((theme) => ({
     borderRadius: 9,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.16)",
+    backgroundColor: theme.colors.onPrimarySubtle,
   },
   brandName: {
     color: theme.colors.onPrimary,
@@ -163,7 +163,7 @@ const useStyles = makeStyles((theme) => ({
     marginTop: 18,
   },
   heroSubtitle: {
-    color: "rgba(255,255,255,0.72)",
+    color: theme.colors.onPrimaryMuted,
     fontSize: 14.5,
     lineHeight: 21,
     marginTop: 8,

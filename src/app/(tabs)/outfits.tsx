@@ -482,7 +482,7 @@ export default function OutfitsScreen() {
                     disabled={saving}
                   >
                     {saving ? (
-                      <ActivityIndicator color="#FFF" />
+                      <ActivityIndicator color={theme.colors.onPrimary} />
                     ) : (
                       <Text style={styles.saveBtnText}>{t("outfits.builder.save")}</Text>
                     )}

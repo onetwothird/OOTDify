@@ -166,6 +166,8 @@ export const fil: Record<keyof typeof en, string> = {
 
   // Settings
   "settings.section.general": "MGA SETTING",
+  "settings.screen.title": "Mga Setting",
+  "settings.screen.back_a11y": "Bumalik",
   "settings.language": "Wika",
   "settings.appearance": "Hitsura",
   "settings.appearance.system": "Sistema",
@@ -369,6 +371,7 @@ export const fil: Record<keyof typeof en, string> = {
   "home.greeting.morning": "Magandang Umaga",
   "home.greeting.afternoon": "Magandang Hapon",
   "home.greeting.evening": "Magandang Gabi",
+  "home.settings_a11y": "Buksan ang settings",
   "home.location.finding": "Hinahanap ang iyong lokasyon…",
   "home.location.off": "Naka-off ang lokasyon — i-tap para i-enable",
   "home.hero.badge": "Fitguin",

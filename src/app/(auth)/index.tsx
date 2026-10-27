@@ -150,7 +150,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   blob: {
     position: "absolute",
     borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: theme.colors.onPrimaryFaint,
   },
   blobA: { width: 240, height: 240, top: -100, right: -80 },
   blobB: {
@@ -158,7 +158,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     height: 170,
     bottom: -70,
     left: -60,
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: theme.colors.onPrimaryFaint,
   },
   brandRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   brandTile: {
@@ -167,7 +167,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.16)",
+    backgroundColor: theme.colors.onPrimarySubtle,
   },
   brandName: {
     fontSize: 20,
@@ -180,7 +180,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     fontSize: 11,
     fontWeight: "700",
     letterSpacing: 2,
-    color: "rgba(255,255,255,0.62)",
+    color: theme.colors.onPrimaryMuted,
   },
   display: {
     marginTop: 10,
@@ -195,7 +195,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     fontSize: 15,
     lineHeight: 22,
     fontWeight: "400",
-    color: "rgba(255,255,255,0.72)",
+    color: theme.colors.onPrimaryMuted,
     maxWidth: 320,
   },
   body: {

@@ -163,6 +163,8 @@ export const en = {
 
   // Settings
   "settings.section.general": "SETTINGS",
+  "settings.screen.title": "Settings",
+  "settings.screen.back_a11y": "Go back",
   "settings.language": "Language",
   "settings.appearance": "Appearance",
   "settings.appearance.system": "System",
@@ -366,6 +368,7 @@ export const en = {
   "home.greeting.morning": "Good Morning",
   "home.greeting.afternoon": "Good Afternoon",
   "home.greeting.evening": "Good Evening",
+  "home.settings_a11y": "Open settings",
   "home.location.finding": "Finding your location…",
   "home.location.off": "Location off — tap to enable",
   "home.hero.badge": "Fitguin",

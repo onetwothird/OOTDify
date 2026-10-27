@@ -214,6 +214,7 @@ export default function HomeScreen() {
           avatarRef={avatarRef}
           loading={greetingLoading}
           onOpenProfile={() => router.push("/(tabs)/profile")}
+          onOpenSettings={() => router.push("/settings/general")}
         />
 
         <Hero pieceCount={closet.length} lookCount={saved.length} loading={closetLoading || savedLoading} />
@@ -395,11 +396,13 @@ function HomeTopBar({
   avatarRef,
   loading,
   onOpenProfile,
+  onOpenSettings,
 }: {
   nickname: string | null;
   avatarRef: string | null;
   loading: boolean;
   onOpenProfile: () => void;
+  onOpenSettings: () => void;
 }) {
   const { t } = useT();
   const theme = useAppTheme();
@@ -456,6 +459,15 @@ function HomeTopBar({
           </Text>
         </Pressable>
       </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t("home.settings_a11y")}
+        hitSlop={6}
+        onPress={onOpenSettings}
+        style={({ pressed }) => [styles.settingsBtn, pressed && { opacity: 0.7 }]}
+      >
+        <Ionicons name="settings-outline" size={20} color={theme.colors.text} />
+      </Pressable>
       <ProfileAvatar size={40} initial={initial} avatarRef={avatarRef} onPress={onOpenProfile} />
     </Animated.View>
   );
@@ -610,10 +622,11 @@ function Hero({ pieceCount, lookCount, loading }: { pieceCount: number; lookCoun
 
 function StatCell({ icon, value, label }: { icon: keyof typeof Ionicons.glyphMap; value: string; label: string }) {
   const styles = useStyles();
+  const theme = useAppTheme();
   return (
     <View style={styles.statCell}>
       <View style={styles.statValueRow}>
-        <Ionicons name={icon} size={13} color="rgba(255,255,255,0.62)" />
+        <Ionicons name={icon} size={13} color={theme.colors.onPrimaryMuted} />
         <Text style={styles.statValue}>{value}</Text>
       </View>
       <Text style={styles.statLabel}>{label}</Text>
@@ -672,6 +685,16 @@ const useStyles = makeStyles((theme: Theme) => ({
   content: { paddingHorizontal: theme.spacing.page, paddingBottom: 40 },
   topBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: theme.spacing.sm, marginBottom: theme.spacing.xs },
   greetingBody: { flex: 1, minWidth: 0 },
+  settingsBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
   greetingTitle: { fontSize: 20, lineHeight: 26, fontWeight: "800", letterSpacing: -0.4, color: theme.colors.text },
   greetingPlaceRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
   greetingPlace: { flex: 1, minWidth: 0, fontSize: 12, lineHeight: 16, fontWeight: "600", color: theme.colors.textMuted },
@@ -683,9 +706,9 @@ const useStyles = makeStyles((theme: Theme) => ({
   bubbleText: { fontSize: 12.5, lineHeight: 18, fontWeight: "600", color: theme.colors.text, minHeight: 54 },
   bubbleCaret: { color: theme.colors.text, fontWeight: "700" },
   hero: { backgroundColor: theme.colors.surface, borderRadius: 28, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.border, padding: 20, marginTop: theme.spacing.sm, overflow: "hidden", shadowColor: "#000", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.07, shadowRadius: 22, elevation: 4 },
-  heroBlob: { position: "absolute", borderRadius: 999, backgroundColor: "rgba(17,17,17,0.03)" },
+  heroBlob: { position: "absolute", borderRadius: 999, backgroundColor: theme.colors.textFaint },
   heroBlobA: { width: 220, height: 220, top: -110, right: -70 },
-  heroBlobB: { width: 150, height: 150, bottom: 30, right: -70, backgroundColor: "rgba(17,17,17,0.02)" },
+  heroBlobB: { width: 150, height: 150, bottom: 30, right: -70, backgroundColor: theme.colors.textFaint },
   heroTop: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   heroCopy: { flex: 1, minWidth: 0 },
   heroPill: { flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start", backgroundColor: theme.colors.surfaceAlt, borderRadius: theme.borderRadius.pill, paddingHorizontal: 10, paddingVertical: 5 },
@@ -693,12 +716,12 @@ const useStyles = makeStyles((theme: Theme) => ({
   heroTitle: { fontSize: 30, lineHeight: 34, fontWeight: "800", letterSpacing: -0.8, color: theme.colors.text, marginTop: 12 },
   heroText: { fontSize: 13.5, lineHeight: 19, color: theme.colors.textMuted, marginTop: 8 },
   heroStats: { backgroundColor: theme.colors.primary, borderRadius: theme.borderRadius.md, paddingHorizontal: 12, paddingVertical: 11, gap: 9, minWidth: 88 },
-  heroStatDivider: { height: StyleSheet.hairlineWidth, backgroundColor: "rgba(255,255,255,0.18)" },
+  heroStatDivider: { height: StyleSheet.hairlineWidth, backgroundColor: theme.colors.onPrimarySubtle },
   statCell: { gap: 1 },
   statValueRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   statValue: { fontSize: 17, fontWeight: "800", letterSpacing: -0.4, color: theme.colors.onPrimary },
-  statLabel: { fontSize: 9.5, fontWeight: "700", letterSpacing: 0.8, color: "rgba(255,255,255,0.6)" },
-  heroStageBlob: { position: "absolute", bottom: 0, borderRadius: 999, backgroundColor: "rgba(17,17,17,0.05)" },
+  statLabel: { fontSize: 9.5, fontWeight: "700", letterSpacing: 0.8, color: theme.colors.onPrimaryMuted },
+  heroStageBlob: { position: "absolute", bottom: 0, borderRadius: 999, backgroundColor: theme.colors.textFaint },
   heroSpeak: { flexDirection: "row", alignItems: "center", marginTop: 18 },
   heroButtons: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 18 },
   heroBtn: { flexGrow: 1, flexShrink: 1, flexBasis: 150, minWidth: 130 },
