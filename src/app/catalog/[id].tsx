@@ -105,7 +105,7 @@ export default function CatalogDetailScreen() {
           <Ionicons
             name={fav ? "heart" : "heart-outline"}
             size={22}
-            color={fav ? theme.colors.primary : theme.colors.textMuted}
+            color={fav ? theme.colors.brand : theme.colors.textMuted}
           />
         </Pressable>
       </View>
@@ -138,7 +138,7 @@ export default function CatalogDetailScreen() {
             <MetaList title={t("catalog.meta.occasions")} values={item.occasion} translatePrefix="occasion" />
 
             <Pressable accessibilityRole="button" style={styles.tryonBtn} onPress={tryItOn}>
-              <Ionicons name="sparkles-outline" size={18} color={theme.colors.onPrimary} />
+              <Ionicons name="sparkles-outline" size={18} color={theme.colors.onBrand} />
               <Text style={styles.tryonBtnText}>{t("catalog.action.try_on")}</Text>
             </Pressable>
             <Text style={styles.tryonHint}>
@@ -217,6 +217,6 @@ const useStyles = makeStyles((theme: Theme) => ({
     paddingVertical: 15,
     marginTop: 4,
   },
-  tryonBtnText: { color: theme.colors.onPrimary, fontWeight: "600", fontSize: 15 },
+  tryonBtnText: { color: theme.colors.onBrand, fontWeight: "600", fontSize: 15 },
   tryonHint: { fontSize: 11.5, color: theme.colors.textMuted, textAlign: "center" },
 }));
