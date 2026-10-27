@@ -84,7 +84,6 @@ const TRADEMARKS: { name: string; noteKey: TranslationKey }[] = [
   { name: "React Native", noteKey: "settings.about_screen.trademarks.react_native" },
   { name: "Supabase", noteKey: "settings.about_screen.trademarks.supabase" },
   { name: "Ionicons", noteKey: "settings.about_screen.trademarks.ionicons" },
-  { name: "Inter", noteKey: "settings.about_screen.trademarks.inter" },
 ];
 
 export default function AboutScreen() {
@@ -353,7 +352,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     paddingBottom: 8,
   },
   navBtn: { padding: 6 },
-  navTitle: { fontSize: 15, fontWeight: "800", color: theme.colors.text },
+  navTitle: { fontSize: 15, fontWeight: "700", color: theme.colors.text },
   content: { paddingHorizontal: 16, paddingTop: 4, gap: 14 },
 
   appCard: {
@@ -375,7 +374,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     justifyContent: "center",
   },
   appBody: { flex: 1, minWidth: 0 },
-  appName: { fontSize: 20, fontWeight: "900", letterSpacing: -0.4, color: theme.colors.text },
+  appName: { fontSize: 20, fontWeight: "700", letterSpacing: -0.4, color: theme.colors.text },
   appVersion: { fontSize: 12.5, color: theme.colors.textMuted, marginTop: 2 },
 
   segment: {
@@ -396,7 +395,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     borderRadius: theme.borderRadius.sm,
   },
   segmentItemActive: { backgroundColor: theme.colors.primary },
-  segmentText: { fontSize: 11.5, fontWeight: "700", color: theme.colors.textMuted },
+  segmentText: { fontSize: 11.5, fontWeight: "600", color: theme.colors.textMuted },
   segmentTextActive: { color: theme.colors.onPrimary },
 
   card: {
@@ -417,7 +416,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     alignItems: "center",
     justifyContent: "center",
   },
-  sectionTitle: { fontSize: 15, fontWeight: "800", color: theme.colors.text },
+  sectionTitle: { fontSize: 15, fontWeight: "700", color: theme.colors.text },
   body: { fontSize: 13.5, lineHeight: 20, color: theme.colors.text },
   smallNote: { fontSize: 11.5, lineHeight: 17, color: theme.colors.textMuted },
   outerNote: { paddingHorizontal: 4 },
@@ -440,7 +439,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  versionBadgeText: { fontSize: 12, fontWeight: "800", color: theme.colors.onPrimary },
+  versionBadgeText: { fontSize: 12, fontWeight: "700", color: theme.colors.onPrimary },
   noteDate: { fontSize: 12, fontWeight: "600", color: theme.colors.textMuted },
   noteList: { gap: 10 },
   bulletRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
@@ -457,8 +456,8 @@ const useStyles = makeStyles((theme: Theme) => ({
     alignItems: "center",
     justifyContent: "center",
   },
-  tmTileText: { fontSize: 15, fontWeight: "900", color: theme.colors.text },
+  tmTileText: { fontSize: 15, fontWeight: "700", color: theme.colors.text },
   tmBody: { flex: 1, minWidth: 0, gap: 2 },
-  tmName: { fontSize: 14.5, fontWeight: "800", color: theme.colors.text },
+  tmName: { fontSize: 14.5, fontWeight: "700", color: theme.colors.text },
   tmNote: { fontSize: 12.5, lineHeight: 17, color: theme.colors.textMuted },
 }));
