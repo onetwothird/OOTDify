@@ -21,7 +21,7 @@ import {
 import { SavedOutfit } from "../../clothing/service";
 import { theme as staticTheme } from "../../../shared/config/theme";
 import { makeStyles } from "../../../shared/theme/makeStyles";
-import { useAppTheme } from "../../../shared/theme/ThemeProvider";
+import { useAppTheme, useThemeState } from "../../../shared/theme/ThemeProvider";
 import { useT } from "../../../shared/i18n/useT";
 import { resolveMediaUrl } from "../../../shared/lib/storageUrl";
 import { fetchClothingImageRefs, OutfitPlan } from "../planner";
@@ -52,6 +52,7 @@ export function TodayLookCard({
   onPlanLook,
 }: Props) {
   const styles = useStyles();
+  const { scheme } = useThemeState();
   const theme = useAppTheme();
   const { t, locale } = useT();
   const planned = Boolean(plan?.outfit_id);
@@ -64,10 +65,16 @@ export function TodayLookCard({
   return (
     <GlassView
       glassEffectStyle="regular"
-      // Force a light material so the near-black type stays readable over the
-      // light hero card it sits beneath.
-      tintColor={LIQUID_GLASS ? "rgba(255,255,255,0.82)" : undefined}
-      colorScheme="light"
+      // Material follows the app theme so the card's theme-coloured type stays
+      // readable: light glass under dark ink, dark glass under light ink.
+      tintColor={
+        LIQUID_GLASS
+          ? scheme === "dark"
+            ? "rgba(26,26,26,0.82)"
+            : "rgba(255,255,255,0.82)"
+          : undefined
+      }
+      colorScheme={scheme}
       style={[styles.card, !LIQUID_GLASS && styles.cardFallback]}
     >
       <View style={styles.head}>
