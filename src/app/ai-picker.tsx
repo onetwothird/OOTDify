@@ -31,6 +31,8 @@ import { Skeleton } from "../shared/components/Skeleton";
 import { useAppTheme } from "../shared/theme/ThemeProvider";
 import { makeStyles } from "../shared/theme/makeStyles";
 import type { Theme } from "../shared/config/theme";
+import { useCaptureModalStore } from "../features/capture/captureModalStore";
+import { pieceHref } from "../features/clothing/pieces";
 import { useT } from "../shared/i18n/useT";
 import type { TranslationKey } from "../shared/i18n/translate";
 import { toast } from "../shared/lib/toast";
@@ -160,8 +162,9 @@ export default function AiPickerScreen() {
     [router, t],
   );
 
+  const openCapture = useCaptureModalStore((s) => s.open);
   const openItem = useCallback(
-    (id: string) => router.push(`/catalog/${id}`),
+    (id: string) => router.push(pieceHref({ id, source: "closet" })),
     [router],
   );
 
@@ -288,14 +291,14 @@ export default function AiPickerScreen() {
         ) : outfits.length === 0 ? (
           <EmptyState
             icon="shirt-outline"
-            title={pool === 0 ? t("ai_picker.empty.title_catalog") : t("ai_picker.empty.title_combo")}
+            title={pool === 0 ? t("ai_picker.empty.title_closet") : t("ai_picker.empty.title_combo")}
             message={
               pool === 0
-                ? t("ai_picker.empty.message_catalog")
+                ? t("ai_picker.empty.message_closet")
                 : t("ai_picker.empty.message_combo")
             }
-            actionLabel={t("ai_picker.try_again")}
-            onAction={() => void generate()}
+            actionLabel={pool === 0 ? t("home.action.capture") : t("ai_picker.try_again")}
+            onAction={pool === 0 ? openCapture : () => void generate()}
           />
         ) : (
           <View style={styles.lookList}>
