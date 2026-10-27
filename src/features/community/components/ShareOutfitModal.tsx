@@ -261,7 +261,7 @@ export function ShareOutfitModal({
               <Ionicons
                 name={active ? "checkmark-circle" : "ellipse-outline"}
                 size={22}
-                color={active ? theme.colors.primary : theme.colors.border}
+                color={active ? theme.colors.brand : theme.colors.border}
               />
             </Pressable>
           );
@@ -288,7 +288,7 @@ const useStyles = makeStyles((theme) => ({
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface,
   },
-  outfitRowActive: { borderColor: theme.colors.primary, borderWidth: 1.5 },
+  outfitRowActive: { borderColor: theme.colors.brand, borderWidth: 1.5 },
   thumbs: { flexDirection: "row", gap: 4 },
   thumb: {
     width: 38,
