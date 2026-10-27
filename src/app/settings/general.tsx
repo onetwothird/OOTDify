@@ -1,12 +1,13 @@
 // C:\OOTDify\src\app\settings\general.tsx
 // Standalone Settings screen (appearance, language, security, help, backup,
-// about), opened from the gear button in the Home header. The same
-// SettingsSection is also shown inside Profile.
+// about, then AI status, privacy and sign out), opened from the gear on Home
+// and on the profile page.
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { AccountSection } from "../../features/settings/AccountSection";
 import { SettingsSection } from "../../features/settings/SettingsSection";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
@@ -41,6 +42,7 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <SettingsSection />
+        <AccountSection />
       </ScrollView>
     </View>
   );
