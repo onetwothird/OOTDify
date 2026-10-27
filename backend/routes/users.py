@@ -41,7 +41,11 @@ _PROFILE_FIELDS = (
     "sizes",
     "preferred_categories",
     "preferred_occasions",
+    "bio",
 )
+
+# Short, Facebook-style intro shown on the profile page.
+BIO_MAX_LENGTH = 160
 
 
 # --------------------------------------------------------------------------
@@ -120,6 +124,17 @@ def update_profile_route():
 
     if not allowed:
         return jsonify(success=False, error="No valid profile fields provided."), 400
+
+    if "bio" in allowed:
+        bio = allowed["bio"]
+        if bio is not None and not isinstance(bio, str):
+            return jsonify(success=False, error="Bio must be text."), 400
+        bio = (bio or "").strip()
+        if len(bio) > BIO_MAX_LENGTH:
+            return jsonify(
+                success=False, error=f"Keep your bio to {BIO_MAX_LENGTH} characters."
+            ), 400
+        allowed["bio"] = bio or None
 
     # Ensure a row exists, then update it.
     ensure_profile(user["id"])

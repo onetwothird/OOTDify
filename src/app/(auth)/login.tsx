@@ -15,6 +15,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppButton } from "../../shared/components/AppButton";
 import { AuthCard, AuthHero } from "../../shared/components/AuthShell";
+import { Pinstripes } from "../../shared/components/ClothesRail";
 import { FormField } from "../../shared/components/FormField";
 import { OAuthButtons } from "../../shared/components/OAuthButtons";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
@@ -96,6 +97,7 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.screen}>
+      <Pinstripes />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.flex}

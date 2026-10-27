@@ -62,6 +62,30 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 }
 
 /**
+ * Pins a subtree to one scheme regardless of the Appearance setting (the auth
+ * screens are always light). Everything below reads the forced palette.
+ */
+export function ForcedSchemeProvider({
+  scheme,
+  children,
+}: {
+  scheme: ResolvedScheme;
+  children: ReactNode;
+}) {
+  const parent = useContext(ThemeContext);
+  const value = useMemo<ThemeContextValue>(
+    () => ({
+      theme: themeForScheme(scheme),
+      scheme,
+      preference: parent?.preference ?? "system",
+      ready: parent?.ready ?? true,
+    }),
+    [scheme, parent?.preference, parent?.ready],
+  );
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+}
+
+/**
  * The active palette. Every themed component calls this instead of importing
  * the static `theme`, so it re-renders when the palette changes.
  */

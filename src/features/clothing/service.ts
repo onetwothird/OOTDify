@@ -5,6 +5,7 @@
 // the catalog itself is readable by any authenticated user.
 
 import { formFile } from "../../shared/lib/formFile";
+import { shrinkForUpload } from "../../shared/lib/shrinkImage";
 import { supabase } from "../../shared/lib/supabase";
 import { OutfitPiece, orderPieces } from "./pieces";
 import { CatalogItem, ClothingItem } from "./types";
@@ -271,9 +272,13 @@ export async function uploadToWardrobeBucket(
   const uid = await currentUserId();
   if (!uid) throw new Error("Not signed in");
   const path = `${uid}/${Date.now()}-${name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+  // Full-size camera photos can exceed the bucket's 10 MB limit, which RN
+  // reports as a dropped connection. shrinkForUpload re-encodes to JPEG.
+  const upload = await shrinkForUpload(uri);
+  const type = upload === uri ? mime : "image/jpeg";
   const { data, error } = await supabase.storage
     .from("wardrobe")
-    .upload(path, formFile(uri, name, mime), { contentType: mime });
+    .upload(path, formFile(upload, name, type), { contentType: type });
   if (error) throw error;
   // Store the private ref (bucket/uid/name) — resolved to a signed URL to render.
   return `wardrobe/${data.path}`;

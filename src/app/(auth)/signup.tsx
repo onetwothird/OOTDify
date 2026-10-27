@@ -35,6 +35,7 @@ import { markOnboardingPending } from "../../features/profile/onboarding";
 import { ProfileAvatar } from "../../features/profile/ProfileAvatar";
 import { AppButton } from "../../shared/components/AppButton";
 import { AuthCard, AuthHero } from "../../shared/components/AuthShell";
+import { Pinstripes } from "../../shared/components/ClothesRail";
 import { FormField } from "../../shared/components/FormField";
 import { OAuthButtons } from "../../shared/components/OAuthButtons";
 import { PRIVACY_ROUTE, TERMS_ROUTE, TERMS_VERSION } from "../../shared/config/legal";
@@ -43,6 +44,7 @@ import { makeStyles } from "../../shared/theme/makeStyles";
 import type { Theme } from "../../shared/config/theme";
 import { useT } from "../../shared/i18n/useT";
 import { signInWithFacebook, signInWithGoogle } from "../../shared/lib/oauth";
+import { withAuthRedirectHeld } from "../../shared/lib/authRedirectHold";
 import { supabase } from "../../shared/lib/supabase";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -155,16 +157,25 @@ export default function SignupScreen() {
 
     setLoading(true);
     setError(null);
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-      options: {
-        data: {
-          full_name: fullName.trim(),
-          terms_version: TERMS_VERSION,
-          terms_accepted_at: new Date().toISOString(),
+    // Signing up must NOT sign you in. When email confirmation is off, Supabase
+    // returns a live session from signUp — drop it so creating an account and
+    // entering it stay separate steps, exactly as the copy below says. `local`
+    // scope clears this device only; other devices are untouched. The hold
+    // keeps the root auth gate from navigating on that momentary session.
+    const signUpError = await withAuthRedirectHeld(async () => {
+      const { data, error: err } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          data: {
+            full_name: fullName.trim(),
+            terms_version: TERMS_VERSION,
+            terms_accepted_at: new Date().toISOString(),
+          },
         },
-      },
+      });
+      if (!err && data.session) await supabase.auth.signOut({ scope: "local" });
+      return err;
     });
 
     if (signUpError) {
@@ -172,14 +183,6 @@ export default function SignupScreen() {
       // Nothing is remembered for an account that was never created.
       setError(signUpError.message);
       return;
-    }
-
-    // Signing up must NOT sign you in. When email confirmation is off, Supabase
-    // returns a live session from signUp — drop it so creating an account and
-    // entering it stay separate steps, exactly as the copy below says. `local`
-    // scope clears this device only; other devices are untouched.
-    if (signUpData.session) {
-      await supabase.auth.signOut({ scope: "local" });
     }
     setLoading(false);
 
@@ -243,6 +246,7 @@ export default function SignupScreen() {
 
   return (
     <View style={styles.screen}>
+      <Pinstripes />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.flex}
