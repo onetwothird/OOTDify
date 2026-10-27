@@ -16,7 +16,7 @@ import { Paths, File } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
@@ -26,26 +26,33 @@ import {
   parseBackup,
   serializeBackup,
 } from "../../features/settings/backup";
-import { theme } from "../../shared/config/theme";
+import { makeStyles } from "../../shared/theme/makeStyles";
+import { useAppTheme } from "../../shared/theme/ThemeProvider";
+import type { Theme } from "../../shared/config/theme";
+import { useT } from "../../shared/i18n/useT";
+import type { TranslationKey } from "../../shared/i18n/translate";
 import { toast } from "../../shared/lib/toast";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
-const INCLUDED: { icon: IconName; text: string }[] = [
-  { icon: "options-outline", text: "Settings — language, appearance, biometric unlock" },
-  { icon: "camera-outline", text: "Camera permission consent" },
-  { icon: "person-circle-outline", text: "Pending avatar change info" },
+const INCLUDED: { icon: IconName; key: TranslationKey }[] = [
+  { icon: "options-outline", key: "settings.backup_screen.included.settings" },
+  { icon: "camera-outline", key: "settings.backup_screen.included.consent" },
+  { icon: "person-circle-outline", key: "settings.backup_screen.included.avatar" },
 ];
 
-const EXCLUDED: { icon: IconName; text: string }[] = [
-  { icon: "shirt-outline", text: "Wardrobe items and photos" },
-  { icon: "sparkles-outline", text: "Saved looks and try-ons" },
-  { icon: "cloud-outline", text: "Anything tied to your account" },
+const EXCLUDED: { icon: IconName; key: TranslationKey }[] = [
+  { icon: "shirt-outline", key: "settings.backup_screen.excluded.wardrobe" },
+  { icon: "sparkles-outline", key: "settings.backup_screen.excluded.looks" },
+  { icon: "cloud-outline", key: "settings.backup_screen.excluded.account" },
 ];
 
 export default function BackupScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const styles = useStyles();
+  const theme = useAppTheme();
+  const { t } = useT();
 
   const [exporting, setExporting] = useState(false);
   const [restoring, setRestoring] = useState(false);
@@ -65,8 +72,8 @@ export default function BackupScreen() {
       const canShare = await Sharing.isAvailableAsync();
       if (!canShare) {
         toast.error(
-          "Sharing unavailable",
-          "This device can't open the share sheet, so the file was kept in app storage only. Try again on a device with sharing support.",
+          t("settings.backup_screen.error.sharing_unavailable.title"),
+          t("settings.backup_screen.error.sharing_unavailable.message"),
         );
         return;
       }
@@ -77,13 +84,13 @@ export default function BackupScreen() {
       });
       setLastExportAt(new Date().toISOString());
       toast.success(
-        "Backup exported",
-        `${Object.keys(entries).length} entries saved — choose where to keep the file.`,
+        t("settings.backup_screen.success.exported.title"),
+        t("settings.backup_screen.success.exported.message", { count: Object.keys(entries).length }),
       );
     } catch (e) {
       toast.error(
-        "Export failed",
-        e instanceof Error ? e.message : "Could not write the backup file.",
+        t("settings.backup_screen.error.export_failed.title"),
+        e instanceof Error ? e.message : t("settings.backup_screen.error.export_failed.message_default"),
       );
     } finally {
       setExporting(false);
@@ -104,13 +111,13 @@ export default function BackupScreen() {
       const backup = parseBackup(text); // throws with a readable message
       const count = await applyBackup(backup);
       toast.success(
-        "Backup restored",
-        `${count} entries written. Restart OOTDify so saved preferences reload.`,
+        t("settings.backup_screen.success.restored.title"),
+        t("settings.backup_screen.success.restored.message", { count }),
       );
     } catch (e) {
       toast.error(
-        "Restore failed",
-        e instanceof Error ? e.message : "Could not restore that file.",
+        t("settings.backup_screen.error.restore_failed.title"),
+        e instanceof Error ? e.message : t("settings.backup_screen.error.restore_failed.message_default"),
       );
     } finally {
       setRestoring(false);
@@ -128,35 +135,33 @@ export default function BackupScreen() {
         >
           <Ionicons name="arrow-back" size={22} color={theme.colors.text} />
         </Pressable>
-        <Text style={styles.navTitle}>Backup</Text>
+        <Text style={styles.navTitle}>{t("settings.backup_screen.title")}</Text>
         <View style={{ width: 34 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.intro}>
-          Export the data OOTDify keeps on this device to a file you control,
-          or restore that file later on this or another device.
+          {t("settings.backup_screen.intro")}
         </Text>
 
         {/* ---------------------------------------------------------- Export */}
         <View style={styles.card}>
           <View style={styles.cardTitleRow}>
             <Ionicons name="cloud-upload-outline" size={18} color={theme.colors.primary} />
-            <Text style={styles.cardTitle}>Export backup</Text>
+            <Text style={styles.cardTitle}>{t("settings.backup_screen.export.title")}</Text>
           </View>
           <Text style={styles.cardHint}>
-            Writes a JSON file and opens the share sheet so you can save it to
-            Files, Drive, or anywhere you like.
+            {t("settings.backup_screen.export.hint")}
           </Text>
           <AppActionRow
-            label="Export to a file"
+            label={t("settings.backup_screen.export.action")}
             icon="download-outline"
             loading={exporting}
             onPress={() => void runExport()}
           />
           {lastExportAt ? (
             <Text style={styles.metaLine}>
-              Last export: {new Date(lastExportAt).toLocaleString()}
+              {t("settings.backup_screen.export.last", { date: new Date(lastExportAt).toLocaleString() })}
             </Text>
           ) : null}
         </View>
@@ -165,14 +170,13 @@ export default function BackupScreen() {
         <View style={styles.card}>
           <View style={styles.cardTitleRow}>
             <Ionicons name="cloud-download-outline" size={18} color={theme.colors.primary} />
-            <Text style={styles.cardTitle}>Restore backup</Text>
+            <Text style={styles.cardTitle}>{t("settings.backup_screen.restore.title")}</Text>
           </View>
           <Text style={styles.cardHint}>
-            Pick a previously exported OOTDify backup. It&apos;s validated first —
-            a wrong or newer file is rejected instead of half-applied.
+            {t("settings.backup_screen.restore.hint")}
           </Text>
           <AppActionRow
-            label="Choose a backup file"
+            label={t("settings.backup_screen.restore.action")}
             icon="folder-open-outline"
             loading={restoring}
             onPress={() => void runRestore()}
@@ -180,29 +184,28 @@ export default function BackupScreen() {
         </View>
 
         {/* -------------------------------------------------------- What's in it */}
-        <Text style={styles.sectionLabel}>WHAT&apos;S INCLUDED</Text>
+        <Text style={styles.sectionLabel}>{t("settings.backup_screen.included.label")}</Text>
         <View style={styles.card}>
           {INCLUDED.map((row) => (
-            <View key={row.text} style={styles.scopeRow}>
+            <View key={row.key} style={styles.scopeRow}>
               <Ionicons name={row.icon} size={17} color={theme.colors.success} />
-              <Text style={styles.scopeText}>{row.text}</Text>
+              <Text style={styles.scopeText}>{t(row.key)}</Text>
             </View>
           ))}
         </View>
 
-        <Text style={styles.sectionLabel}>WHAT&apos;S NOT — IT LIVES IN YOUR ACCOUNT</Text>
+        <Text style={styles.sectionLabel}>{t("settings.backup_screen.excluded.label")}</Text>
         <View style={styles.card}>
           {EXCLUDED.map((row) => (
-            <View key={row.text} style={styles.scopeRow}>
+            <View key={row.key} style={styles.scopeRow}>
               <Ionicons name={row.icon} size={17} color={theme.colors.textMuted} />
               <Text style={[styles.scopeText, { color: theme.colors.textMuted }]}>
-                {row.text}
+                {t(row.key)}
               </Text>
             </View>
           ))}
           <Text style={styles.cardHint}>
-            Account data is stored in the cloud under your sign-in. Use
-            Privacy &amp; Data in Profile to manage or delete it.
+            {t("settings.backup_screen.excluded.note")}
           </Text>
         </View>
       </ScrollView>
@@ -221,6 +224,8 @@ function AppActionRow({
   loading?: boolean;
   onPress: () => void;
 }) {
+  const styles = useStyles();
+  const theme = useAppTheme();
   return (
     <Pressable
       accessibilityRole="button"
@@ -239,7 +244,7 @@ function AppActionRow({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme: Theme) => ({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   navRow: {
     flexDirection: "row",
@@ -255,7 +260,7 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 0.5,
     borderColor: theme.colors.border,
     padding: 16,
     gap: 12,
@@ -284,4 +289,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
   },
   actionLabel: { fontSize: 13.5, fontWeight: "800", color: theme.colors.onPrimary },
-});
+}));
