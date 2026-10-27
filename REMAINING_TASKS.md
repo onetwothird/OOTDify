@@ -1,6 +1,6 @@
 # OOTDify — Remaining Tasks
 
-> Hand-off notes so work can resume later. Last updated 2026-10-27.
+> Hand-off notes so work can resume later. Last updated 2026-10-28.
 > The detailed plan for each feature lives in [FEATURE_GUIDE.md](./FEATURE_GUIDE.md);
 > repo rules live in [AGENTS.md](./AGENTS.md).
 
@@ -14,6 +14,57 @@
 Verification on that branch: `npx tsc --noEmit` clean, `npm test` 44/44, backend
 `pytest` 80/80, Android bundle builds (`npx expo export --platform android`).
 Not yet checked on a real phone.
+
+## 0. Phone push notifications: finish the setup (do this next)
+
+The in-app bell, inbox and live banners already work. Only notifications to a
+closed phone need these steps. All migrations, including
+`20261028150000_notifications.sql`, are already applied on Supabase.
+
+Already done: `eas-cli` installed globally, `com.ootdify.app` set as the
+Android package and iOS bundle identifier in `app.json`, `eas.json` build
+profiles added, `expo-dev-client` installed.
+
+### Expo
+- [ ] `eas login` (free account at expo.dev).
+- [ ] `eas init`, answering "yes" to create the project. It writes
+      `extra.eas.projectId` into `app.json`; without it the app reports
+      "Phone notifications aren't set up yet".
+
+### Firebase (console.firebase.google.com)
+- [ ] Add a project.
+- [ ] Add an **Android app** with the package name `com.ootdify.app`.
+- [ ] Download `google-services.json` into the repo root, then add
+      `"googleServicesFile": "./google-services.json"` inside `"android"` in `app.json`.
+- [ ] Project settings → Service accounts → **Generate new private key**.
+      Keep that file **outside** the repo; it is a secret.
+
+### Hand the Firebase key to Expo
+- [ ] `eas credentials` → Android → `development` → **Push Notifications: FCM V1**
+      → upload the private key file.
+
+### Build and install
+- [ ] `eas build --profile development --platform android` (about 15 min).
+- [ ] Install from the link on the phone, run `npx expo start`, open the app
+      and allow notifications. Expo Go can't receive push on Android.
+
+### Test on the phone
+- [ ] Settings → Notification settings says "Phone notifications are on".
+- [ ] With the app closed, from a second account: send a message, a friend
+      request, a heart and a comment on My Day. Each should arrive as a push.
+- [ ] Do not disturb (Friends tab → your status) and quiet hours hold push
+      back, but the inbox still fills.
+
+### If something is wrong
+- **"Not set up yet"**: `extra.eas.projectId` is missing, so run `eas init` again.
+- **"Off"**: allow notifications for OOTDify in the phone's settings.
+- **App opens but no push arrives**: the FCM V1 key is missing, so re-run `eas credentials`.
+
+### Then
+- [ ] Commit your mascot work: `src/shared/components/Mascot.tsx`, the
+      `mascot-penguin.png` → `mascot-penguins.png` rename, and the
+      `CLAUDE.md` title fix ("# CLAUDE.m\nd").
+- [ ] `git push origin main` (local `main` is about 190 commits ahead).
 
 ## 1. Merge and check the open branch
 
