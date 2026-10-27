@@ -335,7 +335,7 @@ export default function HomeScreen() {
         initial={(nickname?.[0] ?? "").toUpperCase()}
         avatarRef={avatarRef}
         onChanged={setAvatarRef}
-        onOpenProfile={() => router.push("/(tabs)/profile")}
+        onOpenProfile={() => router.push("/me")}
         onClose={() => setPhotoSheetOpen(false)}
       />
     </View>
