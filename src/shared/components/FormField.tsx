@@ -72,7 +72,7 @@ const useStyles = makeStyles((theme) => ({
   wrap: { marginBottom: theme.spacing.md },
   label: {
     fontSize: 13,
-    fontWeight: "700",
+    fontWeight: "600",
     color: theme.colors.text,
     marginBottom: 6,
     marginLeft: 2,
