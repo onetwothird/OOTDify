@@ -18,10 +18,11 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import type { OutfitPiece } from "../../features/clothing/pieces";
 import { CatalogItem, OCCASIONS } from "../../features/clothing/types";
 import {
   deleteSavedOutfit,
-  fetchCatalog,
+  fetchOutfitPieces,
   fetchSavedOutfits,
   insertSavedOutfit,
   SavedOutfit,
@@ -70,7 +71,7 @@ export default function OutfitsScreen() {
   const [savedLoading, setSavedLoading] = useState(true);
   const [savedError, setSavedError] = useState<string | null>(null);
   // clothing_id -> real catalog row, so saved outfits can show item thumbnails.
-  const [catalogById, setCatalogById] = useState<Record<string, CatalogItem>>({});
+  const [piecesById, setPiecesById] = useState<Record<string, OutfitPiece>>({});
 
   // Builder state
   const [builderMode, setBuilderMode] = useState(false);
@@ -119,20 +120,20 @@ export default function OutfitsScreen() {
       .catch(() => {});
   }, [fetchSavedRows]);
 
-  // Hydrate the real catalog rows referenced by saved outfits so each look can
-  // show its actual item thumbnails. Failures are non-fatal: rows fall back to
-  // the icon when the catalog lookup fails — nothing is faked.
+  // Hydrate the real pieces (closet items, or legacy catalog rows) referenced
+  // by saved outfits so each look can show its actual item thumbnails.
+  // Failures are non-fatal: rows fall back to the icon — nothing is faked.
   useEffect(() => {
     const ids = Array.from(new Set(saved.flatMap((o) => o.clothing_ids ?? [])));
     if (!ids.length) return;
     let cancelled = false;
     void (async () => {
       try {
-        const items = await fetchCatalog({ ids, limit: ids.length });
+        const pieces = await fetchOutfitPieces(ids);
         if (cancelled) return;
-        const map: Record<string, CatalogItem> = {};
-        for (const item of items) map[item.id] = item;
-        setCatalogById((prev) => ({ ...prev, ...map }));
+        const map: Record<string, OutfitPiece> = {};
+        for (const piece of pieces) map[piece.id] = piece;
+        setPiecesById((prev) => ({ ...prev, ...map }));
       } catch {
         // Non-fatal: saved looks still render with the fallback icon.
       }
@@ -375,7 +376,7 @@ export default function OutfitsScreen() {
                     <SavedOutfitRow
                       key={o.id}
                       outfit={o}
-                      thumbnails={thumbnailsFor(o, catalogById)}
+                      thumbnails={thumbnailsFor(o, piecesById)}
                       onPress={() => router.push(`/outfit/${o.id}`)}
                       onDelete={() => removeOutfit(o.id)}
                     />
@@ -386,7 +387,7 @@ export default function OutfitsScreen() {
                       <SavedOutfitCard
                         key={o.id}
                         outfit={o}
-                        thumbnails={thumbnailsFor(o, catalogById)}
+                        thumbnails={thumbnailsFor(o, piecesById)}
                         width={gridCardWidth}
                         onPress={() => router.push(`/outfit/${o.id}`)}
                         onDelete={() => removeOutfit(o.id)}
@@ -505,17 +506,16 @@ export default function OutfitsScreen() {
 
 /**
  * First few real thumbnails for a saved look, in the outfit's own item order.
- * Falls back to [] when the catalog rows are unavailable.
+ * Falls back to [] when the pieces are unavailable.
  */
 function thumbnailsFor(
   outfit: SavedOutfit,
-  catalog: Record<string, CatalogItem>,
+  pieces: Record<string, OutfitPiece>,
   max = 4,
 ): string[] {
   const urls: string[] = [];
   for (const id of outfit.clothing_ids ?? []) {
-    const item = catalog[id];
-    const url = item?.thumbnail_url || item?.image_url;
+    const url = pieces[id]?.image_url;
     if (url) urls.push(url);
     if (urls.length >= max) break;
   }
