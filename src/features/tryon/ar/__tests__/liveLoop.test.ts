@@ -3,8 +3,10 @@ import {
   createLiveLoop,
   FAILURE_BACKOFF_MS,
   LiveLoopState,
+  liveStateFor,
   LOOP_IDLE_MS,
   nextLoopDelay,
+  serializeCalls,
 } from "../liveLoop";
 
 const pose = (x: number): LivePose => ({
@@ -170,5 +172,58 @@ describe("createLiveLoop", () => {
     await flush();
     expect(onState).not.toHaveBeenCalled();
     expect(captures).toBe(1);
+  });
+});
+
+describe("serializeCalls", () => {
+  it("starts the next call only after the previous one settles", async () => {
+    const releases: (() => void)[] = [];
+    let started = 0;
+    const capture = serializeCalls(
+      () =>
+        new Promise<string>((resolve) => {
+          started++;
+          releases.push(() => resolve(`frame-${started}`));
+        }),
+    );
+    const first = capture();
+    const second = capture();
+    await flush();
+    expect(started).toBe(1);
+    releases[0]();
+    await expect(first).resolves.toBe("frame-1");
+    await flush();
+    expect(started).toBe(2);
+    releases[1]();
+    await expect(second).resolves.toBe("frame-2");
+  });
+
+  it("is not blocked by a failed call", async () => {
+    let calls = 0;
+    const capture = serializeCalls(async () => {
+      calls++;
+      if (calls === 1) throw new Error("camera busy");
+      return "ok";
+    });
+    await expect(capture()).rejects.toThrow("camera busy");
+    await expect(capture()).resolves.toBe("ok");
+  });
+});
+
+describe("liveStateFor", () => {
+  const state: LiveLoopState = { pose: pose(0.5), failureStreak: 0, lost: false, rateLimited: false, signedOut: false };
+
+  it("returns the stored state for the same session key", () => {
+    expect(liveStateFor({ key: "front", state }, "front")).toBe(state);
+  });
+
+  it("drops the pose taken with the other camera", () => {
+    expect(liveStateFor({ key: "front", state }, "back")).toEqual({
+      pose: null,
+      failureStreak: 0,
+      lost: false,
+      rateLimited: false,
+      signedOut: false,
+    });
   });
 });
