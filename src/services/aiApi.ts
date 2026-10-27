@@ -430,6 +430,36 @@ async function uploadProfileImage(
   return p.profile;
 }
 
+/** A room's icon after an upload: a photo URL replaces any preset. */
+export interface RoomIcon {
+  iconUrl: string | null;
+  iconPreset: string | null;
+}
+
+/** Host a community room's photo on Cloudinary; only its creator may. */
+export async function uploadRoomIcon(
+  roomId: string,
+  photoUri: string,
+  timeoutMs = API_AI_TIMEOUT_MS,
+): Promise<RoomIcon> {
+  const formData = new FormData();
+  formData.append("image", uploadPart(await shrinkForUpload(photoUri)));
+
+  const payload = (await apiRequest<unknown>(
+    `/api/community/rooms/${encodeURIComponent(roomId)}/icon`,
+    { method: "POST", body: formData },
+    { timeoutMs },
+  )) as { room?: { icon_url?: unknown; icon_preset?: unknown } } | null;
+  const room = payload?.room;
+  if (!room || typeof room.icon_url !== "string") {
+    throw new ApiError("invalid-response", "The AI service returned an unexpected response.", 200, payload);
+  }
+  return {
+    iconUrl: room.icon_url,
+    iconPreset: typeof room.icon_preset === "string" ? room.icon_preset : null,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Profile photo check
 // ---------------------------------------------------------------------------
