@@ -47,7 +47,7 @@ export const en = {
   "auth.login.title": "Welcome back",
   "auth.login.subtitle": "Log in to pick up right where you left off.",
   "auth.exit.title": "Log out?",
-  "auth.exit.message": "You're signed in. Going back again would leave OOTDify. Do you want to log out instead?",
+  "auth.exit.message": "Do you want to log out? You'll go back to the sign-in screen.",
   "auth.exit.stay": "Stay signed in",
   "auth.exit.confirm": "Log out",
   "auth.login.password_placeholder": "Your password",
