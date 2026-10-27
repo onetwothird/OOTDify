@@ -1,67 +1,35 @@
 // C:\OOTDify\src\shared\lib\formFile.ts
-// React Native's FormData is NOT the web one: a "blob" part is any object with a
-// `uri` attribute (see node_modules/react-native/Libraries/Network/FormData.js
-// `getParts()`), and anything else is stringified with String(value). That means
-// passing a real Blob — or anything without `uri` — silently uploads the text
-// "[object Blob]" instead of the image bytes, while still reporting success.
+// One file part for a multipart upload, built from a local photo URI.
 //
-// It is not enough to hand a `{ uri, name, type }` object to supabase-js: only a
-// real `FormData` takes the branch that serializes it as a file (see `formFile`
-// below). So every storage upload in this app passes the `FormData` this helper
-// builds. `mimeOf`/`nameOf` derive sensible defaults from the URI's extension
-// when a caller has no better information.
+// Expo replaces the global `fetch` with `expo/fetch` (see
+// node_modules/expo/src/winter/runtime.native.ts). Its FormData encoder only
+// sends strings, Blobs and objects with `bytes()`; the old React Native
+// `{ uri, name, type }` part makes it throw "Unsupported FormDataPart
+// implementation" before any byte leaves the phone, which apiClient reports as
+// a "network" failure while the server logs nothing.
+//
+// An expo-file-system `File` is a Blob with `bytes()` AND a `uri`, so both
+// `expo/fetch` and React Native's own FormData (EXPO_PUBLIC_USE_RN_FETCH)
+// read the real image from disk. Its name and MIME type come from the file.
+//
+// Only local files (file://, content://) work here. To re-upload a remote
+// image, download its bytes and upload those instead.
+import { File } from "expo-file-system";
 
-const MIME_BY_EXT: Record<string, string> = {
-  jpg: "image/jpeg",
-  jpeg: "image/jpeg",
-  png: "image/png",
-  webp: "image/webp",
-  heic: "image/heic",
-  heif: "image/heic",
-};
-
-/** Best-effort MIME type for a local file URI. */
-export function mimeOf(uri: string, fallback = "image/jpeg"): string {
-  const clean = uri.split("?")[0].toLowerCase();
-  const ext = clean.includes(".") ? clean.split(".").pop() ?? "" : "";
-  return MIME_BY_EXT[ext] ?? fallback;
-}
-
-/** A filename for a local file URI, guaranteeing an extension. */
-export function nameOf(uri: string, fallback = "photo.jpg"): string {
-  const clean = uri.split("?")[0];
-  const base = clean.split("/").pop() ?? "";
-  return base && base.includes(".") ? base : `${Date.now()}-${fallback}`;
+/** A local file as a FormData part. */
+export function uploadPart(uri: string): Blob {
+  return new File(uri);
 }
 
 /**
- * A ready-to-upload `FormData` carrying one file part.
+ * A ready-to-upload `FormData` carrying one local file, for Supabase Storage.
  *
- * This MUST be a real `FormData` instance, not the bare `{ uri, name, type }`
- * object. supabase-js picks its upload body like this:
- *
- *     if (body instanceof Blob)        -> new FormData().append("", body)
- *     else if (body instanceof FormData) -> send the FormData as-is
- *     else                              -> send the value raw
- *
- * A plain object is neither, so it falls into the last branch and `fetch`
- * stringifies it — the object's JSON (`{"uri":"file:///…","name":"…"}`) is what
- * lands in storage, just a few hundred bytes, while the upload still reports
- * success. RN's own `FormData.getParts()` is what understands the `uri`
- * attribute and reads the file from disk, so the object has to be appended.
- *
- * `uri` may also be an http(s) URL: RN's FormData uploads a remote URI directly
- * without downloading it first.
+ * This MUST be a real `FormData`: supabase-js sends a FormData body as-is,
+ * whereas any other object is stringified, so the object's JSON is what
+ * would land in storage while the upload still reports success.
  */
-export function formFile(uri: string, name?: string, type?: string): FormData {
+export function formFile(uri: string): FormData {
   const form = new FormData();
-  form.append(
-    "file",
-    {
-      uri,
-      name: name ?? nameOf(uri),
-      type: type ?? mimeOf(uri),
-    } as unknown as Blob,
-  );
+  form.append("file", uploadPart(uri));
   return form;
 }

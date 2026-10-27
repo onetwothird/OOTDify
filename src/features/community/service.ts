@@ -276,13 +276,13 @@ async function publicRefForShare(ref: string, uid: string, index: number): Promi
     const signed = await resolveMediaUrl(ref);
     if (!signed) return "";
     const path = `${uid}/${Date.now()}-${index}.jpg`;
-    // `signed` is an http(s) URL, which RN's FormData uploads directly as a
-    // file part — no intermediate Blob (see shared/lib/formFile.ts).
+    // `signed` is a remote URL; formFile only reads local files, so copy the
+    // bytes across.
+    const res = await fetch(signed);
+    if (!res.ok) return "";
     const { error } = await supabase.storage
       .from("community")
-      .upload(path, formFile(signed, `look-${index}.jpg`, "image/jpeg"), {
-        contentType: "image/jpeg",
-      });
+      .upload(path, await res.arrayBuffer(), { contentType: "image/jpeg" });
     if (error) return "";
     return `community/${path}`;
   } catch {
@@ -300,7 +300,7 @@ async function uploadPostPhoto(uri: string, uid: string, index: number): Promise
   const path = `${uid}/${Date.now()}-photo-${index}.jpg`;
   const { error } = await supabase.storage
     .from("community")
-    .upload(path, formFile(small, `photo-${index}.jpg`, "image/jpeg"), {
+    .upload(path, formFile(small), {
       contentType: "image/jpeg",
     });
   if (error) throw error;
