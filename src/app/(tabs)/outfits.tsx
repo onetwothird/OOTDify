@@ -42,6 +42,7 @@ import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import type { Theme } from "../../shared/config/theme";
 import { useT } from "../../shared/i18n/useT";
+import { useHideOnScroll, useTabBarSpace } from "../../shared/navigation/useTabChrome";
 import type { TranslationKey } from "../../shared/i18n/translate";
 import { toast } from "../../shared/lib/toast";
 import { recommendCatalog } from "../../services/aiApi";
@@ -54,6 +55,9 @@ const CONDITIONS = [
 ] as const;
 
 export default function OutfitsScreen() {
+  // The tab bar slides away while scrolling down; content clears it at the end.
+  const hideOnScroll = useHideOnScroll();
+  const tabBarSpace = useTabBarSpace();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const theme = useAppTheme();
@@ -238,9 +242,10 @@ export default function OutfitsScreen() {
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 8 }]}>
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        {...hideOnScroll}
       >
         {builderMode ? (
           <Pressable
@@ -256,6 +261,8 @@ export default function OutfitsScreen() {
         ) : null}
 
         <ScreenHeader
+          variant="tab"
+          icon={builderMode ? "construct" : "layers"}
           title={builderMode ? t("outfits.builder.title") : t("outfits.title")}
           subtitle={
             builderMode
@@ -380,6 +387,7 @@ export default function OutfitsScreen() {
                     title={t("outfits.saved.empty.title")}
                     message={t("outfits.saved.empty.message")}
                     actionLabel={t("outfits.saved.empty.action")}
+                    actionIcon="add"
                     onAction={() => setBuilderMode(true)}
                   />
                 ) : looksView === "list" ? (

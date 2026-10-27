@@ -17,6 +17,7 @@
 // screens surface them through ErrorState/toast.
 
 import { formFile } from "../../shared/lib/formFile";
+import { shrinkForUpload } from "../../shared/lib/shrinkImage";
 import { supabase } from "../../shared/lib/supabase";
 import { resolveMediaUrl } from "../../shared/lib/storageUrl";
 import { uuid } from "../../shared/lib/uuid";
@@ -290,22 +291,45 @@ async function publicRefForShare(ref: string, uid: string, index: number): Promi
 }
 
 /**
- * Share a saved look to the community feed. Resolves the outfit's images,
- * copies any private ones into the public community bucket, then inserts the
- * post (image_urls holds the resolved refs).
+ * Upload a photo picked on this device to the public community bucket, under
+ * the poster's uid. Unlike an outfit's copied images, a photo the user chose
+ * themselves must not vanish quietly, so a failed upload fails the post.
+ */
+async function uploadPostPhoto(uri: string, uid: string, index: number): Promise<string> {
+  const small = await shrinkForUpload(uri);
+  const path = `${uid}/${Date.now()}-photo-${index}.jpg`;
+  const { error } = await supabase.storage
+    .from("community")
+    .upload(path, formFile(small, `photo-${index}.jpg`, "image/jpeg"), {
+      contentType: "image/jpeg",
+    });
+  if (error) throw error;
+  return `community/${path}`;
+}
+
+/**
+ * Post to the community feed: a caption, photos from the device, a saved
+ * outfit, or any mix. The outfit is optional; its images are resolved and any
+ * private ones copied into the public community bucket. Device photos come
+ * first in image_urls.
  */
 export async function shareOutfit(input: {
   outfitId?: string | null;
   title?: string | null;
   caption: string;
-  clothingIds: string[];
+  clothingIds?: string[];
+  photoUris?: string[];
 }): Promise<CommunityPost> {
   const uid = await currentUserId();
   if (!uid) throw new Error("Not signed in");
 
-  const refs = await resolveOutfitImageRefs(input.clothingIds);
+  const photos = await Promise.all((input.photoUris ?? []).map((uri, i) => uploadPostPhoto(uri, uid, i)));
+  const refs = await resolveOutfitImageRefs(input.clothingIds ?? []);
   const copied = await Promise.all(refs.map((ref, i) => publicRefForShare(ref, uid, i)));
-  const image_urls = copied.filter((r) => r !== "");
+  const image_urls = [...photos, ...copied.filter((r) => r !== "")];
+  if (!image_urls.length && !input.caption.trim()) {
+    throw new Error("Add a caption, a photo or an outfit to post.");
+  }
 
   const { data, error } = await supabase
     .from("community_posts")

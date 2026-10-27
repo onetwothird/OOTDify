@@ -229,10 +229,9 @@ export function SettingsSection() {
 function SectionLabel({ text }: { text: string }) {
   const styles = useStyles();
   return (
-    <View style={styles.sectionLabelRow}>
-      <View style={styles.sectionBar} />
-      <Text style={styles.sectionLabelText}>{text}</Text>
-    </View>
+    <Text style={styles.sectionLabelText} accessibilityRole="header">
+      {text}
+    </Text>
   );
 }
 
@@ -268,24 +267,11 @@ function Row({
 const useStyles = makeStyles((theme: Theme) => ({
   // Label-to-card gap is `root.gap`; card-to-next-label adds the label's top margin.
   root: { gap: 10 },
-  sectionLabelRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 18,
-  },
-  sectionBar: {
-    width: 14,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: theme.colors.primary,
-  },
   sectionLabelText: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: "800",
-    letterSpacing: 1,
     color: theme.colors.textMuted,
-    textTransform: "uppercase"
+    marginTop: 18,
   },
   card: {
     backgroundColor: theme.colors.surface,

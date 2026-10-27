@@ -7,15 +7,14 @@ import { Image } from "expo-image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { Sheet } from "../../../shared/components/Sheet";
 import { resolveMediaUrl } from "../../../shared/lib/storageUrl";
 import { theme as staticTheme } from "../../../shared/config/theme";
 import { makeStyles } from "../../../shared/theme/makeStyles";
@@ -57,7 +56,6 @@ export function OutfitCalendar({ outfits, onOpenOutfit }: Props) {
     () => Array.from({ length: 7 }, (_, i) => weekdayFormatter.format(new Date(2023, 0, 1 + i))),
     [weekdayFormatter],
   );
-  const insets = useSafeAreaInsets();
   const today = useMemo(() => new Date(), []);
   const [cursor, setCursor] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
   const [plans, setPlans] = useState<Record<string, OutfitPlan>>({});
@@ -279,111 +277,96 @@ export function OutfitCalendar({ outfits, onOpenOutfit }: Props) {
       </View>
 
       {/* Outfit picker sheet */}
-      <Modal
+      <Sheet
         visible={pickerDate !== null}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setPickerDate(null)}
-      >
-        <Pressable style={styles.pickerOverlay} onPress={() => setPickerDate(null)}>
-          <Pressable style={[styles.pickerSheet, { paddingBottom: Math.max(insets.bottom, 16) }]} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.pickerHandle} />
-            <View style={styles.pickerHeader}>
-              <View>
-                <Text style={styles.pickerTitle}>{t("outfits.plan_a_look")}</Text>
-                <Text style={styles.pickerSub}>
-                  {pickerDate ? fromISOToLabel(pickerDate, locale) : ""}
-                </Text>
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                hitSlop={8}
-                onPress={() => setPickerDate(null)}
-              >
-                <Ionicons name="close" size={24} color={theme.colors.text} />
-              </Pressable>
-            </View>
-
-            {outfits.length === 0 ? (
-              <View style={styles.pickerEmpty}>
-                <Ionicons name="shirt-outline" size={26} color={theme.colors.textMuted} />
-                <Text style={styles.pickerEmptyText}>
-                  {t("outfits.calendar.picker.empty")}
-                </Text>
-              </View>
-            ) : (
-              <ScrollView
-                style={styles.pickerList}
-                showsVerticalScrollIndicator={false}
-              >
-                {outfits.map((o) => {
-                  const active = pickerOutfit?.outfit_id === o.id;
-                  const count = o.clothing_ids?.length ?? 0;
-                  const meta = [o.occasion, t("home.looks.items", { count })]
-                    .filter(Boolean)
-                    .join("\u00B7");
-                  return (
-                    <Pressable
-                      key={o.id}
-                      accessibilityRole="button"
-                      disabled={saving}
-                      onPress={() => void assign(o.id)}
-                      style={({ pressed }) => [
-                        styles.pickerRow,
-                        active && styles.pickerRowActive,
-                        pressed && { opacity: 0.9 },
-                      ]}
-                    >
-                      <MiniThumb imageRef={outfitThumbRef(o)} size={44} themeColors={theme.colors} />
-                      <View style={styles.pickerRowBody}>
-                        <Text style={styles.pickerRowName} numberOfLines={1}>
-                          {o.name || t("outfits.untitled")}
-                        </Text>
-                        <Text style={styles.pickerRowMeta} numberOfLines={1}>
-                          {meta}
-                        </Text>
-                      </View>
-                      {active ? (
-                        <Ionicons name="checkmark-circle" size={22} color={theme.colors.primary} />
-                      ) : (
-                        <Ionicons name="chevron-forward" size={18} color={theme.colors.textMuted} />
-                      )}
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-            )}
-
+        onClose={() => setPickerDate(null)}
+        busy={saving}
+        scroll={false}
+        icon="calendar"
+        title={t("outfits.plan_a_look")}
+        subtitle={pickerDate ? fromISOToLabel(pickerDate, locale) : undefined}
+        footer={
+          pickerOutfit?.outfit_id || saving ? (
             <View style={styles.pickerActions}>
-              {pickerOutfit?.outfit_id ? (
+          {pickerOutfit?.outfit_id ? (
+            <Pressable
+              accessibilityRole="button"
+              disabled={saving}
+              style={styles.clearBtn}
+              onPress={() => void assign(null)}
+            >
+              <Ionicons name="trash-outline" size={16} color={theme.colors.danger} />
+              <Text style={styles.clearBtnText}>{t("outfits.calendar.picker.clear")}</Text>
+            </Pressable>
+          ) : null}
+          {pickerOutfit?.outfit_id ? (
+            <Pressable
+              accessibilityRole="button"
+              style={styles.openBtn}
+              onPress={() => {
+                const id = pickerOutfit.outfit_id!;
+                setPickerDate(null);
+                onOpenOutfit(id);
+              }}
+            >
+              <Text style={styles.openBtnText}>{t("outfits.action.open_outfit")}</Text>
+            </Pressable>
+          ) : null}
+          {saving ? <ActivityIndicator color={theme.colors.primary} /> : null}
+            </View>
+          ) : undefined
+        }
+      >
+        {outfits.length === 0 ? (
+          <View style={styles.pickerEmpty}>
+            <Ionicons name="shirt-outline" size={26} color={theme.colors.textMuted} />
+            <Text style={styles.pickerEmptyText}>
+              {t("outfits.calendar.picker.empty")}
+            </Text>
+          </View>
+        ) : (
+          <ScrollView
+            style={styles.pickerList}
+            showsVerticalScrollIndicator={false}
+          >
+            {outfits.map((o) => {
+              const active = pickerOutfit?.outfit_id === o.id;
+              const count = o.clothing_ids?.length ?? 0;
+              const meta = [o.occasion, t("home.looks.items", { count })]
+                .filter(Boolean)
+                .join("\u00B7");
+              return (
                 <Pressable
+                  key={o.id}
                   accessibilityRole="button"
                   disabled={saving}
-                  style={styles.clearBtn}
-                  onPress={() => void assign(null)}
+                  onPress={() => void assign(o.id)}
+                  style={({ pressed }) => [
+                    styles.pickerRow,
+                    active && styles.pickerRowActive,
+                    pressed && { opacity: 0.9 },
+                  ]}
                 >
-                  <Ionicons name="trash-outline" size={16} color={theme.colors.danger} />
-                  <Text style={styles.clearBtnText}>{t("outfits.calendar.picker.clear")}</Text>
+                  <MiniThumb imageRef={outfitThumbRef(o)} size={44} themeColors={theme.colors} />
+                  <View style={styles.pickerRowBody}>
+                    <Text style={styles.pickerRowName} numberOfLines={1}>
+                      {o.name || t("outfits.untitled")}
+                    </Text>
+                    <Text style={styles.pickerRowMeta} numberOfLines={1}>
+                      {meta}
+                    </Text>
+                  </View>
+                  {active ? (
+                    <Ionicons name="checkmark-circle" size={22} color={theme.colors.primary} />
+                  ) : (
+                    <Ionicons name="chevron-forward" size={18} color={theme.colors.textMuted} />
+                  )}
                 </Pressable>
-              ) : null}
-              {pickerOutfit?.outfit_id ? (
-                <Pressable
-                  accessibilityRole="button"
-                  style={styles.openBtn}
-                  onPress={() => {
-                    const id = pickerOutfit.outfit_id!;
-                    setPickerDate(null);
-                    onOpenOutfit(id);
-                  }}
-                >
-                  <Text style={styles.openBtnText}>{t("outfits.action.open_outfit")}</Text>
-                </Pressable>
-              ) : null}
-              {saving ? <ActivityIndicator color={theme.colors.primary} /> : null}
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+              );
+            })}
+          </ScrollView>
+        )}
+      </Sheet>
     </View>
   );
 }
@@ -506,36 +489,7 @@ const useStyles = makeStyles((theme) => ({
   todayBtnText: { fontSize: 12, fontWeight: "700", color: theme.colors.text },
 
   // Picker sheet
-  pickerOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.45)",
-    justifyContent: "flex-end",
-  },
-  pickerSheet: {
-    backgroundColor: theme.colors.surface,
-    borderTopLeftRadius: theme.borderRadius.xl,
-    borderTopRightRadius: theme.borderRadius.xl,
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    maxHeight: "78%",
-  },
-  pickerHandle: {
-    alignSelf: "center",
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: theme.colors.border,
-    marginBottom: 12,
-  },
-  pickerHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
-  pickerTitle: { fontSize: 18, fontWeight: "800", color: theme.colors.text },
-  pickerSub: { fontSize: 12.5, color: theme.colors.textMuted, marginTop: 2 },
-  pickerList: { flexGrow: 0 },
+  pickerList: { flexShrink: 1 },
   pickerRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -564,7 +518,6 @@ const useStyles = makeStyles((theme) => ({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    marginTop: 12,
   },
   clearBtn: {
     flexDirection: "row",

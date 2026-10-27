@@ -46,6 +46,7 @@ import { supabase } from "../../shared/lib/supabase";
 import { timeAgo } from "../../features/community/format";
 import { toast } from "../../shared/lib/toast";
 import { useT } from "../../shared/i18n/useT";
+import { useHideOnScroll, useTabBarSpace } from "../../shared/navigation/useTabChrome";
 
 type Tab = "feed" | "chats";
 
@@ -56,6 +57,9 @@ type Tab = "feed" | "chats";
 const GUTTER = 20;
 
 export default function CommunityScreen() {
+  // The tab bar slides away while scrolling down; content clears it at the end.
+  const hideOnScroll = useHideOnScroll();
+  const tabBarSpace = useTabBarSpace();
   const styles = useStyles();
   const theme = useAppTheme();
   const { t } = useT();
@@ -307,6 +311,8 @@ export default function CommunityScreen() {
           content use, keeping title, subtitle and action on one aligned rail. */}
       <View style={styles.headerWrap}>
         <ScreenHeader
+          variant="tab"
+          icon="people"
           title={t("community.title")}
           subtitle={t("community.subtitle")}
           right={
@@ -318,12 +324,12 @@ export default function CommunityScreen() {
                 onPress={() => setShareOpen(true)}
                 style={({ pressed }) => [styles.shareIconBtn, pressed && { opacity: 0.7 }]}
               >
-                <Ionicons name="cloud-upload-outline" size={20} color={theme.colors.onPrimary} />
+                <Ionicons name="create-outline" size={20} color={theme.colors.onPrimary} />
               </Pressable>
             ) : (
               <AppButton
                 label={t("community.share")}
-                icon="cloud-upload-outline"
+                icon="create-outline"
                 size="md"
                 onPress={() => setShareOpen(true)}
               />
@@ -359,7 +365,8 @@ export default function CommunityScreen() {
             data={posts ?? []}
             keyExtractor={(p) => p.id}
             renderItem={renderFeedItem}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[styles.listContent, { paddingBottom: tabBarSpace }]}
+            {...hideOnScroll}
             showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl
@@ -373,6 +380,9 @@ export default function CommunityScreen() {
                 icon="people-outline"
                 title={t("community.feed.empty.title")}
                 message={t("community.feed.empty.message")}
+                actionLabel={t("community.share")}
+                actionIcon="cloud-upload-outline"
+                onAction={() => setShareOpen(true)}
               />
             }
           />
@@ -385,7 +395,8 @@ export default function CommunityScreen() {
         <FlatList
           data={chatRows}
           keyExtractor={(c) => c.id}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: tabBarSpace }]}
+            {...hideOnScroll}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -495,6 +506,9 @@ export default function CommunityScreen() {
               icon="chatbubbles-outline"
               title={t("community.chat.no_dms.title")}
               message={t("community.chat.no_dms.message")}
+              actionLabel={t("community.chat.no_dms.action")}
+              actionIcon="people-outline"
+              onAction={() => setTab("feed")}
             />
           }
           renderItem={({ item }) => (
@@ -577,7 +591,7 @@ const useStyles = makeStyles((theme) => ({
   shareIconBtn: {
     width: 44,
     height: 44,
-    borderRadius: theme.borderRadius.md,
+    borderRadius: 22,
     backgroundColor: theme.colors.primary,
     alignItems: "center",
     justifyContent: "center",

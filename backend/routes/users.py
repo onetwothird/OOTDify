@@ -42,6 +42,9 @@ _PROFILE_FIELDS = (
     "preferred_categories",
     "preferred_occasions",
     "bio",
+    # Removal only: a cover is set through POST /api/profile/cover, so the
+    # stored URL always points at our own Cloudinary upload.
+    "cover_url",
 )
 
 # Short, Facebook-style intro shown on the profile page.
@@ -136,6 +139,11 @@ def update_profile_route():
             ), 400
         allowed["bio"] = bio or None
 
+    if allowed.get("cover_url") is not None:
+        return jsonify(
+            success=False, error="Upload a cover photo instead of setting its URL."
+        ), 400
+
     # Ensure a row exists, then update it.
     ensure_profile(user["id"])
     rows = (
@@ -151,13 +159,10 @@ def update_profile_route():
 
 
 # --------------------------------------------------------------------------
-# Profile photo (Cloudinary)
+# Profile photo and cover (Cloudinary)
 # --------------------------------------------------------------------------
-@users_bp.post("/api/profile/avatar")
-@require_auth
-@upload_limits("avatar_upload")
-def upload_avatar_route():
-    """Validate an avatar, host it on Cloudinary and save its URL on the profile.
+def _save_profile_image(column: str, upload, label: str):
+    """Validate the request's image, host it on Cloudinary and save its URL in `column`.
 
     The profile row only changes after the upload succeeded, so a failed
     upload never leaves a broken ref behind. The temp file is always deleted.
@@ -174,28 +179,53 @@ def upload_avatar_route():
             Config.UPLOAD_FOLDER,
             max_bytes=Config.MAX_CONTENT_LENGTH,
         )
-        url = cloudinary_service.upload_avatar(user["id"], temp_path)
+        url = upload(user["id"], temp_path)
+    except ValueError as exc:
+        return jsonify(success=False, error=str(exc)), 400
+    except cloudinary_service.CloudinaryNotConfiguredError:
+        logger.error("%s upload attempted but Cloudinary is not configured", label)
+        return jsonify(success=False, error=f"{label} uploads are not available right now."), 503
+    except cloudinary_service.CloudinaryError:
+        logger.exception("%s upload rejected by Cloudinary", label)
+        return jsonify(success=False, error="Cloudinary did not accept the photo. Please try again later."), 502
+    except Exception:
+        logger.exception("%s upload failed", label)
+        return jsonify(success=False, error="Could not upload your photo. Please try again."), 500
+    finally:
+        if temp_path is not None:
+            image_service.cleanup(temp_path)
+
+    # Hosted; now point the profile at it.
+    try:
         ensure_profile(user["id"])
         rows = (
             get_supabase()
             .table("user_profiles")
-            .update({"avatar_url": url, "updated_at": "now()"})
+            .update({column: url, "updated_at": "now()"})
             .eq("user_id", user["id"])
             .execute()
             .data
         )
         return jsonify(success=True, profile=rows[0] if rows else get_profile(user["id"]))
-    except ValueError as exc:
-        return jsonify(success=False, error=str(exc)), 400
-    except cloudinary_service.CloudinaryNotConfiguredError:
-        logger.error("Avatar upload attempted but Cloudinary is not configured")
-        return jsonify(success=False, error="Profile photo uploads are not available right now."), 503
     except Exception:
-        logger.exception("Avatar upload failed")
-        return jsonify(success=False, error="Could not upload your photo. Please try again."), 500
-    finally:
-        if temp_path is not None:
-            image_service.cleanup(temp_path)
+        logger.exception("%s uploaded but saving %s failed", label, column)
+        return jsonify(success=False, error="Your photo uploaded but could not be saved to your profile."), 500
+
+
+@users_bp.post("/api/profile/avatar")
+@require_auth
+@upload_limits("avatar_upload")
+def upload_avatar_route():
+    """Host a new profile photo on Cloudinary and save it as avatar_url."""
+    return _save_profile_image("avatar_url", cloudinary_service.upload_avatar, "Profile photo")
+
+
+@users_bp.post("/api/profile/cover")
+@require_auth
+@upload_limits("cover_upload")
+def upload_cover_route():
+    """Host a new profile cover on Cloudinary and save it as cover_url."""
+    return _save_profile_image("cover_url", cloudinary_service.upload_cover, "Cover photo")
 
 
 # --------------------------------------------------------------------------

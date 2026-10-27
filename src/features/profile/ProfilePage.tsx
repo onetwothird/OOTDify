@@ -1,17 +1,16 @@
 // C:\OOTDify\src\features\profile\ProfilePage.tsx
-// The signed-in user's own profile page, laid out like a social profile: a
-// pinstriped cover, a large photo overlapping it, name, bio and member-since
+// The signed-in user's own profile page (the Profile tab), laid out like a social profile: a
+// cover photo (pinstripes until one is uploaded), a large photo overlapping it, name, bio and member-since
 // line, counts, an Intro card built from their real preferences, then tabs for
 // their Closet, saved Looks and Community posts. Every number and tile is a
 // real row; a section that fails to load says so instead of showing zeros.
-// Editing details stays on the Edit profile screen; only the bio is edited here.
+// Editing details stays on the Edit profile screen; the bio and cover are edited here.
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useState } from "react";
 import {
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
+  ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -21,13 +20,15 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { getProfile, updateProfile, type UserProfile } from "../../services/aiApi";
+import { getProfile, updateProfile, uploadProfileCover, type UserProfile } from "../../services/aiApi";
 import { AppButton } from "../../shared/components/AppButton";
 import { Pinstripes } from "../../shared/components/ClothesRail";
+import { Sheet } from "../../shared/components/Sheet";
 import { SmartImage } from "../../shared/components/SmartImage";
-import { ErrorState } from "../../shared/components/StateViews";
+import { EmptyState, ErrorState } from "../../shared/components/StateViews";
 import type { Theme } from "../../shared/config/theme";
 import { useT } from "../../shared/i18n/useT";
+import { useHideOnScroll, useTabBarSpace } from "../../shared/navigation/useTabChrome";
 import { supabase } from "../../shared/lib/supabase";
 import { toast } from "../../shared/lib/toast";
 import { makeStyles } from "../../shared/theme/makeStyles";
@@ -36,6 +37,7 @@ import { fetchMyCloset, fetchSavedOutfits, type SavedOutfit } from "../clothing/
 import type { ClothingItem } from "../clothing/types";
 import { fetchMyPosts } from "../community/service";
 import type { CommunityPost } from "../community/types";
+import { pickAvatarPhoto, type AvatarSource } from "./avatar";
 import { useAvatarStore } from "./avatarStore";
 import { ProfileAvatar } from "./ProfileAvatar";
 
@@ -55,6 +57,9 @@ interface Data {
 }
 
 export function ProfilePage() {
+  // The tab bar slides away while scrolling down; content clears it at the end.
+  const hideOnScroll = useHideOnScroll();
+  const tabBarSpace = useTabBarSpace();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const styles = useStyles();
@@ -67,6 +72,7 @@ export function ProfilePage() {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("closet");
   const [editingBio, setEditingBio] = useState(false);
+  const [coverBusy, setCoverBusy] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -92,14 +98,59 @@ export function ProfilePage() {
     }
   }, [setAvatarRef, t]);
 
-  useEffect(() => {
-    // Inline async so the effect never sets state synchronously.
-    void (async () => {
-      await load();
-    })();
-  }, [load]);
+  // A tab stays mounted, so refresh on every visit: counts and tiles follow
+  // what was added elsewhere in the app.
+  useFocusEffect(
+    useCallback(() => {
+      // Inline async so the effect never sets state synchronously.
+      void (async () => {
+        await load();
+      })();
+    }, [load]),
+  );
 
-  const goBack = () => (router.canGoBack() ? router.back() : router.replace("/(tabs)/home"));
+  const setCover = (cover_url: string | null) =>
+    setData((d) => (d ? { ...d, profile: { ...d.profile, cover_url } } : d));
+
+  const uploadCover = async (source: AvatarSource) => {
+    const picked = await pickAvatarPhoto(source, "cover");
+    if (!picked) return;
+    setCoverBusy(true);
+    toast.loading(t("profile.page.cover.uploading"), t("profile.page.cover.uploading_body"));
+    try {
+      const updated = await uploadProfileCover(picked.uri);
+      setCover(updated.cover_url ?? null);
+      toast.success(t("profile.page.cover.saved"));
+    } catch (e) {
+      toast.error(t("profile.page.cover.failed"), e instanceof Error ? e.message : "");
+    } finally {
+      setCoverBusy(false);
+    }
+  };
+
+  const removeCover = async () => {
+    setCoverBusy(true);
+    try {
+      await updateProfile({ cover_url: null });
+      setCover(null);
+      toast.success(t("profile.page.cover.removed"));
+    } catch (e) {
+      toast.error(t("profile.page.cover.failed"), e instanceof Error ? e.message : "");
+    } finally {
+      setCoverBusy(false);
+    }
+  };
+
+  const promptCover = (hasCover: boolean) => {
+    Alert.alert(t("profile.page.cover.title"), t("profile.page.cover.message"), [
+      { text: t("profile.page.cover.take"), onPress: () => void uploadCover("camera") },
+      { text: t("profile.page.cover.choose"), onPress: () => void uploadCover("library") },
+      ...(hasCover
+        ? [{ text: t("profile.page.cover.remove"), style: "destructive" as const, onPress: () => void removeCover() }]
+        : []),
+      { text: t("profile.page.bio.cancel"), style: "cancel" as const },
+    ]);
+  };
 
   if (error) {
     return (
@@ -139,32 +190,34 @@ export function ProfilePage() {
   return (
     <View style={styles.screen}>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
+        contentContainerStyle={{ paddingBottom: tabBarSpace }}
+        {...hideOnScroll}
         showsVerticalScrollIndicator={false}
       >
         {/* Cover */}
         <View style={[styles.cover, { height: COVER_HEIGHT + insets.top }]}>
-          <Pinstripes />
-          <View style={[styles.coverBar, { paddingTop: insets.top + 8 }]}>
+          {profile?.cover_url ? (
+            <SmartImage source={profile.cover_url} style={StyleSheet.absoluteFill} />
+          ) : (
+            <Pinstripes />
+          )}
+          {data ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={t("profile.page.back_a11y")}
-              onPress={goBack}
-              hitSlop={8}
-              style={({ pressed }) => [styles.roundBtn, pressed && styles.pressed]}
+              accessibilityLabel={t("profile.page.cover.edit")}
+              disabled={coverBusy}
+              onPress={() => promptCover(Boolean(profile?.cover_url))}
+              hitSlop={6}
+              style={({ pressed }) => [styles.coverBtn, pressed && styles.pressed]}
             >
-              <Ionicons name="arrow-back" size={20} color={theme.colors.text} />
+              {coverBusy ? (
+                <ActivityIndicator size="small" color={theme.colors.text} />
+              ) : (
+                <Ionicons name="camera-outline" size={17} color={theme.colors.text} />
+              )}
+              <Text style={styles.coverBtnText}>{t("profile.page.cover.edit")}</Text>
             </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t("profile.page.settings_a11y")}
-              onPress={() => router.push("/settings/general")}
-              hitSlop={8}
-              style={({ pressed }) => [styles.roundBtn, pressed && styles.pressed]}
-            >
-              <Ionicons name="settings-outline" size={19} color={theme.colors.text} />
-            </Pressable>
-          </View>
+          ) : null}
         </View>
 
         {/* Identity */}
@@ -215,7 +268,7 @@ export function ProfilePage() {
             icon="create-outline"
             variant="secondary"
             size="md"
-            onPress={() => router.push("/(tabs)/profile")}
+            onPress={() => router.push("/profile/edit")}
           />
         </View>
 
@@ -276,7 +329,14 @@ export function ProfilePage() {
                   ))}
                 </View>
               ) : (
-                <Text style={styles.empty}>{t("profile.page.closet.empty")}</Text>
+                <EmptyState
+                  compact
+                  icon="shirt-outline"
+                  title={t("profile.page.closet.empty")}
+                  actionLabel={t("profile.page.closet.action")}
+                  actionIcon="add"
+                  onAction={() => router.push("/(tabs)/discover")}
+                />
               )
             ) : null}
 
@@ -315,7 +375,14 @@ export function ProfilePage() {
                   ))}
                 </View>
               ) : (
-                <Text style={styles.empty}>{t("profile.page.looks.empty")}</Text>
+                <EmptyState
+                  compact
+                  icon="layers-outline"
+                  title={t("profile.page.looks.empty")}
+                  actionLabel={t("profile.page.looks.action")}
+                  actionIcon="add"
+                  onAction={() => router.push("/(tabs)/outfits")}
+                />
               )
             ) : null}
 
@@ -338,7 +405,14 @@ export function ProfilePage() {
                   ))}
                 </View>
               ) : (
-                <Text style={styles.empty}>{t("profile.page.posts.empty")}</Text>
+                <EmptyState
+                  compact
+                  icon="people-outline"
+                  title={t("profile.page.posts.empty")}
+                  actionLabel={t("profile.page.posts.action")}
+                  actionIcon="cloud-upload-outline"
+                  onAction={() => router.push("/(tabs)/community")}
+                />
               )
             ) : null}
           </>
@@ -380,7 +454,6 @@ function BioEditor({
   onClose: () => void;
   onSaved: (bio: string | null) => void;
 }) {
-  const insets = useSafeAreaInsets();
   const styles = useStyles();
   const theme = useAppTheme();
   const { t } = useT();
@@ -410,47 +483,46 @@ function BioEditor({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        style={styles.sheetBackdrop}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <Pressable style={StyleSheet.absoluteFill} onPress={saving ? undefined : onClose} />
-        <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
-          <Text style={styles.cardTitle}>{t("profile.page.bio.title")}</Text>
-          <TextInput
-            value={text}
-            onChangeText={setText}
-            maxLength={BIO_MAX}
-            multiline
-            autoFocus
-            placeholder={t("profile.page.bio.placeholder")}
-            placeholderTextColor={theme.colors.textMuted}
-            style={styles.bioInput}
+    <Sheet
+      visible={visible}
+      onClose={onClose}
+      busy={saving}
+      icon="create"
+      title={t("profile.page.bio.title")}
+      footer={
+        <View style={styles.sheetActions}>
+          <AppButton
+            label={t("profile.page.bio.cancel")}
+            variant="secondary"
+            size="md"
+            onPress={onClose}
+            disabled={saving}
+            style={styles.sheetBtn}
           />
-          <Text style={styles.counter}>
-            {text.length}/{BIO_MAX}
-          </Text>
-          <View style={styles.sheetActions}>
-            <AppButton
-              label={t("profile.page.bio.cancel")}
-              variant="secondary"
-              size="md"
-              onPress={onClose}
-              disabled={saving}
-              style={styles.sheetBtn}
-            />
-            <AppButton
-              label={t("profile.page.bio.save")}
-              size="md"
-              onPress={save}
-              loading={saving}
-              style={styles.sheetBtn}
-            />
-          </View>
+          <AppButton
+            label={t("profile.page.bio.save")}
+            size="md"
+            onPress={save}
+            loading={saving}
+            style={styles.sheetBtn}
+          />
         </View>
-      </KeyboardAvoidingView>
-    </Modal>
+      }
+    >
+      <TextInput
+        value={text}
+        onChangeText={setText}
+        maxLength={BIO_MAX}
+        multiline
+        autoFocus
+        placeholder={t("profile.page.bio.placeholder")}
+        placeholderTextColor={theme.colors.textMuted}
+        style={styles.bioInput}
+      />
+      <Text style={styles.counter}>
+        {text.length}/{BIO_MAX}
+      </Text>
+    </Sheet>
   );
 }
 
@@ -466,21 +538,22 @@ const useStyles = makeStyles((theme: Theme) => ({
     borderBottomColor: theme.colors.border,
     overflow: "hidden",
   },
-  coverBar: {
+  // Bottom-right, clear of the avatar that overlaps the cover's left edge.
+  coverBtn: {
+    position: "absolute",
+    right: theme.spacing.md,
+    bottom: 12,
     flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: theme.spacing.md,
-  },
-  roundBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
     alignItems: "center",
-    justifyContent: "center",
+    gap: 6,
+    minHeight: 36,
+    paddingHorizontal: 12,
+    borderRadius: theme.borderRadius.pill,
     backgroundColor: theme.colors.background,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: theme.colors.border,
   },
+  coverBtnText: { fontSize: 13, fontWeight: "700", color: theme.colors.text },
 
   identity: { paddingHorizontal: theme.spacing.md, gap: 6 },
   avatarWrap: {
@@ -596,23 +669,6 @@ const useStyles = makeStyles((theme: Theme) => ({
   postBody: { padding: 12, gap: 4 },
   postCaption: { fontSize: 14, lineHeight: 20, color: theme.colors.text },
 
-  empty: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: 32,
-    textAlign: "center",
-    fontSize: 14,
-    lineHeight: 20,
-    color: theme.colors.textMuted,
-  },
-
-  sheetBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: theme.colors.textFaint },
-  sheet: {
-    padding: 20,
-    gap: 10,
-    borderTopLeftRadius: theme.borderRadius.lg,
-    borderTopRightRadius: theme.borderRadius.lg,
-    backgroundColor: theme.colors.surface,
-  },
   bioInput: {
     minHeight: 96,
     padding: 12,
@@ -626,6 +682,6 @@ const useStyles = makeStyles((theme: Theme) => ({
     backgroundColor: theme.colors.background,
   },
   counter: { alignSelf: "flex-end", fontSize: 12, color: theme.colors.textMuted },
-  sheetActions: { flexDirection: "row", gap: 10, marginTop: 4 },
+  sheetActions: { flexDirection: "row", gap: 10 },
   sheetBtn: { flex: 1 },
 }));

@@ -2,26 +2,13 @@
 // Edit the metadata of a user-owned wardrobe item: name, category, color, size,
 // brand, style, season, occasion, tags. Saves through the wardrobe store
 // (which persists via RLS-guarded Supabase update). No photos change here.
-import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleProp,
-  StyleSheet,
-  Text,
-  TextInput,
-  TextStyle,
-  View,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Pressable, StyleProp, StyleSheet, Text, TextInput, TextStyle, View } from "react-native";
 
 import { ClothingItem, OCCASIONS, SEASONS, WARDROBE_CATEGORIES } from "../clothing/types";
 import { useWardrobeStore } from "../wardrobe/store";
+import { AppButton } from "../../shared/components/AppButton";
+import { Sheet } from "../../shared/components/Sheet";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import { useT } from "../../shared/i18n/useT";
@@ -32,7 +19,6 @@ interface Props {
 }
 
 export default function EditClothingModal({ item, onClose }: Props) {
-  const insets = useSafeAreaInsets();
   const updateItem = useWardrobeStore((s) => s.updateItem);
   const styles = useStyles();
   const theme = useAppTheme();
@@ -92,161 +78,135 @@ export default function EditClothingModal({ item, onClose }: Props) {
   const inputStyle: StyleProp<TextStyle> = [styles.input, { color: theme.colors.text }];
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={styles.keyboard}
-        >
-          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 4 }]}>
-            <View style={styles.handle} />
-            <View style={styles.header}>
-              <Text style={styles.title}>{t("capture.edit.title")}</Text>
-              <Pressable onPress={onClose} hitSlop={8}>
-                <Ionicons name="close-outline" size={26} color={theme.colors.text} />
-              </Pressable>
-            </View>
+    <Sheet
+      visible
+      onClose={onClose}
+      busy={saving}
+      icon="pricetag"
+      title={t("capture.edit.title")}
+      footer={
+        <>
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+          <AppButton label={t("capture.edit.save")} loading={saving} onPress={save} />
+        </>
+      }
+    >
+      <Field label={t("capture.edit.field.name")}>
+        <TextInput
+          style={inputStyle}
+          value={name}
+          onChangeText={setName}
+          placeholder={t("capture.edit.field.name_placeholder")}
+          placeholderTextColor={theme.colors.textMuted}
+          maxLength={60}
+        />
+      </Field>
 
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={styles.body}
+      <Field label={t("capture.edit.field.category")}>
+        <View style={styles.chipWrap}>
+          {WARDROBE_CATEGORIES.map((cat) => (
+            <Pressable
+              key={cat}
+              onPress={() => setCategory(cat === category ? null : cat)}
+              style={[styles.chip, cat === category && styles.chipActive]}
             >
-              <Field label={t("capture.edit.field.name")}>
-                <TextInput
-                  style={inputStyle}
-                  value={name}
-                  onChangeText={setName}
-                  placeholder={t("capture.edit.field.name_placeholder")}
-                  placeholderTextColor={theme.colors.textMuted}
-                  maxLength={60}
-                />
-              </Field>
+              <Text style={[styles.chipText, cat === category && styles.chipTextActive]}>
+                {tl("category", cat)}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </Field>
 
-              <Field label={t("capture.edit.field.category")}>
-                <View style={styles.chipWrap}>
-                  {WARDROBE_CATEGORIES.map((cat) => (
-                    <Pressable
-                      key={cat}
-                      onPress={() => setCategory(cat === category ? null : cat)}
-                      style={[styles.chip, cat === category && styles.chipActive]}
-                    >
-                      <Text style={[styles.chipText, cat === category && styles.chipTextActive]}>
-                        {tl("category", cat)}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </Field>
-
-              <View style={styles.twoCol}>
-                <Field label={t("capture.edit.field.color")} containerStyle={styles.colField}>
-                  <TextInput
-                    style={inputStyle}
-                    value={color}
-                    onChangeText={setColor}
-                    placeholder={t("capture.edit.field.color_placeholder")}
-                    placeholderTextColor={theme.colors.textMuted}
-                    maxLength={30}
-                  />
-                </Field>
-                <Field label={t("capture.edit.field.size")} containerStyle={styles.colField}>
-                  <TextInput
-                    style={inputStyle}
-                    value={size}
-                    onChangeText={setSize}
-                    placeholder={t("capture.edit.field.size_placeholder")}
-                    placeholderTextColor={theme.colors.textMuted}
-                    maxLength={20}
-                  />
-                </Field>
-              </View>
-
-              <View style={styles.twoCol}>
-                <Field label={t("capture.edit.field.brand")} containerStyle={styles.colField}>
-                  <TextInput
-                    style={inputStyle}
-                    value={brand}
-                    onChangeText={setBrand}
-                    placeholder={t("capture.edit.field.brand_placeholder")}
-                    placeholderTextColor={theme.colors.textMuted}
-                    maxLength={40}
-                  />
-                </Field>
-                <Field label={t("capture.edit.field.style")} containerStyle={styles.colField}>
-                  <TextInput
-                    style={inputStyle}
-                    value={style}
-                    onChangeText={setStyle}
-                    placeholder={t("capture.edit.field.style_placeholder")}
-                    placeholderTextColor={theme.colors.textMuted}
-                    maxLength={30}
-                  />
-                </Field>
-              </View>
-
-              <Field label={t("capture.edit.field.season")}>
-                <View style={styles.chipWrap}>
-                  {SEASONS.map((s) => (
-                    <Pressable
-                      key={s}
-                      onPress={() => setSeason(s === season ? null : s)}
-                      style={[styles.chip, s === season && styles.chipActive]}
-                    >
-                      <Text style={[styles.chipText, s === season && styles.chipTextActive]}>
-                        {s}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </Field>
-
-              <Field label={t("capture.edit.field.occasions")}>
-                <View style={styles.chipWrap}>
-                  {OCCASIONS.map((occ) => (
-                    <Pressable
-                      key={occ}
-                      onPress={() => toggleOccasion(occ)}
-                      style={[styles.chip, occasions.has(occ) && styles.chipActive]}
-                    >
-                      <Text style={[styles.chipText, occasions.has(occ) && styles.chipTextActive]}>
-                        {tl("occasion", occ)}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </Field>
-
-              <Field label={t("capture.edit.field.tags")} hint={t("capture.edit.field.tags_hint")}>
-                <TextInput
-                  style={inputStyle}
-                  value={tags}
-                  onChangeText={setTags}
-                  placeholder={t("capture.edit.field.tags_placeholder")}
-                  placeholderTextColor={theme.colors.textMuted}
-                  autoCapitalize="none"
-                />
-              </Field>
-
-              {error ? <Text style={styles.error}>{error}</Text> : null}
-
-              <Pressable
-                accessibilityRole="button"
-                onPress={save}
-                disabled={saving}
-                style={[styles.saveBtn, saving && styles.saveDisabled, { marginBottom: 4 }]}
-              >
-                {saving ? (
-                  <ActivityIndicator color={theme.colors.onPrimary} />
-                ) : (
-                  <Text style={styles.saveBtnText}>{t("capture.edit.save")}</Text>
-                )}
-              </Pressable>
-            </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
+      <View style={styles.twoCol}>
+        <Field label={t("capture.edit.field.color")} containerStyle={styles.colField}>
+          <TextInput
+            style={inputStyle}
+            value={color}
+            onChangeText={setColor}
+            placeholder={t("capture.edit.field.color_placeholder")}
+            placeholderTextColor={theme.colors.textMuted}
+            maxLength={30}
+          />
+        </Field>
+        <Field label={t("capture.edit.field.size")} containerStyle={styles.colField}>
+          <TextInput
+            style={inputStyle}
+            value={size}
+            onChangeText={setSize}
+            placeholder={t("capture.edit.field.size_placeholder")}
+            placeholderTextColor={theme.colors.textMuted}
+            maxLength={20}
+          />
+        </Field>
       </View>
-    </Modal>
+
+      <View style={styles.twoCol}>
+        <Field label={t("capture.edit.field.brand")} containerStyle={styles.colField}>
+          <TextInput
+            style={inputStyle}
+            value={brand}
+            onChangeText={setBrand}
+            placeholder={t("capture.edit.field.brand_placeholder")}
+            placeholderTextColor={theme.colors.textMuted}
+            maxLength={40}
+          />
+        </Field>
+        <Field label={t("capture.edit.field.style")} containerStyle={styles.colField}>
+          <TextInput
+            style={inputStyle}
+            value={style}
+            onChangeText={setStyle}
+            placeholder={t("capture.edit.field.style_placeholder")}
+            placeholderTextColor={theme.colors.textMuted}
+            maxLength={30}
+          />
+        </Field>
+      </View>
+
+      <Field label={t("capture.edit.field.season")}>
+        <View style={styles.chipWrap}>
+          {SEASONS.map((s) => (
+            <Pressable
+              key={s}
+              onPress={() => setSeason(s === season ? null : s)}
+              style={[styles.chip, s === season && styles.chipActive]}
+            >
+              <Text style={[styles.chipText, s === season && styles.chipTextActive]}>
+                {s}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </Field>
+
+      <Field label={t("capture.edit.field.occasions")}>
+        <View style={styles.chipWrap}>
+          {OCCASIONS.map((occ) => (
+            <Pressable
+              key={occ}
+              onPress={() => toggleOccasion(occ)}
+              style={[styles.chip, occasions.has(occ) && styles.chipActive]}
+            >
+              <Text style={[styles.chipText, occasions.has(occ) && styles.chipTextActive]}>
+                {tl("occasion", occ)}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </Field>
+
+      <Field label={t("capture.edit.field.tags")} hint={t("capture.edit.field.tags_hint")}>
+        <TextInput
+          style={inputStyle}
+          value={tags}
+          onChangeText={setTags}
+          placeholder={t("capture.edit.field.tags_placeholder")}
+          placeholderTextColor={theme.colors.textMuted}
+          autoCapitalize="none"
+        />
+      </Field>
+    </Sheet>
   );
 }
 
@@ -272,39 +232,11 @@ function Field({
 }
 
 const useStyles = makeStyles((theme) => ({
-  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" },
-  keyboard: { justifyContent: "flex-end", maxHeight: "92%" },
-  sheet: {
-    backgroundColor: theme.colors.surface,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    maxHeight: "92%",
-  },
-  handle: {
-    alignSelf: "center",
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: theme.colors.border,
-    marginBottom: 12,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 4,
-  },
-  title: { fontSize: 20, fontWeight: "800", color: theme.colors.text },
-  body: { gap: 14, paddingBottom: 12 },
   field: { gap: 6 },
   fieldLabel: {
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: 0.6,
-    textTransform: "uppercase",
-    color: theme.colors.textMuted,
+    fontSize: 13,
+    fontWeight: "700",
+    color: theme.colors.text,
   },
   fieldHint: { fontSize: 11, color: theme.colors.textMuted },
   input: {
@@ -332,13 +264,4 @@ const useStyles = makeStyles((theme) => ({
   twoCol: { flexDirection: "row", gap: 12 },
   colField: { flex: 1 },
   error: { fontSize: 12.5, color: theme.colors.danger },
-  saveBtn: {
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.borderRadius.md,
-    paddingVertical: 15,
-    alignItems: "center",
-    marginTop: 4,
-  },
-  saveDisabled: { opacity: 0.5 },
-  saveBtnText: { color: theme.colors.onPrimary, fontWeight: "700", fontSize: 15 },
 }));
