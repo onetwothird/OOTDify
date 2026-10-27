@@ -325,7 +325,7 @@ export default function CommunityScreen() {
                 onPress={() => setShareOpen(true)}
                 style={({ pressed }) => [styles.shareIconBtn, pressed && { opacity: 0.7 }]}
               >
-                <Ionicons name="create-outline" size={20} color={theme.colors.onPrimary} />
+                <Ionicons name="create-outline" size={20} color={theme.colors.onBrand} />
               </Pressable>
             ) : (
               <AppButton
@@ -373,7 +373,7 @@ export default function CommunityScreen() {
               <RefreshControl
                 refreshing={feedRefreshing}
                 onRefresh={() => void refreshFeed()}
-                tintColor={theme.colors.primary}
+                tintColor={theme.colors.brand}
               />
             }
             ListEmptyComponent={
@@ -403,7 +403,7 @@ export default function CommunityScreen() {
             <RefreshControl
               refreshing={chatsRefreshing}
               onRefresh={() => void refreshChats()}
-              tintColor={theme.colors.primary}
+              tintColor={theme.colors.brand}
             />
           }
           ListHeaderComponent={
@@ -440,7 +440,7 @@ export default function CommunityScreen() {
                     onPress={() => setCreateOpen(true)}
                     style={({ pressed }) => [styles.createBtn, pressed && { opacity: 0.85 }]}
                   >
-                    <Ionicons name="add" size={16} color={theme.colors.onPrimary} />
+                    <Ionicons name="add" size={16} color={theme.colors.onBrand} />
                     <Text style={styles.createBtnText}>{t("community.chat.create")}</Text>
                   </Pressable>
                 </View>
@@ -646,7 +646,7 @@ const useStyles = makeStyles((theme) => ({
     backgroundColor: theme.colors.brand,
     minHeight: 32,
   },
-  createBtnText: { fontSize: 12.5, fontWeight: "700", color: theme.colors.onPrimary },
+  createBtnText: { fontSize: 12.5, fontWeight: "700", color: theme.colors.onBrand },
   roomsLoading: { marginVertical: theme.spacing.md },
   roomsEmpty: {
     fontSize: 12.5,
@@ -679,5 +679,5 @@ const useStyles = makeStyles((theme) => ({
     alignItems: "center",
     justifyContent: "center",
   },
-  unreadText: { fontSize: 11, fontWeight: "700", color: theme.colors.onPrimary },
+  unreadText: { fontSize: 11, fontWeight: "700", color: theme.colors.onBrand },
 }));
