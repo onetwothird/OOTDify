@@ -180,7 +180,7 @@ export default function PrivacyDataScreen() {
             <View style={styles.card}>
               {rows.map((r) => (
                 <View key={r.labelKey} style={styles.statRow}>
-                  <Ionicons name={r.icon} size={18} color={theme.colors.primary} />
+                  <Ionicons name={r.icon} size={18} color={theme.colors.brand} />
                   <Text style={styles.statLabel}>{t(r.labelKey)}</Text>
                   <Text style={styles.statValue}>{r.value}</Text>
                 </View>
@@ -274,7 +274,7 @@ function Row({
       onPress={onPress}
       style={({ pressed }) => [styles.row, pressed && { opacity: 0.85 }]}
     >
-      <Ionicons name={icon} size={20} color={theme.colors.primary} />
+      <Ionicons name={icon} size={20} color={theme.colors.brand} />
       <View style={styles.rowBody}>
         <Text style={styles.rowLabel}>{label}</Text>
         {hint ? <Text style={styles.rowHint}>{hint}</Text> : null}
@@ -362,5 +362,5 @@ const useStyles = makeStyles((theme: Theme) => ({
     paddingVertical: 10,
     paddingHorizontal: 20,
   },
-  modalCloseText: { color: theme.colors.onPrimary, fontWeight: "600", fontSize: 14 },
+  modalCloseText: { color: theme.colors.onBrand, fontWeight: "600", fontSize: 14 },
 }));
