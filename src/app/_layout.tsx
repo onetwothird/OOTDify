@@ -22,6 +22,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Image, StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { BiometricGate } from "../features/settings/BiometricGate";
 import { ToastHost } from "../shared/components/ToastHost";
 import { TERMS_VERSION } from "../shared/config/legal";
 import { lightColors, theme } from "../shared/config/theme";
@@ -177,6 +178,8 @@ function RootLayoutInner() {
         <Stack.Screen name="+not-found" />
       </Stack>
       <ToastHost />
+      {/* Last, so the lock covers every screen and toast. */}
+      <BiometricGate signedIn={Boolean(session)} />
     </SafeAreaProvider>
   );
 }
