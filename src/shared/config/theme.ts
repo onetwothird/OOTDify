@@ -1,11 +1,10 @@
 // C:\OOTDify\src\shared\config\theme.ts
-// OOTDify design tokens, drawn from the mascot penguin: navy outline, royal
-// blue body, sky blue cape, white belly, orange beak.
-//
-// Blue is for ACTIONS only (`brand`: main buttons, the + button, the selected
-// tab), so it stays meaningful. Structure (avatars, tags, chips, toasts) uses
-// navy `primary`; pages and cards stay neutral; the beak's orange is the
-// accent for favourites and tags.
+// OOTDify design tokens: denim and copper. One blue only, a calm,
+// low-saturation denim (`brand`) that never glares, reserved for ACTIONS: main
+// buttons, the + button, the selected tab, links. Structure (avatars, tags,
+// selected chips, toasts) is neutral graphite `primary`; pages and cards are
+// neutral; copper, like the rivets on a pair of jeans, is the accent for
+// favourites and tags. The mascot's colours follow `brand`.
 //
 // There are TWO palettes: light and dark. Both keep the same key set, so any
 // `theme.colors.X` reference resolves in either mode.
@@ -50,62 +49,64 @@ export type ThemeColors = {
 };
 
 export const lightColors: ThemeColors = {
-  // Neutral off-white page; the blues read as colour against it.
+  // Neutral off-white page; denim reads as the one colour against it.
   background: "#F5F6F8",
   // Cards / sheets.
   surface: "#FFFFFF",
   // Raised-but-quiet fills (chips, icon tiles).
-  surfaceAlt: "#ECEEF2",
-  border: "#E1E4EA",
-  // The penguin's navy outline: structural fills (avatars, tags, chips).
-  primary: "#1B2A4E",
-  primaryMuted: "#EDF0F6",
-  text: "#171E2E",
-  textMuted: "#5D6575",
-  // The beak's orange, deepened so small text stays readable.
+  surfaceAlt: "#ECEEF1",
+  border: "#E1E3E8",
+  // Graphite: structural fills (avatars, tags, selected chips).
+  primary: "#252A33",
+  primaryMuted: "#EEF0F3",
+  text: "#1B1F27",
+  textMuted: "#5E636D",
+  // Copper, deepened so small text stays readable.
   accent: "#A64F08",
-  accentBright: "#F28C28",
+  accentBright: "#E8892E",
   success: "#2E8A57",
   warning: "#B5641F",
   danger: "#C8402F",
-  brand: "#2F5BC4",
+  // Denim.
+  brand: "#3A5A96",
   onBrand: "#FFFFFF",
   onPrimary: "#FFFFFF",
   // White blended onto `primary` at 68% / 20% / 9%.
-  onPrimaryMuted: "#B6BBC6",
-  onPrimarySubtle: "#495571",
-  onPrimaryFaint: "#303D5E",
-  textFaint: "#EEF0F4",
+  onPrimaryMuted: "#B9BBBE",
+  onPrimarySubtle: "#51555C",
+  onPrimaryFaint: "#393D45",
+  textFaint: "#EEF0F3",
 };
 
-// Dark palette: neutral near-black layers that step lighter as they come
-// forward, a soft white-blue for structure, and the cape's sky blue for actions.
+// Dark palette: neutral charcoal layers that step lighter as they come forward,
+// soft light grey for structure, and washed denim for actions.
 export const darkColors: ThemeColors = {
   // Deepest layer: the page behind everything.
-  background: "#0F131C",
+  background: "#111418",
   // Cards / sheets — one step forward from the page.
-  surface: "#171C2C",
+  surface: "#1A1D23",
   // Raised-but-quiet fills (chips, icon tiles).
-  surfaceAlt: "#20273A",
-  border: "#2B3348",
-  primary: "#E6ECF7",
-  primaryMuted: "#1E2537",
-  text: "#EDF1F8",
-  textMuted: "#A3ABBD",
+  surfaceAlt: "#23272E",
+  border: "#2E333B",
+  primary: "#E4E7EC",
+  primaryMuted: "#22262D",
+  text: "#EDEFF2",
+  textMuted: "#A5ABB5",
   accent: "#F2A25C",
-  accentBright: "#F7A65A",
+  accentBright: "#F2A25C",
   success: "#5FCB8E",
   warning: "#F0A35E",
   danger: "#F07A68",
-  brand: "#5BB8EE",
-  onBrand: "#0F131C",
-  // Navy ink on the light `primary`.
-  onPrimary: "#14203D",
-  // Navy blended onto `primary` at 62% / 20% / 9%.
-  onPrimaryMuted: "#646E84",
-  onPrimarySubtle: "#BCC3D2",
-  onPrimaryFaint: "#D3DAE6",
-  textFaint: "#1C2232",
+  // Washed denim.
+  brand: "#7F9CC8",
+  onBrand: "#11141A",
+  // Graphite ink on the light `primary`.
+  onPrimary: "#1A1E25",
+  // Graphite blended onto `primary` at 62% / 20% / 9%.
+  onPrimaryMuted: "#676A71",
+  onPrimarySubtle: "#BCBFC4",
+  onPrimaryFaint: "#D2D5DA",
+  textFaint: "#1E2228",
 };
 
 export const theme = {
