@@ -1,9 +1,4 @@
 // C:\OOTDify\src\features\settings\SettingsSection.tsx
-// The settings content rendered INSIDE Profile (Profile is the settings hub).
-// Device preferences (language, appearance, biometric unlock) are applied live
-// through the settings store; Help / Backup / About push to their own screens.
-// Nothing here is account data — these are per-device preferences stored
-// locally in AsyncStorage.
 import { Ionicons } from "@expo/vector-icons";
 import * as LocalAuthentication from "expo-local-authentication";
 import * as Application from "expo-application";
@@ -16,32 +11,39 @@ import {
   LanguageCode,
   useSettingsStore,
 } from "./settingsStore";
-import { theme } from "../../shared/config/theme";
+import { useAppTheme } from "../../shared/theme/ThemeProvider";
+import { makeStyles } from "../../shared/theme/makeStyles";
+import type { Theme } from "../../shared/config/theme";
+import { useT } from "../../shared/i18n/useT";
+import type { TranslationKey } from "../../shared/i18n/translate";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
+// Language labels remain in their native names (English is always English)
 const LANGUAGE_OPTIONS: { code: LanguageCode; label: string }[] = [
   { code: "en", label: "English" },
   { code: "fil", label: "Filipino" },
 ];
 
-const APPEARANCE_OPTIONS: { mode: AppearanceMode; label: string; icon: IconName }[] = [
-  { mode: "system", label: "System", icon: "phone-portrait-outline" },
-  { mode: "light", label: "Light", icon: "sunny-outline" },
-  { mode: "dark", label: "Dark", icon: "moon-outline" },
+const APPEARANCE_OPTIONS: { mode: AppearanceMode; icon: IconName }[] = [
+  { mode: "system", icon: "phone-portrait-outline" },
+  { mode: "light", icon: "sunny-outline" },
+  { mode: "dark", icon: "moon-outline" },
 ];
 
-/** Real app version from the native package (never hardcoded). */
-function appVersionLabel(): string {
+function appVersionLabel(t: any): string {
   const version = Application.nativeApplicationVersion;
   const build = Application.nativeBuildVersion;
-  if (version && build) return `Version ${version} (${build})`;
-  if (version) return `Version ${version}`;
-  return "Version unknown";
+  if (version && build) return t("settings.version.build", { version, build });
+  if (version) return t("settings.version", { version });
+  return t("settings.version.unknown");
 }
 
 export function SettingsSection() {
   const router = useRouter();
+  const { t } = useT();
+  const theme = useAppTheme();
+  const styles = useStyles();
 
   const language = useSettingsStore((s) => s.language);
   const setLanguage = useSettingsStore((s) => s.setLanguage);
@@ -50,8 +52,6 @@ export function SettingsSection() {
   const biometricLock = useSettingsStore((s) => s.biometricLock);
   const setBiometricLock = useSettingsStore((s) => s.setBiometricLock);
 
-  // Whether the device can actually do biometric (or secure) unlock. Resolved
-  // once; if the hardware is missing the toggle is disabled rather than lying.
   const [bioAvailable, setBioAvailable] = useState<boolean | null>(null);
   useEffect(() => {
     let alive = true;
@@ -74,8 +74,8 @@ export function SettingsSection() {
   const toggleBiometric = (next: boolean) => {
     if (next && bioAvailable === false) {
       Alert.alert(
-        "Not available",
-        "This device has no enrolled face or fingerprint. Add one in system settings first.",
+        t("settings.biometric.alert.title"),
+        t("settings.biometric.alert.message")
       );
       return;
     }
@@ -84,11 +84,11 @@ export function SettingsSection() {
 
   return (
     <>
-      <SectionLabel text="SETTINGS" />
+      <SectionLabel text={t("settings.section.general")} />
 
       {/* General — language / appearance / biometric */}
       <View style={styles.card}>
-        <Text style={styles.groupLabel}>Language</Text>
+        <Text style={styles.groupLabel}>{t("settings.language")}</Text>
         <View style={styles.pickerRow}>
           {LANGUAGE_OPTIONS.map((opt) => {
             const active = opt.code === language;
@@ -110,7 +110,7 @@ export function SettingsSection() {
 
         <View style={styles.cardDivider} />
 
-        <Text style={styles.groupLabel}>Appearance</Text>
+        <Text style={styles.groupLabel}>{t("settings.appearance")}</Text>
         <View style={styles.pickerRow}>
           {APPEARANCE_OPTIONS.map((opt) => {
             const active = opt.mode === appearance;
@@ -128,7 +128,7 @@ export function SettingsSection() {
                   color={active ? theme.colors.onPrimary : theme.colors.textMuted}
                 />
                 <Text style={[styles.pillText, active && styles.pillTextActive]}>
-                  {opt.label}
+                  {t(`settings.appearance.${opt.mode}` as TranslationKey)}
                 </Text>
               </Pressable>
             );
@@ -140,11 +140,11 @@ export function SettingsSection() {
         <View style={styles.switchRow}>
           <Ionicons name="finger-print-outline" size={20} color={theme.colors.primary} />
           <View style={styles.switchBody}>
-            <Text style={styles.rowLabel}>Biometric unlock</Text>
+            <Text style={styles.rowLabel}>{t("settings.biometric.title")}</Text>
             <Text style={styles.rowHint}>
               {bioAvailable === false
-                ? "Not available on this device"
-                : "Ask for face or fingerprint when you return to the app"}
+                ? t("settings.biometric.unavailable")
+                : t("settings.biometric.hint")}
             </Text>
           </View>
           <Switch
@@ -158,66 +158,67 @@ export function SettingsSection() {
       </View>
 
       {/* Help */}
-      <SectionLabel text="HELP" />
+      <SectionLabel text={t("settings.section.help")} />
       <View style={styles.card}>
         <Row
           icon="help-circle-outline"
-          label="How to use OOTDify"
+          label={t("settings.help.use")}
           onPress={() => router.push("/settings/help")}
         />
       </View>
 
       {/* Backup */}
-      <SectionLabel text="BACKUP" />
+      <SectionLabel text={t("settings.section.backup")} />
       <View style={styles.card}>
         <Row
           icon="save-outline"
-          label="Manage local backup"
-          hint="Export or restore your app data on this device"
+          label={t("settings.backup.manage")}
+          hint={t("settings.backup.hint")}
           onPress={() => router.push("/settings/backup")}
         />
       </View>
 
       {/* About */}
-      <SectionLabel text="ABOUT" />
+      <SectionLabel text={t("settings.section.about")} />
       <View style={styles.card}>
         <Row
           icon="cloud-download-outline"
-          label="Check for updates"
+          label={t("settings.about.updates")}
           onPress={() => router.push("/settings/about?tab=updates")}
         />
         <View style={styles.rowDivider} />
         <Row
           icon="sparkles-outline"
-          label="What's new"
+          label={t("settings.about.whatsnew")}
           onPress={() => router.push("/settings/about?tab=whatsnew")}
         />
         <View style={styles.rowDivider} />
         <Row
           icon="chatbox-ellipses-outline"
-          label="Send feedback"
+          label={t("settings.about.feedback")}
           onPress={() => router.push("/settings/about?tab=feedback")}
         />
         <View style={styles.rowDivider} />
         <Row
           icon="lock-closed-outline"
-          label="Privacy notice"
+          label={t("settings.about.privacy")}
           onPress={() => router.push("/privacy/policy")}
         />
         <View style={styles.rowDivider} />
         <Row
           icon="ribbon-outline"
-          label="Third-party trademarks"
+          label={t("settings.about.trademarks")}
           onPress={() => router.push("/settings/about?tab=trademarks")}
         />
       </View>
 
-      <Text style={styles.version}>{appVersionLabel()}</Text>
+      <Text style={styles.version}>{appVersionLabel(t)}</Text>
     </>
   );
 }
 
 function SectionLabel({ text }: { text: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.sectionLabelRow}>
       <View style={styles.sectionBar} />
@@ -237,6 +238,8 @@ function Row({
   hint?: string;
   onPress: () => void;
 }) {
+  const theme = useAppTheme();
+  const styles = useStyles();
   return (
     <Pressable
       accessibilityRole="button"
@@ -253,7 +256,7 @@ function Row({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme: Theme) => ({
   sectionLabelRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -271,6 +274,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 1,
     color: theme.colors.textMuted,
+    textTransform: "uppercase"
   },
   card: {
     backgroundColor: theme.colors.surface,
@@ -314,4 +318,4 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 8,
   },
-});
+}));
