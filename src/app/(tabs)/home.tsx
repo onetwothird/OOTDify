@@ -1,7 +1,4 @@
 // C:\OOTDify\src\app\(tabs)\home.tsx
-
-// Home: "Your wardrobe. Styled by AI." — hero + real-data sections.
-
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -40,11 +37,14 @@ import { SkeletonGrid, SkeletonRow } from "../../shared/components/LoadingState"
 import { Mascot } from "../../shared/components/Mascot";
 import { SectionHeader } from "../../shared/components/SectionHeader";
 import { Skeleton } from "../../shared/components/Skeleton";
-import { theme } from "../../shared/config/theme";
+import { useAppTheme } from "../../shared/theme/ThemeProvider";
+import { makeStyles } from "../../shared/theme/makeStyles";
+import type { Theme } from "../../shared/config/theme";
 import { useResponsiveColumns } from "../../shared/hooks/useResponsiveColumns";
 import { useCurrentPlace } from "../../shared/lib/location";
 import { resolveMediaUrl } from "../../shared/lib/storageUrl";
 import { ApiError, getProfile, recommendCatalog } from "../../services/aiApi";
+import { useT } from "../../shared/i18n/useT";
 
 const HORIZONTAL_CARD_W = 150;
 
@@ -52,19 +52,19 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { itemWidth, onLayout } = useResponsiveColumns(120, 12);
+  const { t, tl } = useT();
+  const theme = useAppTheme();
+  const styles = useStyles();
 
-  // ---- Recommendations (Flask /api/recommend → real catalog ids) -----------
   const [occasion, setOccasion] = useState<string>("Casual");
   const [recommended, setRecommended] = useState<CatalogItem[]>([]);
   const [recLoading, setRecLoading] = useState(true);
   const [recError, setRecError] = useState<ApiError | null>(null);
 
-  // ---- Trending (fresh catalog rows, real DB data) --------------------------
   const [trending, setTrending] = useState<CatalogItem[]>([]);
   const [trendingLoading, setTrendingLoading] = useState(true);
   const [trendingError, setTrendingError] = useState<string | null>(null);
 
-  // ---- Wardrobe / saved / recent (Supabase anon, owner scoped by RLS) ------
   const closet = useWardrobeStore((s) => s.items);
   const closetLoading = useWardrobeStore((s) => s.loading);
   const [saved, setSaved] = useState<SavedOutfit[]>([]);
@@ -72,30 +72,17 @@ export default function HomeScreen() {
   const [recent, setRecent] = useState<CatalogItem[]>([]);
   const [recentLoading, setRecentLoading] = useState(true);
 
-  // Which Home section is visible. The old layout stacked every section in one
-  // long scroll; the switcher shows one at a time so the page stays short.
   const [homeTab, setHomeTab] = useState<"discover" | "wardrobe" | "looks">("discover");
-
-  // ---- Today's planned look (public.outfit_plans, owner-only via RLS) ------
   const [todayPlan, setTodayPlan] = useState<OutfitPlan | null>(null);
   const [planLoading, setPlanLoading] = useState(true);
   const [planError, setPlanError] = useState<string | null>(null);
 
-  // ---- Greeting (real profile nickname + avatar; fallbacks are honest) ------
   const [nickname, setNickname] = useState<string | null>(null);
-  // The photo lives in a shared store so Profile changes show up here at once.
   const avatarRef = useAvatarStore((s) => s.ref);
   const setAvatarRef = useAvatarStore((s) => s.setRef);
   const [greetingLoading, setGreetingLoading] = useState(true);
-  // The onboarding prompt is only considered once per mount (loadGreeting runs
-  // on every focus; navigating must not repeat).
   const onboardingChecked = useRef(false);
 
-  // ---------------------------------------------------------------------------
-  // Loaders (real endpoints only)
-  // ---------------------------------------------------------------------------
-  // Core loader — safe to call from effects: no synchronous setState (the
-  // loading flag starts true; the spinner/error reset lives in the wrapper).
   const fetchRecommendations = useCallback(async (occ: string) => {
     try {
       const { recommendations } = await recommendCatalog({ occasion: occ, limit: 8 });
@@ -104,33 +91,28 @@ export default function HomeScreen() {
       setRecError(
         e instanceof ApiError
           ? e
-          : new ApiError("unknown", "Something went wrong. Please try again.", 0, e),
+          : new ApiError("unknown", t("home.error.unknown"), 0, e),
       );
     } finally {
       setRecLoading(false);
     }
-  }, []);
+  }, [t]);
 
-  // Handler-facing wrapper: show the spinner and clear the previous error.
-  const loadRecommendations = useCallback(
-    async (occ: string) => {
-      setRecLoading(true);
-      setRecError(null);
-      await fetchRecommendations(occ);
-    },
-    [fetchRecommendations],
-  );
+  const loadRecommendations = useCallback(async (occ: string) => {
+    setRecLoading(true);
+    setRecError(null);
+    await fetchRecommendations(occ);
+  }, [fetchRecommendations]);
 
   const loadTrending = useCallback(async () => {
-    // Effect-only (no synchronous setState); state starts as loading.
     try {
       setTrending(await fetchCatalog({ limit: 6 }));
     } catch (e) {
-      setTrendingError(e instanceof Error ? e.message : "Could not load trending items.");
+      setTrendingError(e instanceof Error ? e.message : t("home.error.trending"));
     } finally {
       setTrendingLoading(false);
     }
-  }, []);
+  }, [t]);
 
   const loadStatic = useCallback(async () => {
     setSavedLoading(true);
@@ -143,17 +125,14 @@ export default function HomeScreen() {
       setSaved(rows);
       setRecent(history);
     } catch {
-      // Individual sections render their own empty/error states; ignore globally.
+      // Ignored
     } finally {
       setSavedLoading(false);
       setRecentLoading(false);
     }
-    // Wardrobe lives in the shared store; keep it fresh on focus.
     void useWardrobeStore.getState().loadFromServer().catch(() => {});
   }, []);
 
-  // Today's planned look. Kept separate from loadStatic so a failure here is
-  // reported honestly instead of looking like an empty day.
   const loadTodayPlan = useCallback(async () => {
     const todayISO = toISODate(new Date());
     try {
@@ -161,11 +140,11 @@ export default function HomeScreen() {
       setTodayPlan(rows[0] ?? null);
       setPlanError(null);
     } catch (e) {
-      setPlanError(e instanceof Error ? e.message : "Could not load today's plan.");
+      setPlanError(e instanceof Error ? e.message : t("home.error.plan"));
     } finally {
       setPlanLoading(false);
     }
-  }, []);
+  }, [t]);
 
   const loadGreeting = useCallback(async () => {
     setGreetingLoading(true);
@@ -179,15 +158,9 @@ export default function HomeScreen() {
       setNickname(name);
       setAvatarRef(profile.avatar_url ?? null);
 
-      // First moment the new account can own its photo: a picture chosen or
-      // captured in the signup wizard is uploaded here. It was never uploaded
-      // while signed out.
       const applied = await applyPendingAvatar();
       if (applied) setAvatarRef(applied);
 
-      // Post-signup prompt: a fresh account is asked once for its nickname and
-      // style preferences. Flag is local + email-tagged; opening the route once
-      // per mount keeps a saved/skipped answer from ever looping.
       if (!onboardingChecked.current) {
         onboardingChecked.current = true;
         if (await isOnboardingPending(email)) {
@@ -196,15 +169,12 @@ export default function HomeScreen() {
         }
       }
     } catch {
-      // AI service down / not signed in: fall back to a generic greeting.
       setNickname(null);
     } finally {
       setGreetingLoading(false);
     }
   }, [setAvatarRef, router]);
 
-  // Reset loading/error during render when the occasion changes — React's
-  // documented alternative to a synchronous setState inside an effect.
   const [prevOccasion, setPrevOccasion] = useState(occasion);
   if (prevOccasion !== occasion) {
     setPrevOccasion(occasion);
@@ -213,31 +183,21 @@ export default function HomeScreen() {
   }
 
   useEffect(() => {
-    // Microtask kick-off: keeps setState from running synchronously inside the
-    // effect body (cascading renders) — the loader only sets state after await.
-    Promise.resolve()
-      .then(() => fetchRecommendations(occasion))
-      .catch(() => {});
+    Promise.resolve().then(() => fetchRecommendations(occasion)).catch(() => {});
   }, [occasion, fetchRecommendations]);
 
   useEffect(() => {
-    Promise.resolve()
-      .then(() => loadTrending())
-      .catch(() => {});
+    Promise.resolve().then(() => loadTrending()).catch(() => {});
   }, [loadTrending]);
 
   useFocusEffect(
     useCallback(() => {
-      // Refresh lightweight lists on every focus so cross-tab changes appear.
       void loadStatic();
       void loadTodayPlan();
       void loadGreeting();
     }, [loadStatic, loadTodayPlan, loadGreeting]),
   );
 
-  // ---------------------------------------------------------------------------
-  // Actions
-  // ---------------------------------------------------------------------------
   const openItem = useCallback(
     (item: CatalogItem) => {
       recordRecentlyViewed(item.id).catch(() => {});
@@ -248,12 +208,7 @@ export default function HomeScreen() {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 8 }]}>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* ------------------------------------------------ Top bar */}
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <HomeTopBar
           nickname={nickname}
           avatarRef={avatarRef}
@@ -261,32 +216,23 @@ export default function HomeScreen() {
           onOpenProfile={() => router.push("/(tabs)/profile")}
         />
 
-        {/* ------------------------------------------------ Hero */}
-        <Hero
-          pieceCount={closet.length}
-          lookCount={saved.length}
-          loading={closetLoading || savedLoading}
-        />
+        <Hero pieceCount={closet.length} lookCount={saved.length} loading={closetLoading || savedLoading} />
 
-        {/* ------------------------------------------------ Today's planned look */}
         <TodayLookCard
           plan={todayPlan}
           outfit={saved.find((o) => o.id === todayPlan?.outfit_id)}
           loading={planLoading}
           error={planError}
           onOpenOutfit={(id) => router.push(`/outfit/${id}`)}
-          onPlanLook={() =>
-            router.push({ pathname: "/(tabs)/outfits", params: { view: "calendar" } })
-          }
+          onPlanLook={() => router.push({ pathname: "/(tabs)/outfits", params: { view: "calendar" } })}
         />
 
-        {/* ------------------------------------------------ Section switcher */}
         <View style={styles.segment}>
           {(
             [
-              ["discover", "Discover"],
-              ["wardrobe", "Wardrobe"],
-              ["looks", "Looks"],
+              ["discover", t("home.tab.discover")],
+              ["wardrobe", t("home.tab.wardrobe")],
+              ["looks", t("home.tab.looks")],
             ] as const
           ).map(([key, label]) => (
             <Pressable
@@ -305,23 +251,13 @@ export default function HomeScreen() {
 
         {homeTab === "discover" ? (
           <>
-            {/* ------------------------------------------------ Recommended looks */}
             <SectionHeader
-              title="Recommended for you"
-              subtitle={`Real catalog picks for “${occasion}”, scored by the style engine.`}
+              title={t("home.recommended.title")}
+              subtitle={t("home.recommended.subtitle", { occasion: tl("occasion", occasion) })}
             />
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.chips}
-            >
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
               {OCCASIONS.map((occ) => (
-                <Chip
-                  key={occ}
-                  label={occ}
-                  active={occ === occasion}
-                  onPress={() => setOccasion(occ)}
-                />
+                <Chip key={occ} label={tl("occasion", occ)} active={occ === occasion} onPress={() => setOccasion(occ)} />
               ))}
             </ScrollView>
             <View style={styles.chipsSpacer} />
@@ -332,41 +268,27 @@ export default function HomeScreen() {
               <View style={styles.unavailable}>
                 <Ionicons name="cloud-offline-outline" size={20} color={theme.colors.accent} />
                 <View style={styles.unavailableBody}>
-                  <Text style={styles.unavailableTitle}>AI styling is temporarily unavailable</Text>
-                  <Text style={styles.unavailableText}>
-                    {recError.message} Make sure the AI service is running, then try again.
-                  </Text>
+                  <Text style={styles.unavailableTitle}>{t("home.error.ai_unavailable")}</Text>
+                  <Text style={styles.unavailableText}>{recError.message} {t("home.error.ai_instruction")}</Text>
                 </View>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => void loadRecommendations(occasion)}
-                  style={styles.unavailableRetry}
-                >
-                  <Text style={styles.unavailableRetryText}>Retry</Text>
+                <Pressable onPress={() => void loadRecommendations(occasion)} style={styles.unavailableRetry}>
+                  <Text style={styles.unavailableRetryText}>{t("home.action.retry")}</Text>
                 </Pressable>
               </View>
             ) : recommended.length === 0 ? (
-              <Text style={styles.emptyLine}>
-                No catalog items for this occasion yet — try another one.
-              </Text>
+              <Text style={styles.emptyLine}>{t("home.recommended.empty")}</Text>
             ) : (
               <View style={styles.grid} onLayout={onLayout}>
                 {recommended.map((item) => (
-                  <ClothingCard
-                    key={item.id}
-                    item={item}
-                    width={itemWidth}
-                    onPress={() => openItem(item)}
-                  />
+                  <ClothingCard key={item.id} item={item} width={itemWidth} onPress={() => openItem(item)} />
                 ))}
               </View>
             )}
 
-            {/* ------------------------------------------------ Trending inspiration */}
             <SectionHeader
-              title="Trending inspiration"
-              subtitle="Fresh from the catalog."
-              actionLabel="Browse"
+              title={t("home.trending.title")}
+              subtitle={t("home.trending.subtitle")}
+              actionLabel={t("home.action.browse")}
               onAction={() => router.push("/(tabs)/discover")}
             />
             {trendingLoading ? (
@@ -374,38 +296,26 @@ export default function HomeScreen() {
             ) : trendingError ? (
               <Text style={styles.emptyLine}>{trendingError}</Text>
             ) : trending.length === 0 ? (
-              <Text style={styles.emptyLine}>The catalog is being seeded — check back soon.</Text>
+              <Text style={styles.emptyLine}>{t("home.trending.empty")}</Text>
             ) : (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.tileRow}
-              >
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tileRow}>
                 {trending.map((item) => (
-                  <ClothingCard
-                    key={item.id}
-                    item={item}
-                    width={HORIZONTAL_CARD_W}
-                    onPress={() => openItem(item)}
-                  />
+                  <ClothingCard key={item.id} item={item} width={HORIZONTAL_CARD_W} onPress={() => openItem(item)} />
                 ))}
               </ScrollView>
             )}
           </>
         ) : homeTab === "wardrobe" ? (
           <>
-            {/* ------------------------------------------------ My wardrobe */}
             <SectionHeader
-              title="My wardrobe"
-              subtitle="Your pieces, stored privately."
-              actionLabel="Open"
+              title={t("home.wardrobe.title")}
+              subtitle={t("home.wardrobe.subtitle")}
+              actionLabel={t("home.action.open")}
               onAction={() => router.push("/(tabs)/discover")}
             />
             {closetLoading && closet.length === 0 ? (
               <View style={styles.hRow}>
-                {[0, 1, 2].map((i) => (
-                  <Skeleton key={i} width={110} height={140} radius={theme.borderRadius.md} />
-                ))}
+                {[0, 1, 2].map((i) => <Skeleton key={i} width={110} height={140} radius={theme.borderRadius.md} />)}
               </View>
             ) : closet.length === 0 ? (
               <View style={styles.emptyCard}>
@@ -414,26 +324,14 @@ export default function HomeScreen() {
                     <Ionicons name="shirt-outline" size={22} color={theme.colors.text} />
                   </View>
                   <View style={styles.emptyBody}>
-                    <Text style={styles.emptyTitle}>Your wardrobe is empty</Text>
-                    <Text style={styles.emptyText}>
-                      Add your first pieces to build looks and try them on.
-                    </Text>
+                    <Text style={styles.emptyTitle}>{t("home.wardrobe.empty.title")}</Text>
+                    <Text style={styles.emptyText}>{t("home.wardrobe.empty.message")}</Text>
                   </View>
                 </View>
-                <AppButton
-                  label="Add clothes"
-                  size="md"
-                  icon="add"
-                  onPress={() => router.push("/(tabs)/discover")}
-                  style={styles.emptyBtn}
-                />
+                <AppButton label={t("home.wardrobe.empty.button")} size="md" icon="add" onPress={() => router.push("/(tabs)/discover")} style={styles.emptyBtn} />
               </View>
             ) : (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.tileRow}
-              >
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tileRow}>
                 {closet.slice(0, 8).map((item) => (
                   <WardrobeTile
                     key={item.id}
@@ -449,52 +347,33 @@ export default function HomeScreen() {
           </>
         ) : (
           <>
-            {/* ------------------------------------------------ Recent looks (saved) */}
             <SectionHeader
-              title="Recent looks"
-              subtitle="Outfits you saved — built from real pieces."
-              actionLabel="All"
+              title={t("home.looks.recent.title")}
+              subtitle={t("home.looks.recent.subtitle")}
+              actionLabel={t("home.action.all")}
               onAction={() => router.push("/(tabs)/outfits")}
             />
             {savedLoading ? (
               <SkeletonRow />
             ) : saved.length === 0 ? (
-              <Text style={styles.emptyLine}>
-                Build your first outfit and it will show up here.
-              </Text>
+              <Text style={styles.emptyLine}>{t("home.looks.recent.empty")}</Text>
             ) : (
               <View style={styles.savedList}>
                 {saved.slice(0, 4).map((o) => (
-                  <SavedLookRow
-                    key={o.id}
-                    outfit={o}
-                    onPress={() => router.push(`/outfit/${o.id}`)}
-                  />
+                  <SavedLookRow key={o.id} outfit={o} onPress={() => router.push(`/outfit/${o.id}`)} />
                 ))}
               </View>
             )}
 
-            {/* ------------------------------------------------ Recently viewed */}
-            <SectionHeader title="Recently viewed" subtitle="Pick up where you left off." />
+            <SectionHeader title={t("home.looks.viewed.title")} subtitle={t("home.looks.viewed.subtitle")} />
             {recentLoading ? (
               <SkeletonRow />
             ) : recent.length === 0 ? (
-              <Text style={styles.emptyLine}>
-                Items you open will appear here.
-              </Text>
+              <Text style={styles.emptyLine}>{t("home.looks.viewed.empty")}</Text>
             ) : (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.tileRow}
-              >
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tileRow}>
                 {recent.slice(0, 10).map((item) => (
-                  <ClothingCard
-                    key={item.id}
-                    item={item}
-                    width={HORIZONTAL_CARD_W}
-                    onPress={() => openItem(item)}
-                  />
+                  <ClothingCard key={item.id} item={item} width={HORIZONTAL_CARD_W} onPress={() => openItem(item)} />
                 ))}
               </ScrollView>
             )}
@@ -505,37 +384,12 @@ export default function HomeScreen() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Greeting header — time-aware greeting, animated mascot, avatar → Profile,
-// and a tappable style tip. Visual only; the greeting name comes from the real
-// profile fetched by the screen.
-// ---------------------------------------------------------------------------
-const GREETING_TIPS = [
-  "Tag every piece — sharper recommendations start with a full closet.",
-  "Plan tomorrow's look from the Outfits calendar.",
-  "Try a look on virtually before you commit to it.",
-  "Save the looks you love and they'll surface right here.",
-] as const;
-
-// The mascot's dialogue: a one-time welcome line (index 0, labelled FITGUIN),
-// then the styling tips. Wrapping skips index 0 so the greeting never repeats —
-// it is a hello, not a tip.
-const WELCOME_LINE =
-  "Hi! I'm Fitguin, your style guide — I'll drop tips right here while you browse.";
-const DIALOGUE = [WELCOME_LINE, ...GREETING_TIPS] as const;
-
-/** Advance the dialogue, skipping the welcome line (index 0) on wrap. */
-const nextDialogueIndex = (i: number) => (i + 1 >= DIALOGUE.length ? 1 : i + 1);
-
-function greetingFor(hour: number): string {
-  if (hour < 12) return "Good Morning";
-  if (hour < 17) return "Good Afternoon";
-  return "Good Evening";
+function greetingFor(hour: number, t: any): string {
+  if (hour < 12) return t("home.greeting.morning");
+  if (hour < 17) return t("home.greeting.afternoon");
+  return t("home.greeting.evening");
 }
 
-// Flat top bar: greeting + live location on the left, avatar on the right. The
-// old greeting card (with blobs) is gone — the header is now a light row so the
-// hero below carries the visual weight.
 function HomeTopBar({
   nickname,
   avatarRef,
@@ -547,21 +401,18 @@ function HomeTopBar({
   loading: boolean;
   onOpenProfile: () => void;
 }) {
-  // Recompute the greeting as real time passes so "Good morning" never sticks
-  // into the afternoon while the app stays open.
+  const { t } = useT();
+  const theme = useAppTheme();
+  const styles = useStyles();
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(id);
   }, []);
-  const greeting = greetingFor(now.getHours());
+  
+  const greeting = greetingFor(now.getHours(), t);
   const initial = (nickname?.[0] ?? "").toUpperCase();
-
-  // Real GPS + reverse geocoding — shown right under the greeting. Honest states:
-  // loading while locating, the actual place when ready, tappable retry when off.
   const place = useCurrentPlace();
-
-  // Entrance (fade + rise).
   const [enter] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
@@ -581,14 +432,7 @@ function HomeTopBar({
         styles.topBar,
         {
           opacity: enter,
-          transform: [
-            {
-              translateY: enter.interpolate({
-                inputRange: [0, 1],
-                outputRange: [10, 0],
-              }),
-            },
-          ],
+          transform: [{ translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
         },
       ]}
     >
@@ -602,59 +446,40 @@ function HomeTopBar({
           style={styles.greetingPlaceRow}
           hitSlop={6}
         >
-          <Ionicons
-            name={place.status === "blocked" ? "location-outline" : "location"}
-            size={12}
-            color={theme.colors.textMuted}
-          />
+          <Ionicons name={place.status === "blocked" ? "location-outline" : "location"} size={12} color={theme.colors.textMuted} />
           <Text style={styles.greetingPlace} numberOfLines={1}>
             {place.status === "loading"
-              ? "Finding your location…"
+              ? t("home.location.finding")
               : place.status === "ready"
                 ? place.label
-                : "Location off — tap to enable"}
+                : t("home.location.off")}
           </Text>
         </Pressable>
       </View>
-
-      <ProfileAvatar
-        size={40}
-        initial={initial}
-        avatarRef={avatarRef}
-        onPress={onOpenProfile}
-      />
+      <ProfileAvatar size={40} initial={initial} avatarRef={avatarRef} onPress={onOpenProfile} />
     </Animated.View>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Hero
-// ---------------------------------------------------------------------------
-// Dashboard-style hero. The mascot is anchored to the bottom-left corner of the
-// card and sized as a share of the card width (≈40% of the visible card once
-// the PNG's transparent margin is accounted for), so it reads as part of the
-// composition rather than a small icon beside the heading.
-function Hero({
-  pieceCount,
-  lookCount,
-  loading,
-}: {
-  pieceCount: number;
-  lookCount: number;
-  loading: boolean;
-}) {
+function Hero({ pieceCount, lookCount, loading }: { pieceCount: number; lookCount: number; loading: boolean }) {
   const router = useRouter();
+  const { t } = useT();
+  const theme = useAppTheme();
+  const styles = useStyles();
   const { width } = useWindowDimensions();
 
-  // The hero sits inside the page gutter, so the card is the window minus both
-  // gutters. Clamped so the mascot stays sane on small phones and tablets.
   const cardW = Math.max(240, width - theme.spacing.page * 2);
   const mascot = Math.round(Math.min(Math.max(cardW * 0.5, 128), 300));
-  // Leave a lane beside the mascot so its speech bubble never sits on its body.
   const mascotLane = Math.round(mascot * 0.72);
 
-  // The mascot "speaks" the dialogue: type it out, hold, then swap. Index 0 is
-  // the welcome; wrapping skips back to 1 so the hello never repeats.
+  const DIALOGUE = [
+    t("home.hero.dialogue.welcome"),
+    t("home.hero.dialogue.tip1"),
+    t("home.hero.dialogue.tip2"),
+    t("home.hero.dialogue.tip3"),
+    t("home.hero.dialogue.tip4"),
+  ] as const;
+
   const [tipIndex, setTipIndex] = useState(0);
   const [typed, setTyped] = useState(0);
   const tip = DIALOGUE[tipIndex];
@@ -665,7 +490,7 @@ function Hero({
       () => {
         if (done) {
           setTyped(0);
-          setTipIndex((i) => nextDialogueIndex(i));
+          setTipIndex((i) => (i + 1 >= DIALOGUE.length ? 1 : i + 1));
         } else {
           setTyped((n) => n + 1);
         }
@@ -673,51 +498,26 @@ function Hero({
       done ? 3000 : 38,
     );
     return () => clearTimeout(id);
-  }, [tip, typed]);
+  }, [tip, typed, DIALOGUE.length]);
 
-  // Entrance (fade + rise), a slow offset bob, and a blinking caret.
   const [appear] = useState(() => new Animated.Value(0));
   const [bob] = useState(() => new Animated.Value(0));
   const [caret] = useState(() => new Animated.Value(1));
 
   useEffect(() => {
-    const entrance = Animated.timing(appear, {
-      toValue: 1,
-      duration: 520,
-      delay: 100,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    });
-    const bobLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(bob, {
-          toValue: 1,
-          duration: 2100,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(bob, {
-          toValue: 0,
-          duration: 2100,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-    const caretLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(caret, { toValue: 0, duration: 520, useNativeDriver: true }),
-        Animated.timing(caret, { toValue: 1, duration: 520, useNativeDriver: true }),
-      ]),
-    );
+    const entrance = Animated.timing(appear, { toValue: 1, duration: 520, delay: 100, easing: Easing.out(Easing.cubic), useNativeDriver: true });
+    const bobLoop = Animated.loop(Animated.sequence([
+      Animated.timing(bob, { toValue: 1, duration: 2100, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      Animated.timing(bob, { toValue: 0, duration: 2100, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+    ]));
+    const caretLoop = Animated.loop(Animated.sequence([
+      Animated.timing(caret, { toValue: 0, duration: 520, useNativeDriver: true }),
+      Animated.timing(caret, { toValue: 1, duration: 520, useNativeDriver: true }),
+    ]));
     entrance.start();
     bobLoop.start();
     caretLoop.start();
-    return () => {
-      entrance.stop();
-      bobLoop.stop();
-      caretLoop.stop();
-    };
+    return () => { entrance.stop(); bobLoop.stop(); caretLoop.stop(); };
   }, [appear, bob, caret]);
 
   return (
@@ -729,48 +529,22 @@ function Hero({
         <View style={styles.heroCopy}>
           <View style={styles.heroPill}>
             <Ionicons name="sparkles" size={11} color={theme.colors.text} />
-            <Text style={styles.heroPillText}>Fitguin</Text>
+            <Text style={styles.heroPillText}>{t("home.hero.badge")}</Text>
           </View>
-          <Text style={styles.heroTitle}>
-            Your wardrobe.
-            {"\n"}
-            Styled by AI.
-          </Text>
-          <Text style={styles.heroText}>
-            Create outfits, try clothes virtually, and discover what to wear next.
-          </Text>
+          <Text style={styles.heroTitle}>{t("home.hero.title")}</Text>
+          <Text style={styles.heroText}>{t("home.hero.description")}</Text>
         </View>
 
-        {/* Real counts from the user's own rows — dashes until they load. */}
         <View style={styles.heroStats}>
-          <StatCell
-            icon="shirt-outline"
-            value={loading ? "—" : String(pieceCount)}
-            label="PIECES"
-          />
+          <StatCell icon="shirt-outline" value={loading ? "—" : String(pieceCount)} label={t("home.hero.pieces")} />
           <View style={styles.heroStatDivider} />
-          <StatCell
-            icon="sparkles-outline"
-            value={loading ? "—" : String(lookCount)}
-            label="LOOKS"
-          />
+          <StatCell icon="sparkles-outline" value={loading ? "—" : String(lookCount)} label={t("home.hero.looks")} />
         </View>
       </View>
 
       <View style={styles.heroButtons}>
-        <AppButton
-          label="Create outfit"
-          icon="shirt-outline"
-          onPress={() => router.push("/ai-picker")}
-          style={styles.heroBtn}
-        />
-        <AppButton
-          label="Try it on"
-          icon="sparkles-outline"
-          variant="secondary"
-          onPress={() => router.push("/(tabs)/scan")}
-          style={styles.heroBtn}
-        />
+        <AppButton label={t("home.hero.btn.create")} icon="shirt-outline" onPress={() => router.push("/ai-picker")} style={styles.heroBtn} />
+        <AppButton label={t("home.hero.btn.try")} icon="sparkles-outline" variant="secondary" onPress={() => router.push("/(tabs)/scan")} style={styles.heroBtn} />
       </View>
 
       <Pressable
@@ -779,25 +553,12 @@ function Hero({
         style={({ pressed }) => [styles.heroLink, pressed && { opacity: 0.7 }]}
       >
         <Ionicons name="folder-open-outline" size={15} color={theme.colors.text} />
-        <Text style={styles.heroLinkText}>My wardrobe</Text>
+        <Text style={styles.heroLinkText}>{t("home.hero.link.wardrobe")}</Text>
         <Ionicons name="chevron-forward" size={13} color={theme.colors.textMuted} />
       </Pressable>
 
-      {/* Soft stage the penguin stands on — keeps the corner from feeling empty. */}
-      <View
-        style={[
-          styles.heroStageBlob,
-          {
-            width: Math.round(mascot * 1.1),
-            height: Math.round(mascot * 0.2),
-            left: -Math.round(mascot * 0.16),
-          },
-        ]}
-        pointerEvents="none"
-      />
+      <View style={[styles.heroStageBlob, { width: Math.round(mascot * 1.1), height: Math.round(mascot * 0.2), left: -Math.round(mascot * 0.16) }]} pointerEvents="none" />
 
-      {/* The app's one mascot: anchored to the card's bottom-left corner,
-          painted before the bubble so its speech sits in front of it. */}
       <Animated.View
         pointerEvents="none"
         style={[
@@ -809,18 +570,8 @@ function Hero({
             bottom: -Math.round(mascot * 0.04),
             opacity: appear,
             transform: [
-              {
-                translateY: appear.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [18, 0],
-                }),
-              },
-              {
-                translateY: bob.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, -6],
-                }),
-              },
+              { translateY: appear.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) },
+              { translateY: bob.interpolate({ inputRange: [0, 1], outputRange: [0, -6] }) },
             ],
           },
         ]}
@@ -828,28 +579,21 @@ function Hero({
         <Mascot size={mascot} />
       </Animated.View>
 
-      {/* One mascot, one voice — the penguin says the rotating tip in a
-          manga-style bubble whose tail points back at its head. */}
       <View style={[styles.heroSpeak, { minHeight: Math.round(mascot * 0.9) }]}>
         <View style={{ width: mascotLane }} pointerEvents="none" />
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Show the next line"
           onPress={() => {
             setTyped(0);
-            setTipIndex((i) => nextDialogueIndex(i));
+            setTipIndex((i) => (i + 1 >= DIALOGUE.length ? 1 : i + 1));
           }}
           style={({ pressed }) => [styles.bubbleWrap, pressed && { opacity: 0.85 }]}
         >
           <View style={styles.bubbleTail} pointerEvents="none" />
           <View style={styles.bubble}>
             <View style={styles.bubbleHead}>
-              <Ionicons
-                name={tipIndex === 0 ? "sparkles" : "bulb-outline"}
-                size={13}
-                color={theme.colors.text}
-              />
-              <Text style={styles.bubbleLabel}>{tipIndex === 0 ? "FITGUIN" : "STYLING TIP"}</Text>
+              <Ionicons name={tipIndex === 0 ? "sparkles" : "bulb-outline"} size={13} color={theme.colors.text} />
+              <Text style={styles.bubbleLabel}>{tipIndex === 0 ? t("home.hero.badge").toUpperCase() : t("home.hero.dialogue.label")}</Text>
               <Ionicons name="refresh" size={13} color={theme.colors.textMuted} />
             </View>
             <Text style={styles.bubbleText} numberOfLines={3}>
@@ -864,16 +608,8 @@ function Hero({
   );
 }
 
-/** Compact "dashboard widget" cell: real count over a small caps label. */
-function StatCell({
-  icon,
-  value,
-  label,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  value: string;
-  label: string;
-}) {
+function StatCell({ icon, value, label }: { icon: keyof typeof Ionicons.glyphMap; value: string; label: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.statCell}>
       <View style={styles.statValueRow}>
@@ -885,40 +621,18 @@ function StatCell({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Wardrobe tile (home preview)
-// ---------------------------------------------------------------------------
-function WardrobeTile({
-  id,
-  imageRef,
-  name,
-  category,
-  onPress,
-}: {
-  id: string;
-  imageRef: string | null;
-  name: string;
-  category: string;
-  onPress: () => void;
-}) {
+function WardrobeTile({ id, imageRef, name, category, onPress }: { id: string; imageRef: string | null; name: string; category: string; onPress: () => void }) {
+  const theme = useAppTheme();
+  const styles = useStyles();
   const [uri, setUri] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
-    resolveMediaUrl(imageRef, 900).then((u) => {
-      if (alive) setUri(u);
-    });
-    return () => {
-      alive = false;
-    };
+    resolveMediaUrl(imageRef, 900).then((u) => { if (alive) setUri(u); });
+    return () => { alive = false; };
   }, [imageRef]);
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      key={id}
-      onPress={onPress}
-      style={({ pressed }) => [styles.tile, pressed && { opacity: 0.9 }]}
-    >
+    <Pressable accessibilityRole="button" key={id} onPress={onPress} style={({ pressed }) => [styles.tile, pressed && { opacity: 0.9 }]}>
       {uri ? (
         <Image source={{ uri }} style={styles.tileImage} contentFit="cover" transition={150} />
       ) : (
@@ -926,37 +640,26 @@ function WardrobeTile({
           <Ionicons name="shirt-outline" size={22} color={theme.colors.textMuted} />
         </View>
       )}
-      <Text style={styles.tileName} numberOfLines={1}>
-        {name}
-      </Text>
-      <Text style={styles.tileMeta} numberOfLines={1}>
-        {category}
-      </Text>
+      <Text style={styles.tileName} numberOfLines={1}>{name}</Text>
+      <Text style={styles.tileMeta} numberOfLines={1}>{category}</Text>
     </Pressable>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Saved look row
-// ---------------------------------------------------------------------------
 function SavedLookRow({ outfit, onPress }: { outfit: SavedOutfit; onPress: () => void }) {
+  const { t } = useT();
+  const theme = useAppTheme();
+  const styles = useStyles();
   const count = outfit.clothing_ids?.length ?? 0;
   return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [styles.savedRow, pressed && { opacity: 0.85 }]}
-    >
-      <View style={styles.savedIcon}>
-        <Ionicons name="sparkles" size={18} color={theme.colors.onPrimary} />
-      </View>
+    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.savedRow, pressed && { opacity: 0.85 }]}>
+      <View style={styles.savedIcon}><Ionicons name="sparkles" size={18} color={theme.colors.onPrimary} /></View>
       <View style={styles.savedBody}>
         <Text style={styles.savedName} numberOfLines={1}>
-          {outfit.name || (outfit.occasion ? `${outfit.occasion} look` : "Untitled look")}
+          {outfit.name || (outfit.occasion ? t("home.looks.occasion_look", { occasion: outfit.occasion }) : t("home.looks.untitled"))}
         </Text>
         <Text style={styles.savedMeta} numberOfLines={1}>
-          {outfit.occasion ?? "No occasion"} · {count} item{count === 1 ? "" : "s"} ·{" "}
-          {new Date(outfit.created_at).toLocaleDateString()}
+          {outfit.occasion ?? t("home.looks.no_occasion")} · {t("home.looks.items", { count })} · {new Date(outfit.created_at).toLocaleDateString()}
         </Text>
       </View>
       <Ionicons name="chevron-forward" size={16} color={theme.colors.textMuted} />
@@ -964,325 +667,78 @@ function SavedLookRow({ outfit, onPress }: { outfit: SavedOutfit; onPress: () =>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((theme: Theme) => ({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   content: { paddingHorizontal: theme.spacing.page, paddingBottom: 40 },
-
-  // Top bar (flat, no card)
-  topBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-    marginTop: theme.spacing.sm,
-    marginBottom: theme.spacing.xs,
-  },
+  topBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: theme.spacing.sm, marginBottom: theme.spacing.xs },
   greetingBody: { flex: 1, minWidth: 0 },
-  greetingTitle: {
-    fontSize: 20,
-    lineHeight: 26,
-    fontWeight: "800",
-    letterSpacing: -0.4,
-    color: theme.colors.text,
-  },
-  greetingPlaceRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginTop: 2,
-  },
-  greetingPlace: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: "600",
-    color: theme.colors.textMuted,
-  },
-  // Manga-style speech bubble — the penguin's voice in the hero
+  greetingTitle: { fontSize: 20, lineHeight: 26, fontWeight: "800", letterSpacing: -0.4, color: theme.colors.text },
+  greetingPlaceRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
+  greetingPlace: { flex: 1, minWidth: 0, fontSize: 12, lineHeight: 16, fontWeight: "600", color: theme.colors.textMuted },
   bubbleWrap: { flex: 1, minWidth: 0 },
-  bubbleTail: {
-    position: "absolute",
-    left: -7,
-    top: 24,
-    width: 14,
-    height: 14,
-    backgroundColor: theme.colors.surface,
-    borderLeftWidth: 1.5,
-    borderBottomWidth: 1.5,
-    borderColor: theme.colors.text,
-    transform: [{ rotate: "45deg" }],
-  },
-  bubble: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1.5,
-    borderColor: theme.colors.text,
-    paddingHorizontal: 14,
-    paddingTop: 10,
-    paddingBottom: 12,
-  },
+  bubbleTail: { position: "absolute", left: -7, top: 24, width: 14, height: 14, backgroundColor: theme.colors.surface, borderLeftWidth: 1.5, borderBottomWidth: 1.5, borderColor: theme.colors.text, transform: [{ rotate: "45deg" }] },
+  bubble: { backgroundColor: theme.colors.surface, borderRadius: theme.borderRadius.md, borderWidth: 1.5, borderColor: theme.colors.text, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 12 },
   bubbleHead: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6 },
-  bubbleLabel: {
-    flex: 1,
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 1.3,
-    color: theme.colors.textMuted,
-  },
-  bubbleText: {
-    fontSize: 12.5,
-    lineHeight: 18,
-    fontWeight: "600",
-    color: theme.colors.text,
-    minHeight: 54,
-  },
+  bubbleLabel: { flex: 1, fontSize: 10, fontWeight: "800", letterSpacing: 1.3, color: theme.colors.textMuted },
+  bubbleText: { fontSize: 12.5, lineHeight: 18, fontWeight: "600", color: theme.colors.text, minHeight: 54 },
   bubbleCaret: { color: theme.colors.text, fontWeight: "700" },
-
-  // Hero (dashboard-style panel; the mascot is anchored bottom-left)
-  hero: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: 28,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.colors.border,
-    padding: 20,
-    marginTop: theme.spacing.sm,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.07,
-    shadowRadius: 22,
-    elevation: 4,
-  },
-  heroBlob: {
-    position: "absolute",
-    borderRadius: 999,
-    backgroundColor: "rgba(17,17,17,0.03)",
-  },
+  hero: { backgroundColor: theme.colors.surface, borderRadius: 28, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.border, padding: 20, marginTop: theme.spacing.sm, overflow: "hidden", shadowColor: "#000", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.07, shadowRadius: 22, elevation: 4 },
+  heroBlob: { position: "absolute", borderRadius: 999, backgroundColor: "rgba(17,17,17,0.03)" },
   heroBlobA: { width: 220, height: 220, top: -110, right: -70 },
-  heroBlobB: {
-    width: 150,
-    height: 150,
-    bottom: 30,
-    right: -70,
-    backgroundColor: "rgba(17,17,17,0.02)",
-  },
+  heroBlobB: { width: 150, height: 150, bottom: 30, right: -70, backgroundColor: "rgba(17,17,17,0.02)" },
   heroTop: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   heroCopy: { flex: 1, minWidth: 0 },
-  heroPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    alignSelf: "flex-start",
-    backgroundColor: theme.colors.surfaceAlt,
-    borderRadius: theme.borderRadius.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  heroPillText: {
-    fontSize: 10.5,
-    fontWeight: "800",
-    letterSpacing: 1.2,
-    color: theme.colors.text,
-  },
-  heroTitle: {
-    fontSize: 30,
-    lineHeight: 34,
-    fontWeight: "800",
-    letterSpacing: -0.8,
-    color: theme.colors.text,
-    marginTop: 12,
-  },
-  heroText: {
-    fontSize: 13.5,
-    lineHeight: 19,
-    color: theme.colors.textMuted,
-    marginTop: 8,
-  },
-  heroStats: {
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.borderRadius.md,
-    paddingHorizontal: 12,
-    paddingVertical: 11,
-    gap: 9,
-    minWidth: 88,
-  },
-  heroStatDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: "rgba(255,255,255,0.18)",
-  },
+  heroPill: { flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start", backgroundColor: theme.colors.surfaceAlt, borderRadius: theme.borderRadius.pill, paddingHorizontal: 10, paddingVertical: 5 },
+  heroPillText: { fontSize: 10.5, fontWeight: "800", letterSpacing: 1.2, color: theme.colors.text },
+  heroTitle: { fontSize: 30, lineHeight: 34, fontWeight: "800", letterSpacing: -0.8, color: theme.colors.text, marginTop: 12 },
+  heroText: { fontSize: 13.5, lineHeight: 19, color: theme.colors.textMuted, marginTop: 8 },
+  heroStats: { backgroundColor: theme.colors.primary, borderRadius: theme.borderRadius.md, paddingHorizontal: 12, paddingVertical: 11, gap: 9, minWidth: 88 },
+  heroStatDivider: { height: StyleSheet.hairlineWidth, backgroundColor: "rgba(255,255,255,0.18)" },
   statCell: { gap: 1 },
   statValueRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  statValue: {
-    fontSize: 17,
-    fontWeight: "800",
-    letterSpacing: -0.4,
-    color: theme.colors.onPrimary,
-  },
-  statLabel: {
-    fontSize: 9.5,
-    fontWeight: "700",
-    letterSpacing: 0.8,
-    color: "rgba(255,255,255,0.6)",
-  },
-  heroStageBlob: {
-    position: "absolute",
-    bottom: 0,
-    borderRadius: 999,
-    backgroundColor: "rgba(17,17,17,0.05)",
-  },
+  statValue: { fontSize: 17, fontWeight: "800", letterSpacing: -0.4, color: theme.colors.onPrimary },
+  statLabel: { fontSize: 9.5, fontWeight: "700", letterSpacing: 0.8, color: "rgba(255,255,255,0.6)" },
+  heroStageBlob: { position: "absolute", bottom: 0, borderRadius: 999, backgroundColor: "rgba(17,17,17,0.05)" },
   heroSpeak: { flexDirection: "row", alignItems: "center", marginTop: 18 },
   heroButtons: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 18 },
   heroBtn: { flexGrow: 1, flexShrink: 1, flexBasis: 150, minWidth: 130 },
-  // The card is light, so the white "secondary" fill needs a visible tint.
   heroBtnAlt: { backgroundColor: theme.colors.primaryMuted },
-  heroLink: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingVertical: 4,
-    marginTop: 12,
-    alignSelf: "flex-start",
-  },
+  heroLink: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 4, marginTop: 12, alignSelf: "flex-start" },
   heroLinkText: { fontSize: 13.5, fontWeight: "700", color: theme.colors.text },
   heroMascot: { position: "absolute" },
-
-  // Sections
   chips: { gap: 8, paddingRight: 16, paddingBottom: 4 },
   chipsSpacer: { height: 4 },
-  segment: {
-    flexDirection: "row",
-    backgroundColor: theme.colors.surfaceAlt,
-    borderRadius: theme.borderRadius.pill,
-    padding: 4,
-    gap: 4,
-    marginTop: theme.spacing.md,
-    marginBottom: theme.spacing.xs,
-  },
-  segmentBtn: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 9,
-    borderRadius: theme.borderRadius.pill,
-  },
+  segment: { flexDirection: "row", backgroundColor: theme.colors.surfaceAlt, borderRadius: theme.borderRadius.pill, padding: 4, gap: 4, marginTop: theme.spacing.md, marginBottom: theme.spacing.xs },
+  segmentBtn: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 9, borderRadius: theme.borderRadius.pill },
   segmentBtnActive: { backgroundColor: theme.colors.primary },
   segmentText: { fontSize: 13, fontWeight: "700", color: theme.colors.textMuted },
   segmentTextActive: { color: theme.colors.onPrimary },
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-    justifyContent: "flex-start",
-  },
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: 12, justifyContent: "flex-start" },
   hRow: { flexDirection: "row", gap: 12 },
-  emptyCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.colors.border,
-    padding: 16,
-    gap: 14,
-  },
+  emptyCard: { backgroundColor: theme.colors.surface, borderRadius: theme.borderRadius.md, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.border, padding: 16, gap: 14 },
   emptyTop: { flexDirection: "row", alignItems: "center", gap: 12 },
-  emptyIconTile: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: theme.colors.surfaceAlt,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  emptyIconTile: { width: 44, height: 44, borderRadius: 14, backgroundColor: theme.colors.surfaceAlt, alignItems: "center", justifyContent: "center" },
   emptyBody: { flex: 1, minWidth: 0 },
   emptyTitle: { fontSize: 14, fontWeight: "800", color: theme.colors.text },
-  emptyText: {
-    fontSize: 12.5,
-    color: theme.colors.textMuted,
-    marginTop: 2,
-    lineHeight: 17,
-  },
+  emptyText: { fontSize: 12.5, color: theme.colors.textMuted, marginTop: 2, lineHeight: 17 },
   emptyBtn: { alignSelf: "stretch" },
   tileRow: { gap: 12, paddingRight: 16 },
   tile: { width: 108 },
-  tileImage: {
-    width: 108,
-    height: 128,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.surfaceAlt,
-  },
+  tileImage: { width: 108, height: 128, borderRadius: theme.borderRadius.md, backgroundColor: theme.colors.surfaceAlt },
   tilePlaceholder: { alignItems: "center", justifyContent: "center" },
-  tileName: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: theme.colors.text,
-    marginTop: 6,
-  },
-  tileMeta: {
-    fontSize: 11,
-    color: theme.colors.textMuted,
-    marginTop: 1,
-  },
-
+  tileName: { fontSize: 13, fontWeight: "700", color: theme.colors.text, marginTop: 6 },
+  tileMeta: { fontSize: 11, color: theme.colors.textMuted, marginTop: 1 },
   savedList: { gap: 10 },
-  savedRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.colors.border,
-    padding: 12,
-  },
-  savedIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: theme.colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  savedRow: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: theme.colors.surface, borderRadius: theme.borderRadius.md, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.border, padding: 12 },
+  savedIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: theme.colors.primary, alignItems: "center", justifyContent: "center" },
   savedBody: { flex: 1, minWidth: 0 },
   savedName: { fontSize: 14, fontWeight: "700", color: theme.colors.text },
   savedMeta: { fontSize: 11.5, color: theme.colors.textMuted, marginTop: 2 },
-
-  emptyLine: {
-    fontSize: 13,
-    color: theme.colors.textMuted,
-    lineHeight: 19,
-    paddingVertical: 8,
-  },
-
-  // Offline / error banner (monochrome, calm)
-  unavailable: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 10,
-    backgroundColor: theme.colors.surfaceAlt,
-    borderRadius: theme.borderRadius.md,
-    padding: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.colors.border,
-  },
+  emptyLine: { fontSize: 13, color: theme.colors.textMuted, lineHeight: 19, paddingVertical: 8 },
+  unavailable: { flexDirection: "row", alignItems: "flex-start", gap: 10, backgroundColor: theme.colors.surfaceAlt, borderRadius: theme.borderRadius.md, padding: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.border },
   unavailableBody: { flex: 1, minWidth: 0 },
-  unavailableTitle: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: theme.colors.text,
-  },
-  unavailableText: {
-    fontSize: 12,
-    color: theme.colors.textMuted,
-    lineHeight: 17,
-    marginTop: 2,
-  },
-  unavailableRetry: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: theme.borderRadius.sm,
-    backgroundColor: theme.colors.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.colors.border,
-  },
-  unavailableRetryText: { fontSize: 12, fontWeight: "700", color: theme.colors.text },
-});
+  unavailableTitle: { fontSize: 13, fontWeight: "800", color: theme.colors.text },
+  unavailableText: { fontSize: 12, color: theme.colors.textMuted, lineHeight: 17, marginTop: 2 },
+  unavailableRetry: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: theme.borderRadius.sm, backgroundColor: theme.colors.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.border },
+  unavailableRetryText: { fontSize: 12, fontWeight: "700", color: theme.colors.text }
+}));
