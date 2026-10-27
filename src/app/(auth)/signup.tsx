@@ -441,7 +441,7 @@ export default function SignupScreen() {
                       <Ionicons
                         name={agreed ? "checkbox" : "square-outline"}
                         size={22}
-                        color={agreed ? theme.colors.primary : theme.colors.textMuted}
+                        color={agreed ? theme.colors.brand : theme.colors.textMuted}
                       />
                     </Pressable>
                     <Text style={styles.consentText}>
@@ -584,8 +584,8 @@ const useStyles = makeStyles((theme: Theme) => ({
     borderRadius: 2,
     backgroundColor: theme.colors.border,
   },
-  railBarDone: { backgroundColor: theme.colors.primary },
-  railBarCurrent: { backgroundColor: theme.colors.primary },
+  railBarDone: { backgroundColor: theme.colors.brand },
+  railBarCurrent: { backgroundColor: theme.colors.brand },
   railLabel: {
     fontSize: 12.5,
     fontWeight: "600",

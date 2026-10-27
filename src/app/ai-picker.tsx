@@ -391,10 +391,10 @@ function LookCard({
         ]}
       >
         {saving ? (
-          <ActivityIndicator color={theme.colors.onPrimary} size="small" />
+          <ActivityIndicator color={theme.colors.onBrand} size="small" />
         ) : (
           <>
-            <Ionicons name="bookmark-outline" size={16} color={theme.colors.onPrimary} />
+            <Ionicons name="bookmark-outline" size={16} color={theme.colors.onBrand} />
             <Text style={styles.saveBtnText}>{t("ai_picker.save_look")}</Text>
           </>
         )}
@@ -476,7 +476,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
-  scoreValue: { fontSize: 18, fontWeight: "700", color: theme.colors.primary },
+  scoreValue: { fontSize: 18, fontWeight: "700", color: theme.colors.brand },
   scoreMax: { fontSize: 11, fontWeight: "600", color: theme.colors.textMuted },
 
   lookItems: { gap: 10, paddingRight: 8 },
@@ -495,7 +495,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     minHeight: 46,
   },
   saveBtnDisabled: { opacity: 0.6 },
-  saveBtnText: { color: theme.colors.onPrimary, fontWeight: "600", fontSize: 14 },
+  saveBtnText: { color: theme.colors.onBrand, fontWeight: "600", fontSize: 14 },
 
   footnote: {
     fontSize: 11,

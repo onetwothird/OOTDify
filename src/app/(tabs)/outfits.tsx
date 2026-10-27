@@ -508,7 +508,7 @@ export default function OutfitsScreen() {
                     disabled={saving}
                   >
                     {saving ? (
-                      <ActivityIndicator color={theme.colors.onPrimary} />
+                      <ActivityIndicator color={theme.colors.onBrand} />
                     ) : (
                       <Text style={styles.saveBtnText}>{t("outfits.builder.save")}</Text>
                     )}
@@ -554,7 +554,7 @@ function LookThumbs({ urls, size, gap }: { urls: string[]; size: number; gap: nu
   if (!urls.length) {
     return (
       <View style={[styles.lookIcon, { width: size, height: size }]}>
-        <Ionicons name="shirt-outline" size={Math.round(size * 0.42)} color={theme.colors.primary} />
+        <Ionicons name="shirt-outline" size={Math.round(size * 0.42)} color={theme.colors.brand} />
       </View>
     );
   }
@@ -738,7 +738,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     paddingHorizontal: 14,
     paddingVertical: 9,
   },
-  closetHintBtnText: { color: theme.colors.onPrimary, fontWeight: "600", fontSize: 13 },
+  closetHintBtnText: { color: theme.colors.onBrand, fontWeight: "600", fontSize: 13 },
   outfitPreview: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.lg,
@@ -760,7 +760,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     justifyContent: "center",
     minHeight: 46,
   },
-  saveBtnText: { color: theme.colors.onPrimary, fontWeight: "600", fontSize: 14 },
+  saveBtnText: { color: theme.colors.onBrand, fontWeight: "600", fontSize: 14 },
   ghostBtn: {
     borderWidth: 1,
     borderColor: theme.colors.border,

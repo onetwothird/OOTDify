@@ -138,7 +138,7 @@ export function SettingsSection() {
         <View style={styles.cardDivider} />
 
         <View style={styles.switchRow}>
-          <Ionicons name="finger-print-outline" size={20} color={theme.colors.primary} />
+          <Ionicons name="finger-print-outline" size={20} color={theme.colors.brand} />
           <View style={styles.switchBody}>
             <Text style={styles.rowLabel}>{t("settings.biometric.title")}</Text>
             <Text style={styles.rowHint}>
@@ -151,7 +151,7 @@ export function SettingsSection() {
             value={biometricLock}
             onValueChange={toggleBiometric}
             disabled={bioAvailable === false}
-            trackColor={{ true: theme.colors.primary, false: theme.colors.border }}
+            trackColor={{ true: theme.colors.brand, false: theme.colors.border }}
             thumbColor={theme.colors.surface}
           />
         </View>
@@ -254,7 +254,7 @@ function Row({
       onPress={onPress}
       style={({ pressed }) => [styles.row, pressed && { opacity: 0.85 }]}
     >
-      <Ionicons name={icon} size={20} color={theme.colors.primary} />
+      <Ionicons name={icon} size={20} color={theme.colors.brand} />
       <View style={styles.rowBody}>
         <Text style={styles.rowLabel}>{label}</Text>
         {hint ? <Text style={styles.rowHint}>{hint}</Text> : null}

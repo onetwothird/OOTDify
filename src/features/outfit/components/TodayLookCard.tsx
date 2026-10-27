@@ -113,7 +113,7 @@ export function TodayLookCard({
             onPress={onPlanLook}
             style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
           >
-            <Ionicons name="calendar-outline" size={16} color={theme.colors.onPrimary} />
+            <Ionicons name="calendar-outline" size={16} color={theme.colors.onBrand} />
             <Text style={styles.ctaText}>{t("outfits.plan_a_look")}</Text>
           </Pressable>
         </>
@@ -148,7 +148,7 @@ export function TodayLookCard({
                 onPress={() => onOpenOutfit(outfit.id)}
                 style={({ pressed }) => [styles.cta, styles.ctaFlex, pressed && styles.ctaPressed]}
               >
-                <Ionicons name="shirt-outline" size={16} color={theme.colors.onPrimary} />
+                <Ionicons name="shirt-outline" size={16} color={theme.colors.onBrand} />
                 <Text style={styles.ctaText}>{t("outfits.action.open_outfit")}</Text>
               </Pressable>
             ) : null}
@@ -264,7 +264,7 @@ const useStyles = makeStyles((theme) => ({
   },
   ctaFlex: { flex: 1, marginTop: 0 },
   ctaPressed: { opacity: 0.85 },
-  ctaText: { fontSize: 13.5, fontWeight: "600", color: theme.colors.onPrimary },
+  ctaText: { fontSize: 13.5, fontWeight: "600", color: theme.colors.onBrand },
   ghost: {
     paddingVertical: 12,
     paddingHorizontal: 16,

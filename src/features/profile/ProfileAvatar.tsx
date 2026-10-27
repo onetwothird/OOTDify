@@ -143,7 +143,7 @@ export function ProfileAvatar({
 
       {busy ? (
         <View style={[styles.overlay, { borderRadius: size / 2 }]}>
-          <ActivityIndicator size="small" color={theme.colors.onPrimary} />
+          <ActivityIndicator size="small" color="#FFFFFF" />
         </View>
       ) : null}
     </View>

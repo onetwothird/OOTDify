@@ -230,7 +230,7 @@ export default function AboutScreen() {
                   size={20}
                   color={
                     checkResult.status === "update-available"
-                      ? theme.colors.primary
+                      ? theme.colors.brand
                       : checkResult.status === "check-failed"
                         ? theme.colors.warning
                         : theme.colors.success
@@ -263,7 +263,7 @@ export default function AboutScreen() {
                 <View style={styles.noteList}>
                   {note.itemKeys.map((item) => (
                     <View key={item} style={styles.bulletRow}>
-                      <Ionicons name="sparkles" size={14} color={theme.colors.primary} style={styles.bulletIcon} />
+                      <Ionicons name="sparkles" size={14} color={theme.colors.brand} style={styles.bulletIcon} />
                       <Text style={styles.bulletText}>{t(item)}</Text>
                     </View>
                   ))}
@@ -429,7 +429,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     borderRadius: theme.borderRadius.md,
     backgroundColor: theme.colors.surfaceAlt,
   },
-  resultBoxHighlight: { borderWidth: 1, borderColor: theme.colors.primary },
+  resultBoxHighlight: { borderWidth: 1, borderColor: theme.colors.brand },
   resultText: { flex: 1, fontSize: 13, lineHeight: 18, color: theme.colors.text },
 
   noteTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },

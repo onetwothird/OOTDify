@@ -40,7 +40,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
   linkText: {
     fontSize: 14,
-    color: theme.colors.primary,
+    color: theme.colors.brand,
     fontWeight: "600",
   },
 }));

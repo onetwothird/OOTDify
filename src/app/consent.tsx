@@ -128,7 +128,7 @@ export default function ConsentScreen() {
           <Ionicons
             name={checked ? "checkbox" : "square-outline"}
             size={22}
-            color={checked ? theme.colors.primary : theme.colors.textMuted}
+            color={checked ? theme.colors.brand : theme.colors.textMuted}
           />
           <Text style={styles.checkText}>
             {t("consent.checkbox.label")}

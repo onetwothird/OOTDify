@@ -557,7 +557,7 @@ export default function ChatThreadScreen() {
                 onPress={() => jumpToBottom(true)}
                 style={({ pressed }) => [styles.newPill, pressed && { opacity: 0.85 }]}
               >
-                <Ionicons name="arrow-down" size={14} color={theme.colors.onPrimary} />
+                <Ionicons name="arrow-down" size={14} color={theme.colors.onBrand} />
                 <Text style={styles.newPillText}>
                   {t("community.chat.new_pill", { count: newCount })}
                 </Text>
@@ -585,9 +585,9 @@ export default function ChatThreadScreen() {
             style={[styles.sendBtn, (!draft.trim() || sending) && styles.sendBtnDisabled]}
           >
             {sending ? (
-              <ActivityIndicator size="small" color={theme.colors.onPrimary} />
+              <ActivityIndicator size="small" color={theme.colors.onBrand} />
             ) : (
-              <Ionicons name="send" size={18} color={theme.colors.onPrimary} />
+              <Ionicons name="send" size={18} color={theme.colors.onBrand} />
             )}
           </Pressable>
         </View>
@@ -705,7 +705,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
   },
-  newPillText: { fontSize: 12.5, fontWeight: "600", color: theme.colors.onPrimary },
+  newPillText: { fontSize: 12.5, fontWeight: "600", color: theme.colors.onBrand },
   composer: {
     flexDirection: "row",
     alignItems: "flex-end",
