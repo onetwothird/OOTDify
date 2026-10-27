@@ -157,7 +157,7 @@ export function CreateMenu({
               transform: [{ rotate: progress.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "45deg"] }) }],
             }}
           >
-            <Ionicons name="add" size={32} color={theme.colors.onPrimary} />
+            <Ionicons name="add" size={32} color={theme.colors.onBrand} />
           </Animated.View>
         </Pressable>
       </Animated.View>
@@ -224,7 +224,7 @@ const useStyles = makeStyles((theme) => ({
     marginTop: FAB_TOP_MARGIN,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.brand,
     shadowColor: "#000000",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.2,
