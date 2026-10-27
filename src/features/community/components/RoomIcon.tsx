@@ -49,5 +49,5 @@ const useStyles = makeStyles((theme) => ({
     justifyContent: "center",
     overflow: "hidden",
   },
-  initials: { color: theme.colors.onPrimary, fontWeight: "800" },
+  initials: { color: theme.colors.onPrimary, fontWeight: "700" },
 }));
