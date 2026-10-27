@@ -85,7 +85,7 @@ export default function TabLayout() {
   // Same colors as tabBarActive/InactiveTintColor below. Derived here because
   // SDK 58 types the tab bar's `color` as ColorValue (string | number | null),
   // which Ionicons' `color` prop does not accept.
-  const tint = (focused: boolean) => (focused ? theme.colors.primary : theme.colors.textMuted);
+  const tint = (focused: boolean) => (focused ? theme.colors.brand : theme.colors.textMuted);
 
   return (
     <>
@@ -211,6 +211,6 @@ const useStyles = makeStyles((theme: Theme) => ({
     borderWidth: 1.5,
     borderColor: "transparent",
   },
-  avatarRingActive: { borderColor: theme.colors.primary },
+  avatarRingActive: { borderColor: theme.colors.brand },
 
 }));
