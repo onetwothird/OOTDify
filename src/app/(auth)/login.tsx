@@ -206,7 +206,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     paddingBottom: theme.spacing.lg,
   },
   forgotWrap: { alignSelf: "flex-end", marginTop: -2, marginBottom: theme.spacing.lg },
-  forgotText: { fontSize: 13.5, fontWeight: "700", color: theme.colors.text },
+  forgotText: { fontSize: 13.5, fontWeight: "600", color: theme.colors.text },
   pill: { borderRadius: theme.borderRadius.pill },
   dividerRow: {
     flexDirection: "row",
@@ -240,5 +240,5 @@ const useStyles = makeStyles((theme: Theme) => ({
     paddingHorizontal: theme.spacing.page,
   },
   footerText: { fontSize: 14, fontWeight: "500", color: theme.colors.textMuted },
-  footerLink: { fontSize: 14, fontWeight: "800", color: theme.colors.text },
+  footerLink: { fontSize: 14, fontWeight: "700", color: theme.colors.text },
 }));

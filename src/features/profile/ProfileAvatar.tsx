@@ -191,7 +191,7 @@ export function ProfileAvatar({
 const useStyles = makeStyles((theme) => ({
   wrap: { alignItems: "center", justifyContent: "center" },
   clip: { alignItems: "center", justifyContent: "center", overflow: "hidden" },
-  initial: { fontWeight: "800" },
+  initial: { fontWeight: "700" },
   overlay: {
     position: "absolute",
     top: 0,

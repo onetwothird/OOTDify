@@ -217,7 +217,7 @@ const useStyles = makeStyles((theme) => ({
     backgroundColor: theme.colors.surface,
   },
   headerText: { flex: 1, minWidth: 0 },
-  title: { fontSize: 19, lineHeight: 24, fontWeight: "800", letterSpacing: -0.3, color: theme.colors.text },
+  title: { fontSize: 19, lineHeight: 24, fontWeight: "700", letterSpacing: -0.3, color: theme.colors.text },
   subtitle: { fontSize: 13, lineHeight: 18, color: theme.colors.textMuted, marginTop: 2 },
   closeBtn: {
     width: 36,

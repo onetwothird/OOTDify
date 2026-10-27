@@ -136,7 +136,7 @@ const useStyles = makeStyles((theme) => ({
   titleBlock: { flex: 1, minWidth: 0 },
   title: {
     fontSize: 22,
-    fontWeight: "800",
+    fontWeight: "700",
     color: theme.colors.text,
     letterSpacing: -0.3,
   },
@@ -199,7 +199,7 @@ const useStyles = makeStyles((theme) => ({
   tabSubtitle: { marginTop: 10, fontSize: 13.5, lineHeight: 19 },
   meta: {
     ...theme.typography.caption,
-    fontWeight: "700",
+    fontWeight: "600",
     color: theme.colors.textMuted,
     marginTop: 6,
   },

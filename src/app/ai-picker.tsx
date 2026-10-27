@@ -426,7 +426,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   headerBlock: { flex: 1, minWidth: 0 },
   headerTitle: {
     fontSize: 22,
-    fontWeight: "800",
+    fontWeight: "700",
     color: theme.colors.text,
     letterSpacing: -0.3,
   },
@@ -439,7 +439,7 @@ const useStyles = makeStyles((theme: Theme) => ({
 
   sectionLabel: {
     fontSize: 11,
-    fontWeight: "800",
+    fontWeight: "700",
     letterSpacing: 1,
     color: theme.colors.textMuted,
     marginTop: 16,
@@ -466,7 +466,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
   lookTopRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   lookTitleBlock: { flex: 1, minWidth: 0 },
-  lookTitle: { fontSize: 15, fontWeight: "800", color: theme.colors.text },
+  lookTitle: { fontSize: 15, fontWeight: "700", color: theme.colors.text },
   lookReason: { fontSize: 12.5, color: theme.colors.textMuted, marginTop: 3, lineHeight: 18 },
   scoreBadge: {
     flexDirection: "row",
@@ -476,8 +476,8 @@ const useStyles = makeStyles((theme: Theme) => ({
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
-  scoreValue: { fontSize: 18, fontWeight: "800", color: theme.colors.primary },
-  scoreMax: { fontSize: 11, fontWeight: "700", color: theme.colors.textMuted },
+  scoreValue: { fontSize: 18, fontWeight: "700", color: theme.colors.primary },
+  scoreMax: { fontSize: 11, fontWeight: "600", color: theme.colors.textMuted },
 
   lookItems: { gap: 10, paddingRight: 8 },
 
@@ -489,13 +489,13 @@ const useStyles = makeStyles((theme: Theme) => ({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.brand,
     borderRadius: theme.borderRadius.md,
     paddingVertical: 13,
     minHeight: 46,
   },
   saveBtnDisabled: { opacity: 0.6 },
-  saveBtnText: { color: theme.colors.onPrimary, fontWeight: "700", fontSize: 14 },
+  saveBtnText: { color: theme.colors.onPrimary, fontWeight: "600", fontSize: 14 },
 
   footnote: {
     fontSize: 11,

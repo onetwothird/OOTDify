@@ -147,7 +147,7 @@ export function CreateRoomModal({
 const useStyles = makeStyles((theme) => ({
   groupLabel: {
     fontSize: 13,
-    fontWeight: "700",
+    fontWeight: "600",
     color: theme.colors.text,
     marginTop: 4,
   },
@@ -170,7 +170,7 @@ const useStyles = makeStyles((theme) => ({
     backgroundColor: theme.colors.surfaceAlt,
   },
   chipActive: { backgroundColor: theme.colors.primary },
-  chipText: { fontSize: 13, fontWeight: "700", color: theme.colors.textMuted },
+  chipText: { fontSize: 13, fontWeight: "600", color: theme.colors.textMuted },
   chipTextActive: { color: theme.colors.onPrimary },
   error: { fontSize: 13, color: theme.colors.danger },
 }));

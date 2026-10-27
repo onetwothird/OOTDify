@@ -311,7 +311,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   hero: { width: "100%", aspectRatio: 0.85 },
   name: {
     fontSize: 24,
-    fontWeight: "800",
+    fontWeight: "700",
     letterSpacing: -0.5,
     color: theme.colors.text,
     marginTop: 18,
@@ -338,15 +338,13 @@ const useStyles = makeStyles((theme: Theme) => ({
     padding: 12,
   },
   metaKey: {
-    fontSize: 10.5,
-    fontWeight: "800",
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
+    fontSize: 12.5,
+    fontWeight: "600",
     color: theme.colors.textMuted,
   },
   metaValue: {
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "600",
     color: theme.colors.text,
     marginTop: 4,
   },
@@ -358,7 +356,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     gap: 6,
     paddingVertical: 12,
   },
-  deleteText: { color: theme.colors.danger, fontWeight: "700", fontSize: 14 },
+  deleteText: { color: theme.colors.danger, fontWeight: "600", fontSize: 14 },
   privacyNote: {
     fontSize: 11.5,
     color: theme.colors.textMuted,

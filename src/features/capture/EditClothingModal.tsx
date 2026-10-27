@@ -235,7 +235,7 @@ const useStyles = makeStyles((theme) => ({
   field: { gap: 6 },
   fieldLabel: {
     fontSize: 13,
-    fontWeight: "700",
+    fontWeight: "600",
     color: theme.colors.text,
   },
   fieldHint: { fontSize: 11, color: theme.colors.textMuted },

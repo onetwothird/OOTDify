@@ -553,7 +553,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: theme.colors.border,
   },
-  coverBtnText: { fontSize: 13, fontWeight: "700", color: theme.colors.text },
+  coverBtnText: { fontSize: 13, fontWeight: "600", color: theme.colors.text },
 
   identity: { paddingHorizontal: theme.spacing.md, gap: 6 },
   avatarWrap: {
@@ -567,7 +567,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     marginTop: 6,
     fontSize: 26,
     lineHeight: 31,
-    fontWeight: "800",
+    fontWeight: "700",
     letterSpacing: -0.6,
     color: theme.colors.text,
   },
@@ -588,7 +588,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     borderColor: theme.colors.border,
   },
   stat: { flex: 1, alignItems: "center", gap: 2 },
-  statValue: { fontSize: 19, fontWeight: "800", color: theme.colors.text },
+  statValue: { fontSize: 19, fontWeight: "700", color: theme.colors.text },
   statLabel: { fontSize: 12, color: theme.colors.textMuted },
   statRule: { width: StyleSheet.hairlineWidth, alignSelf: "stretch", backgroundColor: theme.colors.border },
 
@@ -602,10 +602,10 @@ const useStyles = makeStyles((theme: Theme) => ({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: theme.colors.border,
   },
-  cardTitle: { fontSize: 17, fontWeight: "800", color: theme.colors.text },
+  cardTitle: { fontSize: 17, fontWeight: "700", color: theme.colors.text },
   introRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
   introText: { flex: 1, fontSize: 14, lineHeight: 20, color: theme.colors.text },
-  introLabel: { fontWeight: "700" },
+  introLabel: { fontWeight: "600" },
   muted: { fontSize: 13, lineHeight: 19, color: theme.colors.textMuted },
 
   tabs: {
@@ -618,7 +618,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   tab: { flex: 1, alignItems: "center", paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: "transparent" },
   tabActive: { borderBottomColor: theme.colors.text },
   tabText: { fontSize: 14, fontWeight: "600", color: theme.colors.textMuted },
-  tabTextActive: { color: theme.colors.text, fontWeight: "800" },
+  tabTextActive: { color: theme.colors.text, fontWeight: "700" },
 
   grid: {
     flexDirection: "row",
@@ -655,7 +655,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     backgroundColor: theme.colors.surfaceAlt,
   },
   lookBody: { flex: 1, minWidth: 0, gap: 2 },
-  lookName: { fontSize: 15, fontWeight: "700", color: theme.colors.text },
+  lookName: { fontSize: 15, fontWeight: "600", color: theme.colors.text },
 
   post: {
     marginTop: 12,

@@ -62,7 +62,7 @@ const useStyles = makeStyles((theme) => ({
   textBlock: { flex: 1, minWidth: 0 },
   title: {
     fontSize: 20,
-    fontWeight: "800",
+    fontWeight: "700",
     letterSpacing: -0.3,
     color: theme.colors.text,
   },
@@ -76,7 +76,7 @@ const useStyles = makeStyles((theme) => ({
   action: { flexDirection: "row", alignItems: "center", gap: 2, paddingBottom: 2 },
   actionText: {
     fontSize: 13,
-    fontWeight: "700",
+    fontWeight: "600",
     color: theme.colors.primary,
   },
 }));

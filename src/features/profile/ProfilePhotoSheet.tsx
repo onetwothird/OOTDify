@@ -126,5 +126,5 @@ const useStyles = makeStyles((theme) => ({
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
   },
-  signOutText: { color: theme.colors.danger, fontWeight: "700", fontSize: 15 },
+  signOutText: { color: theme.colors.danger, fontWeight: "600", fontSize: 15 },
 }));

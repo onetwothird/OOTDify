@@ -163,7 +163,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
   wordmark: {
     fontSize: 17,
-    fontWeight: "800",
+    fontWeight: "700",
     letterSpacing: -0.3,
     color: theme.colors.text,
   },
@@ -171,7 +171,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     marginTop: 44,
     fontSize: 46,
     lineHeight: 48,
-    fontWeight: "800",
+    fontWeight: "700",
     letterSpacing: -2,
     color: theme.colors.text,
   },
@@ -218,7 +218,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: theme.colors.border,
   },
-  tagTitle: { fontSize: 13.5, lineHeight: 17, fontWeight: "800", color: theme.colors.text },
+  tagTitle: { fontSize: 13.5, lineHeight: 17, fontWeight: "700", color: theme.colors.text },
   tagBody: { fontSize: 11.5, lineHeight: 16, color: theme.colors.textMuted },
 
   actions: { marginTop: "auto", paddingTop: 40, gap: 12 },
@@ -231,5 +231,5 @@ const useStyles = makeStyles((theme: Theme) => ({
     color: theme.colors.textMuted,
     paddingHorizontal: theme.spacing.sm,
   },
-  legalLink: { color: theme.colors.text, fontWeight: "800" },
+  legalLink: { color: theme.colors.text, fontWeight: "700" },
 }));

@@ -47,7 +47,7 @@ const useStyles = makeStyles((theme) => ({
   text: {
     color: theme.colors.onBrand,
     fontSize: 16,
-    fontWeight: "700",
+    fontWeight: "600",
     letterSpacing: 0.5,
   },
 }));

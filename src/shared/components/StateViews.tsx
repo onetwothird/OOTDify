@@ -129,7 +129,7 @@ const useStyles = makeStyles((theme) => ({
   },
   title: {
     fontSize: 17,
-    fontWeight: "800",
+    fontWeight: "700",
     letterSpacing: -0.2,
     color: theme.colors.text,
     textAlign: "center",
@@ -149,8 +149,8 @@ const useStyles = makeStyles((theme) => ({
     minHeight: 44,
     paddingHorizontal: 22,
     borderRadius: theme.borderRadius.pill,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.brand,
   },
   buttonPressed: { opacity: 0.85 },
-  buttonText: { color: theme.colors.onPrimary, fontWeight: "700", fontSize: 14.5 },
+  buttonText: { color: theme.colors.onPrimary, fontWeight: "600", fontSize: 14.5 },
 }));

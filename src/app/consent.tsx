@@ -178,7 +178,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
   title: {
     fontSize: 24,
-    fontWeight: "800",
+    fontWeight: "700",
     color: theme.colors.text,
     marginBottom: theme.spacing.sm,
   },

@@ -28,6 +28,9 @@ export type ThemeColors = {
   text: string;
   textMuted: string;
   accent: string;
+  // The beak's full orange, for icons drawn over photos or dark chips, where
+  // the deepened text `accent` would look muddy.
+  accentBright: string;
   success: string;
   warning: string;
   danger: string;
@@ -61,6 +64,7 @@ export const lightColors: ThemeColors = {
   textMuted: "#5D6575",
   // The beak's orange, deepened so small text stays readable.
   accent: "#A64F08",
+  accentBright: "#F28C28",
   success: "#2E8A57",
   warning: "#B5641F",
   danger: "#C8402F",
@@ -89,6 +93,7 @@ export const darkColors: ThemeColors = {
   text: "#EDF1F8",
   textMuted: "#A3ABBD",
   accent: "#F2A25C",
+  accentBright: "#F7A65A",
   success: "#5FCB8E",
   warning: "#F0A35E",
   danger: "#F07A68",
@@ -122,13 +127,13 @@ export const theme = {
     pill: 999,
   },
   typography: {
-    display: { fontSize: 34, lineHeight: 38, fontWeight: "800", letterSpacing: -1 },
-    hero: { fontSize: 26, lineHeight: 32, fontWeight: "800", letterSpacing: -0.5 },
-    heading: { fontSize: 20, lineHeight: 26, fontWeight: "800", letterSpacing: -0.2 },
-    subheading: { fontSize: 16, lineHeight: 22, fontWeight: "700", letterSpacing: -0.1 },
+    display: { fontSize: 34, lineHeight: 38, fontWeight: "700", letterSpacing: -1 },
+    hero: { fontSize: 26, lineHeight: 32, fontWeight: "700", letterSpacing: -0.5 },
+    heading: { fontSize: 20, lineHeight: 26, fontWeight: "700", letterSpacing: -0.2 },
+    subheading: { fontSize: 16, lineHeight: 22, fontWeight: "600", letterSpacing: -0.1 },
     body: { fontSize: 15, lineHeight: 22, fontWeight: "400", letterSpacing: -0.05 },
     caption: { fontSize: 12.5, lineHeight: 17, fontWeight: "500" },
-    micro: { fontSize: 10.5, lineHeight: 14, fontWeight: "700", letterSpacing: 1 },
+    micro: { fontSize: 10.5, lineHeight: 14, fontWeight: "600", letterSpacing: 1 },
   },
 } as const;
 

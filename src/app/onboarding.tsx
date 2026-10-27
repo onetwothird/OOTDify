@@ -299,7 +299,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
   headTitle: {
     fontSize: 24,
-    fontWeight: "800",
+    fontWeight: "700",
     letterSpacing: -0.4,
     color: theme.colors.text,
   },
@@ -325,13 +325,13 @@ const useStyles = makeStyles((theme: Theme) => ({
   counter: { alignSelf: "flex-end", fontSize: 12, color: theme.colors.textMuted },
   fieldLabel: {
     fontSize: 11,
-    fontWeight: "800",
+    fontWeight: "700",
     letterSpacing: 0.6,
     color: theme.colors.textMuted,
   },
   input: {
     fontSize: 16,
-    fontWeight: "700",
+    fontWeight: "600",
     color: theme.colors.text,
     paddingVertical: 10,
     paddingHorizontal: 12,
@@ -345,7 +345,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   prefGroup: { gap: 8 },
   prefLabel: {
     fontSize: 11,
-    fontWeight: "800",
+    fontWeight: "700",
     letterSpacing: 0.6,
     color: theme.colors.textMuted,
   },

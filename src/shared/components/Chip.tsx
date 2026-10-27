@@ -60,5 +60,5 @@ const useStyles = makeStyles((theme) => ({
     fontWeight: "600",
     color: theme.colors.text,
   },
-  textActive: { color: theme.colors.onPrimary, fontWeight: "700" },
+  textActive: { color: theme.colors.onPrimary, fontWeight: "600" },
 }));

@@ -587,10 +587,8 @@ const useStyles = makeStyles((theme: Theme) => ({
   railBarDone: { backgroundColor: theme.colors.primary },
   railBarCurrent: { backgroundColor: theme.colors.primary },
   railLabel: {
-    fontSize: 10.5,
-    fontWeight: "800",
-    letterSpacing: 0.6,
-    textTransform: "uppercase",
+    fontSize: 12.5,
+    fontWeight: "600",
     color: theme.colors.textMuted,
   },
   railLabelOn: { color: theme.colors.text },
@@ -619,7 +617,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     backgroundColor: theme.colors.surfaceAlt,
   },
   factRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  factLabel: { flex: 1, fontSize: 12.5, fontWeight: "700", color: theme.colors.text },
+  factLabel: { flex: 1, fontSize: 12.5, fontWeight: "600", color: theme.colors.text },
   factValue: { fontSize: 12, color: theme.colors.textMuted },
 
   stepNote: {
@@ -641,7 +639,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     backgroundColor: theme.colors.surfaceAlt,
   },
   summaryBody: { flex: 1, minWidth: 0 },
-  summaryName: { fontSize: 15, fontWeight: "800", color: theme.colors.text },
+  summaryName: { fontSize: 15, fontWeight: "700", color: theme.colors.text },
   summaryEmail: { fontSize: 12.5, color: theme.colors.textMuted, marginTop: 2 },
   summaryMeta: { fontSize: 11.5, color: theme.colors.textMuted, marginTop: 6 },
 
@@ -662,7 +660,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     fontWeight: "500",
     color: theme.colors.text,
   },
-  consentLink: { color: theme.colors.text, fontWeight: "800" },
+  consentLink: { color: theme.colors.text, fontWeight: "700" },
 
   pill: { borderRadius: theme.borderRadius.pill },
   continueBtn: { marginTop: theme.spacing.sm },
@@ -699,5 +697,5 @@ const useStyles = makeStyles((theme: Theme) => ({
     paddingHorizontal: theme.spacing.page,
   },
   footerText: { fontSize: 14, fontWeight: "500", color: theme.colors.textMuted },
-  footerLink: { fontSize: 14, fontWeight: "800", color: theme.colors.text },
+  footerLink: { fontSize: 14, fontWeight: "700", color: theme.colors.text },
 }));

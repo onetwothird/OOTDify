@@ -136,9 +136,9 @@ const useStyles = makeStyles((theme) => ({
     backgroundColor: theme.colors.background,
   },
   actionCurrent: { borderColor: theme.colors.text, borderWidth: 1.5 },
-  actionText: { fontSize: 14, fontWeight: "700", color: theme.colors.text },
+  actionText: { fontSize: 14, fontWeight: "600", color: theme.colors.text },
   pressed: { opacity: 0.75 },
-  label: { fontSize: 13, fontWeight: "700", color: theme.colors.textMuted, marginTop: 4 },
+  label: { fontSize: 13, fontWeight: "600", color: theme.colors.textMuted, marginTop: 4 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   // A ring around each swatch that only shows on the chosen one, so picking
   // never shifts the grid.

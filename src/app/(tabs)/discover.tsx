@@ -263,7 +263,7 @@ const ClosetCard = memo(function ClosetCard({
           <Ionicons
             name={favorited ? "heart" : "heart-outline"}
             size={16}
-            color={favorited ? theme.colors.accent : "#FFFFFF"}
+            color={favorited ? theme.colors.accentBright : "#FFFFFF"}
           />
         </Pressable>
       </Pressable>
@@ -294,12 +294,12 @@ const useStyles = makeStyles((theme) => ({
   closetImagePlaceholder: undefined as any,
   heartButton: { position: "absolute", top: 8, right: 8, width: 28, height: 28, borderRadius: 14, backgroundColor: "rgba(20,20,20,0.45)", alignItems: "center", justifyContent: "center" },
   cardMeta: { padding: 8 },
-  closetName: { fontSize: 13, fontWeight: "700", color: theme.colors.text },
+  closetName: { fontSize: 13, fontWeight: "600", color: theme.colors.text },
   closetMeta: { fontSize: 11, color: theme.colors.textMuted, marginTop: 2 },
   importCard: { flexDirection: "row", alignItems: "flex-start", gap: 12, backgroundColor: theme.colors.surfaceAlt, borderRadius: theme.borderRadius.md, padding: 14, marginTop: theme.spacing.section },
   importIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: theme.colors.primary, alignItems: "center", justifyContent: "center", marginTop: 2 },
   importBody: { flex: 1, minWidth: 0 },
-  importTitle: { fontSize: 13.5, fontWeight: "800", color: theme.colors.text },
+  importTitle: { fontSize: 13.5, fontWeight: "700", color: theme.colors.text },
   importText: { fontSize: 12, lineHeight: 17, color: theme.colors.textMuted, marginTop: 3 },
   smallNote: { fontSize: 13, color: theme.colors.textMuted, paddingVertical: 8 },
   moreWrap: { alignItems: "center", paddingVertical: theme.spacing.sm },

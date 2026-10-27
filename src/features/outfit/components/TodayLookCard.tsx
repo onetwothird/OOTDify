@@ -225,7 +225,7 @@ const useStyles = makeStyles((theme) => ({
   },
   kicker: {
     fontSize: 10.5,
-    fontWeight: "800",
+    fontWeight: "700",
     letterSpacing: 1.4,
     color: theme.colors.textMuted,
   },
@@ -248,7 +248,7 @@ const useStyles = makeStyles((theme) => ({
     justifyContent: "center",
   },
   body: { flex: 1, minWidth: 0 },
-  title: { fontSize: 16, fontWeight: "800", color: theme.colors.text, letterSpacing: -0.2 },
+  title: { fontSize: 16, fontWeight: "700", color: theme.colors.text, letterSpacing: -0.2 },
   meta: { fontSize: 12.5, lineHeight: 18, color: theme.colors.textMuted, marginTop: 3 },
   actions: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 14 },
   cta: {
@@ -259,12 +259,12 @@ const useStyles = makeStyles((theme) => ({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.brand,
     marginTop: 14,
   },
   ctaFlex: { flex: 1, marginTop: 0 },
   ctaPressed: { opacity: 0.85 },
-  ctaText: { fontSize: 13.5, fontWeight: "700", color: theme.colors.onPrimary },
+  ctaText: { fontSize: 13.5, fontWeight: "600", color: theme.colors.onPrimary },
   ghost: {
     paddingVertical: 12,
     paddingHorizontal: 16,
@@ -273,5 +273,5 @@ const useStyles = makeStyles((theme) => ({
     borderColor: theme.colors.border,
     backgroundColor: "transparent",
   },
-  ghostText: { fontSize: 13.5, fontWeight: "700", color: theme.colors.text },
+  ghostText: { fontSize: 13.5, fontWeight: "600", color: theme.colors.text },
 }));

@@ -269,7 +269,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   root: { gap: 10 },
   sectionLabelText: {
     fontSize: 13,
-    fontWeight: "800",
+    fontWeight: "700",
     color: theme.colors.textMuted,
     marginTop: 18,
   },
@@ -285,7 +285,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     height: StyleSheet.hairlineWidth,
     backgroundColor: theme.colors.border,
   },
-  groupLabel: { fontSize: 14, fontWeight: "700", color: theme.colors.text },
+  groupLabel: { fontSize: 14, fontWeight: "600", color: theme.colors.text },
   pickerRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
   pill: {
     flexDirection: "row",
@@ -297,13 +297,13 @@ const useStyles = makeStyles((theme: Theme) => ({
     backgroundColor: theme.colors.surfaceAlt,
   },
   pillActive: { backgroundColor: theme.colors.primary },
-  pillText: { fontSize: 13, fontWeight: "700", color: theme.colors.textMuted },
+  pillText: { fontSize: 13, fontWeight: "600", color: theme.colors.textMuted },
   pillTextActive: { color: theme.colors.onPrimary },
   switchRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   switchBody: { flex: 1, minWidth: 0 },
   row: { flexDirection: "row", alignItems: "center", gap: 12 },
   rowBody: { flex: 1, minWidth: 0 },
-  rowLabel: { fontSize: 14, fontWeight: "700", color: theme.colors.text },
+  rowLabel: { fontSize: 14, fontWeight: "600", color: theme.colors.text },
   rowHint: { fontSize: 11.5, color: theme.colors.textMuted, marginTop: 2 },
   rowDivider: {
     height: StyleSheet.hairlineWidth,
