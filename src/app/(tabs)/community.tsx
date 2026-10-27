@@ -9,7 +9,7 @@
 // supabase/schema.sql through the community service. Until that schema is
 // applied the screen says so plainly instead of inventing content.
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -80,6 +80,14 @@ export default function CommunityScreen() {
   const condensed = width < 430;
 
   const [tab, setTab] = useState<Tab>("feed");
+  // Notifications open a specific tab (?tab=friends); follow it whenever it
+  // changes (render-phase adjust, no effect).
+  const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
+  const [seenTabParam, setSeenTabParam] = useState<string | undefined>(undefined);
+  if (tabParam !== seenTabParam) {
+    setSeenTabParam(tabParam);
+    if (tabParam === "feed" || tabParam === "chats" || tabParam === "friends") setTab(tabParam);
+  }
   const [meId, setMeId] = useState<string | null>(null);
 
   // ---- Feed state ----------------------------------------------------------
