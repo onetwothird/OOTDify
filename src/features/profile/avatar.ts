@@ -72,10 +72,14 @@ function localFileExists(uri: string): boolean {
 }
 
 /**
- * Pick (or shoot) a square photo and return its real metadata.
+ * Pick (or shoot) a photo and return its real metadata: square from the front
+ * camera for an avatar, a 16:9 banner from the back camera for a cover.
  * Returns null when the user cancelled or denied the camera.
  */
-export async function pickAvatarPhoto(source: AvatarSource): Promise<PickedPhoto | null> {
+export async function pickAvatarPhoto(
+  source: AvatarSource,
+  shape: "square" | "cover" = "square",
+): Promise<PickedPhoto | null> {
   if (source === "camera") {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
@@ -91,12 +95,13 @@ export async function pickAvatarPhoto(source: AvatarSource): Promise<PickedPhoto
     mediaTypes: ["images"],
     quality: 0.7,
     allowsEditing: true,
-    aspect: [1, 1],
+    aspect: shape === "cover" ? [16, 9] : [1, 1],
   };
+  const cameraType = shape === "cover" ? ImagePicker.CameraType.back : ImagePicker.CameraType.front;
 
   const result =
     source === "camera"
-      ? await ImagePicker.launchCameraAsync({ ...options, cameraType: ImagePicker.CameraType.front as any })
+      ? await ImagePicker.launchCameraAsync({ ...options, cameraType: cameraType as any })
       : await ImagePicker.launchImageLibraryAsync(options);
   if (result.canceled) return null;
 
