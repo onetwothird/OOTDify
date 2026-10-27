@@ -1,27 +1,54 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs, usePathname, useRouter } from "expo-router";
-import { useEffect } from "react";
-import { Alert, BackHandler, Platform, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useEffect, useState } from "react";
+import { Alert, Animated, BackHandler, Easing, Platform, View } from "react-native";
 import CaptureClothesModal from "../../features/capture/CaptureClothesModal";
+import { CreateMenu } from "../../features/capture/CreateMenu";
+import { useAvatarStore } from "../../features/profile/avatarStore";
+import { ProfileAvatar } from "../../features/profile/ProfileAvatar";
 import { withAuthRedirectHeld } from "../../shared/lib/authRedirectHold";
 import { supabase } from "../../shared/lib/supabase";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import type { Theme } from "../../shared/config/theme";
 import { useT } from "../../shared/i18n/useT";
+import { useReduceMotion } from "../../shared/hooks/useReduceMotion";
+import { useTabChromeStore } from "../../shared/navigation/scrollChrome";
+import { TAB_BAR_CONTENT, useTabBarHeight } from "../../shared/navigation/useTabChrome";
 
-// Icon (24) + label + gaps; the Create pill (30 tall + 2 margin) fits inside.
-const TAB_BAR_CONTENT = 52;
+// Gap between the tab bar and the floating Create (+) button.
+const FAB_GAP = 16;
 
 export default function TabLayout() {
   const { t } = useT();
   const theme = useAppTheme();
   const styles = useStyles();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
-  // Phones without a home indicator still get a little breathing room.
-  const bottomInset = Math.max(insets.bottom, 8);
+  const barHeight = useTabBarHeight();
+  const bottomInset = barHeight - TAB_BAR_CONTENT - 6;
+
+  // The tab bar (and the floating Create stack with it) slides away while a
+  // tab's list scrolls down and returns on scroll up, at the top, or on any
+  // tab change. Screens report scrolling through useHideOnScroll().
+  const chromeHidden = useTabChromeStore((s) => s.hidden);
+  const setChromeHidden = useTabChromeStore((s) => s.setHidden);
+  const reduceMotion = useReduceMotion();
+  const [slide] = useState(() => new Animated.Value(0));
+  useEffect(() => {
+    if (reduceMotion) {
+      slide.setValue(chromeHidden ? 1 : 0);
+      return;
+    }
+    const anim = Animated.timing(slide, {
+      toValue: chromeHidden ? 1 : 0,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    });
+    anim.start();
+    return () => anim.stop();
+  }, [chromeHidden, slide, reduceMotion]);
+  const slideDown = slide.interpolate({ inputRange: [0, 1], outputRange: [0, barHeight + 2] });
 
   // Back on Home would drop the user out of the signed-in app (onto the blank
   // boot route still underneath, or out of the app). Ask whether they mean to
@@ -30,6 +57,9 @@ export default function TabLayout() {
   // `router.canGoBack()` can't decide this: the boot route below the tabs
   // makes it true even on Home.
   const pathname = usePathname();
+  useEffect(() => {
+    setChromeHidden(false);
+  }, [pathname, setChromeHidden]);
   useEffect(() => {
     if (pathname !== "/home") return;
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -75,7 +105,14 @@ export default function TabLayout() {
             borderTopColor: theme.colors.border,
             paddingTop: 6,
             paddingBottom: bottomInset,
-            height: TAB_BAR_CONTENT + 6 + bottomInset,
+            height: barHeight,
+            // Floats over the screen so it can slide away; screens pad their
+            // content with useTabBarSpace() to clear it.
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            transform: [{ translateY: slideDown }],
             ...Platform.select({
               android: { elevation: 12 },
               ios: undefined,
@@ -101,17 +138,8 @@ export default function TabLayout() {
             ),
           }}
         />
-        <Tabs.Screen
-          name="scan"
-          options={{
-            title: t("tab.create"),
-            tabBarIcon: ({ focused }) => (
-              <View style={[styles.createPill, focused && styles.createPillActive]}>
-                <Ionicons name="add" size={24} color={theme.colors.onPrimary} />
-              </View>
-            ),
-          }}
-        />
+        {/* Create opens from the floating (+), not the menu. */}
+        <Tabs.Screen name="scan" options={{ href: null }} />
         <Tabs.Screen
           name="outfits"
           options={{
@@ -134,9 +162,19 @@ export default function TabLayout() {
             ),
           }}
         />
-        {/* Profile is settings — reachable from the Home avatar, not the menu. */}
-        <Tabs.Screen name="profile" options={{ href: null }} />
+        <Tabs.Screen
+          name="me"
+          options={{
+            title: t("tab.profile"),
+            tabBarIcon: ({ focused }) => <TabAvatar focused={focused} />,
+          }}
+        />
       </Tabs>
+
+      {/* Hidden on Create itself, where it would only lead back to the same screen. */}
+      {pathname !== "/scan" ? (
+        <CreateMenu bottom={barHeight + FAB_GAP} slide={slideDown} />
+      ) : null}
 
       {/* Capture modal is mounted once here so any tab can open it. */}
       <CaptureClothesModal />
@@ -144,18 +182,35 @@ export default function TabLayout() {
   );
 }
 
+/** The user's own photo as the Profile tab icon, ringed when active. */
+function TabAvatar({ focused }: { focused: boolean }) {
+  const theme = useAppTheme();
+  const styles = useStyles();
+  const avatarRef = useAvatarStore((s) => s.ref);
+  if (!avatarRef) {
+    return (
+      <Ionicons
+        name={focused ? "person-circle" : "person-circle-outline"}
+        size={26}
+        color={focused ? theme.colors.primary : theme.colors.textMuted}
+      />
+    );
+  }
+  return (
+    <View style={[styles.avatarRing, focused && styles.avatarRingActive]}>
+      <ProfileAvatar size={22} initial="" avatarRef={avatarRef} />
+    </View>
+  );
+}
+
 const useStyles = makeStyles((theme: Theme) => ({
   tabLabel: { fontSize: 10, fontWeight: "500", marginTop: 2 },
-  createPill: {
-    width: 46,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: theme.colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 2,
+  avatarRing: {
+    padding: 1.5,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: "transparent",
   },
-  createPillActive: {
-    transform: [{ scale: 1.06 }],
-  },
+  avatarRingActive: { borderColor: theme.colors.primary },
+
 }));
