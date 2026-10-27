@@ -489,8 +489,8 @@ export default function ScanScreen() {
               <Switch
                 value={agree}
                 onValueChange={setAgree}
-                trackColor={{ false: "#D4D4D8", true: theme.colors.primary }}
-                thumbColor="#FFFFFF"
+                trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+                thumbColor={theme.colors.surface}
               />
               <Text style={styles.consentToggleLabel}>
                 {t("scan.consent.agree")}
@@ -615,7 +615,7 @@ export default function ScanScreen() {
                 disabled={uploading}
               >
                 {uploading ? (
-                  <ActivityIndicator color="#FFF" />
+                  <ActivityIndicator color={theme.colors.onPrimary} />
                 ) : (
                   <Text style={styles.primaryBtnText}>{t("scan.preview.analyze")}</Text>
                 )}
