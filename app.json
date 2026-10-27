@@ -8,6 +8,7 @@
     "scheme": "ootdify",
     "userInterfaceStyle": "automatic",
     "android": {
+      "package": "com.ootdify.app",
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -71,6 +72,9 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "ios": {
+      "bundleIdentifier": "com.ootdify.app"
     }
   }
 }
