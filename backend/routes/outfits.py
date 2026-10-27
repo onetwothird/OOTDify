@@ -1,13 +1,14 @@
 """Outfit routes.
 
 POST /api/outfits — returns complete, ready-to-render looks composed from the
-real catalog (see services/outfit_service.py). Each look is a list of actual
-`clothing` rows with a coverage score and a plain-language reason.
+caller's own closet (see services/outfit_service.py). Each look is a list of
+the user's real `clothing_items` with a coverage score and a plain-language
+reason.
 
 This is the documented AI integration point for *looks* (as opposed to
 /api/recommend, which returns a flat list of scored items): swap the composer
 for a model-based system while keeping the same contract. The mobile app renders
-whatever catalog ids come back — never anything invented.
+whatever item ids come back — never anything invented.
 """
 from __future__ import annotations
 
@@ -18,7 +19,7 @@ from flask import Blueprint, jsonify, request
 
 from routes.users import ensure_profile
 from services.auth_service import require_auth, require_user
-from services.catalog_service import catalog_stats, load_candidates
+from services.catalog_service import catalog_stats, load_closet_candidates
 from services.outfit_service import compose
 from services.ratelimit import default_limits
 from services.recommender_service import recommend as rank_items
@@ -65,17 +66,17 @@ def outfits_endpoint():
 
     profile = ensure_profile(user["id"])
 
-    rows = load_candidates()
+    rows = load_closet_candidates(user["id"])
     if not rows:
         return jsonify(
             success=True,
             outfits=[],
             occasion=occasion or None,
             pool=0,
-            reason="The catalog is empty. Seed it with the ingestion script.",
+            reason="Your closet is empty. Capture a few clothes first.",
         )
 
-    # Rank the balanced pool against the user's style profile, then compose.
+    # Rank the closet against the user's style profile, then compose.
     ranked = rank_items(rows, profile, occasion or None, limit=len(rows))
     # Compose fresh looks each request unless the caller pins a seed.
     seed = payload.get("seed")
