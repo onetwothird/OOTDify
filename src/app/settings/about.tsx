@@ -115,7 +115,7 @@ export default function AboutScreen() {
   };
 
   const sendFeedback = async () => {
-    const subject = `OOTDify feedback (v${versionLabel()})`;
+    const subject = `Penggi feedback (v${versionLabel()})`;
     const body = [
       "",
       "",
@@ -166,7 +166,7 @@ export default function AboutScreen() {
             <Ionicons name="shirt" size={26} color={theme.colors.onPrimary} />
           </View>
           <View style={styles.appBody}>
-            <Text style={styles.appName}>OOTDify</Text>
+            <Text style={styles.appName}>Penggi</Text>
             <Text style={styles.appVersion}>
               {t("settings.version", { version: versionLabel() })}
             </Text>
@@ -204,7 +204,7 @@ export default function AboutScreen() {
 
         {active === "about" ? (
           <View style={styles.card}>
-            <SectionHead icon="information-circle-outline" title="OOTDify" />
+            <SectionHead icon="information-circle-outline" title="Penggi" />
             <Text style={styles.body}>{t("settings.about_screen.about.body")}</Text>
           </View>
         ) : null}
