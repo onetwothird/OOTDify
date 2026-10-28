@@ -20,12 +20,13 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Image, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { BiometricGate } from "../features/settings/BiometricGate";
+import { FlyingPreloader } from "../shared/components/FlyingPreloader";
 import { ToastHost } from "../shared/components/ToastHost";
 import { TERMS_VERSION } from "../shared/config/legal";
-import { lightColors, theme } from "../shared/config/theme";
+import { lightColors } from "../shared/config/theme";
 import { isAuthRedirectHeld } from "../shared/lib/authRedirectHold";
 import { supabase } from "../shared/lib/supabase";
 import { ThemeProvider, useThemeState } from "../shared/theme/ThemeProvider";
@@ -140,16 +141,7 @@ function RootLayoutInner() {
     // light frame first.
     return (
       <View style={[styles.boot, { backgroundColor: activeTheme.colors.background }]}>
-        <Image
-          source={require("../../assets/images/ootdify-icon.png")}
-          style={styles.bootLogo}
-          resizeMode="contain"
-          accessibilityIgnoresInvertColors
-        />
-        <ActivityIndicator
-          color={activeTheme.colors.textMuted}
-          style={styles.bootSpinner}
-        />
+        <FlyingPreloader />
       </View>
     );
   }
@@ -192,6 +184,4 @@ const styles = StyleSheet.create({
     // backgroundColor is applied inline from the active theme (see the boot
     // preloader) so dark mode does not flash a light page.
   },
-  bootLogo: { width: 96, height: 96 },
-  bootSpinner: { marginTop: theme.spacing.md },
 });
