@@ -9,14 +9,16 @@ import { shrinkForUpload } from "../../shared/lib/shrinkImage";
 import { supabase } from "../../shared/lib/supabase";
 import { uuid } from "../../shared/lib/uuid";
 import {
+  cleanNote,
   presenceOf,
   splitFriendships,
   type PickedStatus,
   type Presence,
   type FriendshipRow,
+  type FriendNote,
   type MyDayPostRow,
 } from "./social";
-import type { DirectoryProfile } from "./types";
+import type { DirectoryProfile, FriendProfile } from "./types";
 
 export interface Person extends DirectoryProfile {
   presence: Presence;
@@ -36,6 +38,14 @@ export interface MyDayViewer {
   profile: DirectoryProfile | null;
   viewerId: string;
   viewedAt: string;
+}
+
+/** A friend's profile. The database refuses anyone who is not that person's friend. */
+export async function fetchFriendProfile(userId: string): Promise<FriendProfile | null> {
+  const { data, error } = await supabase.rpc("get_friend_profile", { target: userId });
+  if (error) throw error;
+  const row = (Array.isArray(data) ? data[0] : data) as FriendProfile | undefined;
+  return row ?? null;
 }
 
 async function requireUserId(): Promise<string> {
@@ -76,7 +86,7 @@ async function presence(ids: string[]): Promise<Map<string, PresenceRow>> {
 const PRESENCE_ORDER: Record<Presence, number> = { online: 0, idle: 1, dnd: 2, offline: 3 };
 
 export function displayName(profile: DirectoryProfile | null | undefined): string {
-  return profile?.display_name || profile?.first_name || "OOTDify member";
+  return profile?.display_name || profile?.first_name || "Penggi member";
 }
 
 // ---------------------------------------------------------------------------
@@ -225,6 +235,41 @@ export async function fetchMyDay(): Promise<MyDayFeed> {
   if (views.error) throw views.error;
   const viewed = new Set(((views.data ?? []) as { post_id: string }[]).map((v) => v.post_id));
   return { me, posts, viewed, profiles };
+}
+
+// ---------------------------------------------------------------------------
+// Notes (one short line above your circle for 24 hours)
+// ---------------------------------------------------------------------------
+
+/** Live notes from you and your friends, keyed by person (the policies filter). */
+export async function fetchNotes(): Promise<Map<string, FriendNote>> {
+  const { data, error } = await supabase
+    .from("friend_notes")
+    .select("user_id,body,expires_at")
+    .gt("expires_at", new Date().toISOString());
+  if (error) throw error;
+  const notes = new Map<string, FriendNote>();
+  for (const r of (data ?? []) as { user_id: string; body: string; expires_at: string }[]) {
+    notes.set(r.user_id, { body: r.body, expiresAt: r.expires_at });
+  }
+  return notes;
+}
+
+/** Replace your note. Throws the reason it can't be saved. */
+export async function setMyNote(raw: string): Promise<void> {
+  const me = await requireUserId();
+  const cleaned = cleanNote(raw);
+  if (!cleaned.ok) throw new Error(cleaned.error === "empty" ? "Write something first" : "Keep it under 60 characters");
+  const { error } = await supabase
+    .from("friend_notes")
+    .upsert({ user_id: me, body: cleaned.note }, { onConflict: "user_id" });
+  if (error) throw error;
+}
+
+export async function deleteMyNote(): Promise<void> {
+  const me = await requireUserId();
+  const { error } = await supabase.from("friend_notes").delete().eq("user_id", me);
+  if (error) throw error;
 }
 
 /** Pick a tall photo from the gallery or camera. Null when cancelled or denied. */
