@@ -34,6 +34,7 @@ import { insertSavedOutfit } from "../../features/clothing/service";
 import { liveGarmentCandidate, useLiveGarment } from "../../features/tryon/ar/liveGarmentStore";
 import { PHOTO_TRYON_AVAILABLE } from "../../features/tryon/config";
 import { useTryOnSelection } from "../../features/tryon/selectionStore";
+import { TryOnEmptyState } from "../../features/tryon/TryOnEmptyState";
 import { useWardrobeStore } from "../../features/wardrobe/store";
 import {
   BodyPhotoWithUrl,
@@ -58,6 +59,7 @@ import type { TranslationKey } from "../../shared/i18n/translate";
 import { resolveMediaUrl } from "../../shared/lib/storageUrl";
 import { toast } from "../../shared/lib/toast";
 import { useResponsiveColumns } from "../../shared/hooks/useResponsiveColumns";
+import { FlyingPreloader } from "../../shared/components/FlyingPreloader";
 
 const CONSENT_KEY = "ootdify.tryon.consent.v1";
 
@@ -451,7 +453,7 @@ export default function ScanScreen() {
   if (!consentLoaded) {
     return (
       <View style={[styles.screen, styles.center, { paddingTop: insets.top }]}>
-        <ActivityIndicator color={theme.colors.brand} size="large" />
+        <FlyingPreloader size={88} />
       </View>
     );
   }
@@ -665,7 +667,7 @@ export default function ScanScreen() {
         ) : null}
 
         {photosLoading ? (
-          <ActivityIndicator style={styles.inlineSpin} color={theme.colors.brand} />
+          <FlyingPreloader size={88} style={styles.inlineSpin} />
         ) : photosError ? (
           <ErrorState message={photosError} onRetry={refreshBodyPhotos} />
         ) : bodyPhotos.length === 0 ? (
@@ -840,14 +842,15 @@ export default function ScanScreen() {
         {/* ------------------------- Jobs ------------------------- */}
         <Text style={styles.sectionLabel}>{t("scan.jobs.label")}</Text>
         {jobsLoading && jobs.length === 0 ? (
-          <ActivityIndicator style={styles.inlineSpin} color={theme.colors.brand} />
+          <FlyingPreloader size={88} style={styles.inlineSpin} />
         ) : jobsError ? (
           <ErrorState message={jobsError} onRetry={refreshJobs} />
         ) : jobs.length === 0 ? (
-          <EmptyState
-            icon="sparkles-outline"
+          <TryOnEmptyState
             title={t("scan.jobs.empty.title")}
             message={t("scan.jobs.empty.message")}
+            actionLabel={closetItems.length === 0 ? t("scan.tryon.closet.capture") : undefined}
+            onAction={closetItems.length === 0 ? openCapture : undefined}
           />
         ) : (
           jobs.map((job) => <JobCard key={job.id} job={job} onDelete={removeJob} onRetry={retryJob} onSave={saveJobAsOutfit} />)
