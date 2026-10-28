@@ -4,7 +4,6 @@
 // away, because the database decides what to send. Do not disturb (your
 // status on the Friends tab) also holds back push.
 import { Ionicons } from "@expo/vector-icons";
-import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, Switch, Text, View } from "react-native";
@@ -19,6 +18,7 @@ import {
   type NotificationSettings,
   type PushSetup,
 } from "../../features/notifications/service";
+import { nativePush } from "../../features/notifications/nativePush";
 import { useT } from "../../shared/i18n/useT";
 import type { TranslationKey } from "../../shared/i18n/translate";
 import { toast } from "../../shared/lib/toast";
@@ -85,8 +85,8 @@ export default function NotificationSettingsScreen() {
     )?.key ?? "off";
 
   const enablePush = async () => {
-    const current = await Notifications.getPermissionsAsync();
-    if (!current.canAskAgain) {
+    const current = await nativePush()?.getPermissionsAsync();
+    if (current && !current.canAskAgain) {
       void Linking.openSettings();
       return;
     }
