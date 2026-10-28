@@ -1,4 +1,4 @@
-# 🧥 OOTDify
+# 🧥 Penggi
 
 OOTDify is a mobile-first **AI fashion assistant** built with Expo (React Native)
 and a Flask AI backend. It helps you build a private wardrobe, generate outfit
