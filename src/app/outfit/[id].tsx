@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { OutfitPiece, pieceHref } from "../../features/clothing/pieces";
@@ -16,6 +16,8 @@ import {
   fetchSavedOutfits,
   SavedOutfit,
 } from "../../features/clothing/service";
+import { ConfirmSheet } from "../../shared/components/ConfirmSheet";
+import { SmartImage } from "../../shared/components/SmartImage";
 import { ErrorState } from "../../shared/components/StateViews";
 import { LoadingState } from "../../shared/components/LoadingState";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
@@ -23,6 +25,7 @@ import { makeStyles } from "../../shared/theme/makeStyles";
 import type { Theme } from "../../shared/config/theme";
 import { useT } from "../../shared/i18n/useT";
 import { resolveMediaUrl } from "../../shared/lib/storageUrl";
+import { toast } from "../../shared/lib/toast";
 
 export default function OutfitDetailScreen() {
   const insets = useSafeAreaInsets();
@@ -37,6 +40,8 @@ export default function OutfitDetailScreen() {
   const [heroUri, setHeroUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Reset to the loading state during render when the route param changes —
   // React's documented alternative to a synchronous setState inside an effect.
@@ -82,27 +87,24 @@ export default function OutfitDetailScreen() {
   }, [id, t]);
 
   const remove = () => {
-    if (!outfit) return;
-    Alert.alert(t("outfits.delete_confirm.title"), t("outfits.delete_confirm.message"), [
-      { text: t("outfits.delete_confirm.cancel"), style: "cancel" },
-      {
-        text: t("outfits.delete_confirm.confirm"),
-        style: "destructive",
-        onPress: () => {
-          void (async () => {
-            try {
-              await deleteSavedOutfit(outfit.id);
-              router.back();
-            } catch (e) {
-              Alert.alert(
-                t("outfits.delete_error.title"),
-                e instanceof Error ? e.message : t("outfits.delete_error.message"),
-              );
-            }
-          })();
-        },
-      },
-    ]);
+    if (outfit) setDeleteOpen(true);
+  };
+
+  const confirmRemove = async () => {
+    if (!outfit || deleting) return;
+    setDeleting(true);
+    try {
+      await deleteSavedOutfit(outfit.id);
+      setDeleteOpen(false);
+      router.back();
+    } catch (e) {
+      toast.error(
+        t("outfits.delete_error.title"),
+        e instanceof Error ? e.message : t("outfits.delete_error.message"),
+      );
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -166,6 +168,23 @@ export default function OutfitDetailScreen() {
           )}
         </ScrollView>
       ) : null}
+
+      <ConfirmSheet
+        visible={deleteOpen}
+        onClose={() => !deleting && setDeleteOpen(false)}
+        icon="trash-outline"
+        title={t("outfits.delete_confirm.title")}
+        message={t("outfits.delete_confirm.message")}
+        confirmLabel={t("outfits.delete_confirm.confirm")}
+        cancelLabel={t("outfits.delete_confirm.keep")}
+        busy={deleting}
+        hero={
+          outfit?.result_url ? (
+            <SmartImage source={outfit.result_url} style={styles.deleteHero} accessibilityLabel={outfit.name ?? ""} />
+          ) : undefined
+        }
+        onConfirm={() => void confirmRemove()}
+      />
     </View>
   );
 }
@@ -207,6 +226,13 @@ const useStyles = makeStyles((theme: Theme) => ({
   title: { fontSize: 22, fontWeight: "700", color: theme.colors.text, letterSpacing: -0.3 },
   meta: { fontSize: 12.5, color: theme.colors.textMuted, marginTop: -6 },
   heroWrap: { borderRadius: theme.borderRadius.lg, overflow: "hidden" },
+  deleteHero: {
+    width: 84,
+    height: 112,
+    borderRadius: theme.borderRadius.md,
+    overflow: "hidden",
+    backgroundColor: theme.colors.surfaceAlt,
+  },
   heroImage: { width: "100%", aspectRatio: 0.85, backgroundColor: theme.colors.primaryMuted },
   heroLabel: {
     fontSize: 11,
