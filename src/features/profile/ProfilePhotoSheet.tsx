@@ -7,12 +7,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
-import { AppButton } from "../../shared/components/AppButton";
 import { Sheet } from "../../shared/components/Sheet";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import { useT } from "../../shared/i18n/useT";
 import { changeProfileAvatar, type AvatarSource } from "./avatar";
+import { PhotoSourceOptions } from "./PhotoSourceOptions";
 import { ProfileAvatar } from "./ProfileAvatar";
 
 export function ProfilePhotoSheet({
@@ -72,26 +72,12 @@ export function ProfilePhotoSheet({
           busy={busy !== null}
           background={theme.colors.surfaceAlt}
           color={theme.colors.text}
-          ring={theme.colors.border}
+          ring={theme.colors.brand}
         />
         <Text style={styles.intro}>{t("home.photo_sheet.intro")}</Text>
       </View>
 
-      <AppButton
-        label={t("home.photo_sheet.take")}
-        icon="camera-outline"
-        loading={busy === "camera"}
-        disabled={busy !== null}
-        onPress={() => void change("camera")}
-      />
-      <AppButton
-        label={t("home.photo_sheet.library")}
-        icon="images-outline"
-        variant="secondary"
-        loading={busy === "library"}
-        disabled={busy !== null}
-        onPress={() => void change("library")}
-      />
+      <PhotoSourceOptions busy={busy} onPick={(s) => void change(s)} />
       <Pressable
         accessibilityRole="button"
         disabled={busy !== null}
