@@ -3,12 +3,10 @@
 // asks the server for real catalog recommendations, composes a deterministic
 // outfit, and persists it. No mock looks, no hardcoded content.
 import { Ionicons } from "@expo/vector-icons";
-import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -33,6 +31,8 @@ import { Outfit } from "../../features/outfit/types";
 import { OutfitCalendar } from "../../features/outfit/components/OutfitCalendar";
 import { AppButton } from "../../shared/components/AppButton";
 import { Chip } from "../../shared/components/Chip";
+import { ConfirmSheet } from "../../shared/components/ConfirmSheet";
+import { SmartImage } from "../../shared/components/SmartImage";
 import { ClothingCard } from "../../shared/components/ClothingCard";
 import { EmptyState, ErrorState } from "../../shared/components/StateViews";
 import { LoadingState } from "../../shared/components/LoadingState";
@@ -75,6 +75,8 @@ export default function OutfitsScreen() {
   const [saved, setSaved] = useState<SavedOutfit[]>([]);
   const [savedLoading, setSavedLoading] = useState(true);
   const [savedError, setSavedError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<SavedOutfit | null>(null);
+  const [deleting, setDeleting] = useState(false);
   // clothing_id -> real catalog row, so saved outfits can show item thumbnails.
   const [piecesById, setPiecesById] = useState<Record<string, OutfitPiece>>({});
 
@@ -217,26 +219,24 @@ export default function OutfitsScreen() {
   };
 
   const removeOutfit = (outfitId: string) => {
-    Alert.alert(t("outfits.delete_confirm.title"), t("outfits.delete_confirm.message"), [
-      { text: t("outfits.delete_confirm.cancel"), style: "cancel" },
-      {
-        text: t("outfits.delete_confirm.confirm"),
-        style: "destructive",
-        onPress: () => {
-          void (async () => {
-            try {
-              await deleteSavedOutfit(outfitId);
-              setSaved((prev) => prev.filter((o) => o.id !== outfitId));
-            } catch (e) {
-              Alert.alert(
-                t("outfits.delete_error.title"),
-                e instanceof Error ? e.message : t("outfits.delete_error.message"),
-              );
-            }
-          })();
-        },
-      },
-    ]);
+    setDeleteTarget(saved.find((o) => o.id === outfitId) ?? null);
+  };
+
+  const confirmRemove = async () => {
+    if (!deleteTarget || deleting) return;
+    setDeleting(true);
+    try {
+      await deleteSavedOutfit(deleteTarget.id);
+      setSaved((prev) => prev.filter((o) => o.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch (e) {
+      toast.error(
+        t("outfits.delete_error.title"),
+        e instanceof Error ? e.message : t("outfits.delete_error.message"),
+      );
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -525,6 +525,23 @@ export default function OutfitsScreen() {
           </View>
         )}
       </ScrollView>
+
+      <ConfirmSheet
+        visible={deleteTarget !== null}
+        onClose={() => !deleting && setDeleteTarget(null)}
+        icon="trash-outline"
+        title={t("outfits.delete_confirm.title")}
+        message={t("outfits.delete_confirm.message")}
+        confirmLabel={t("outfits.delete_confirm.confirm")}
+        cancelLabel={t("outfits.delete_confirm.keep")}
+        busy={deleting}
+        hero={
+          deleteTarget?.result_url ? (
+            <SmartImage source={deleteTarget.result_url} style={styles.deleteHero} accessibilityLabel={deleteTarget.name ?? ""} />
+          ) : undefined
+        }
+        onConfirm={() => void confirmRemove()}
+      />
     </View>
   );
 }
@@ -561,9 +578,9 @@ function LookThumbs({ urls, size, gap }: { urls: string[]; size: number; gap: nu
   return (
     <View style={styles.lookIcon}>
       {urls.map((url, i) => (
-        <Image
+        <SmartImage
           key={`${url}-${i}`}
-          source={{ uri: url }}
+          source={url}
           style={{
             width: size,
             height: size,
@@ -573,7 +590,6 @@ function LookThumbs({ urls, size, gap }: { urls: string[]; size: number; gap: nu
             marginLeft: i === 0 ? 0 : -size + gap,
             zIndex: urls.length - i,
           }}
-          contentFit="cover"
         />
       ))}
     </View>
@@ -782,6 +798,13 @@ const useStyles = makeStyles((theme: Theme) => ({
     paddingRight: 12,
   },
   builderBackText: { color: theme.colors.brand, fontWeight: "600", fontSize: 14 },
+  deleteHero: {
+    width: 84,
+    height: 112,
+    borderRadius: theme.borderRadius.md,
+    overflow: "hidden",
+    backgroundColor: theme.colors.surfaceAlt,
+  },
   poolHint: { fontSize: 11, color: theme.colors.textMuted, lineHeight: 16 },
 
   savedRow: {
