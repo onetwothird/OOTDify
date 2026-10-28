@@ -35,11 +35,27 @@ def _is_uuid(value: str) -> bool:
         return False
 
 
+def _is_room_admin(db, room_id: str, created_by: str | None, user_id: str) -> bool:
+    """The room's creator, or anyone listed in conversation_admins for it."""
+    if created_by == user_id:
+        return True
+    listed = (
+        db.table("conversation_admins")
+        .select("user_id")
+        .eq("conversation_id", room_id)
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+        .data
+    )
+    return bool(listed)
+
+
 @community_bp.post("/api/community/rooms/<room_id>/icon")
 @require_auth
 @upload_limits("room_icon")
 def upload_room_icon_route(room_id: str):
-    """Host a new room icon on Cloudinary and save it; only the room's creator may."""
+    """Host a new room icon on Cloudinary and save it; only the room's admins may."""
     user = require_user()
     if not _is_uuid(room_id):
         return jsonify(success=False, error="Room not found."), 404
@@ -50,8 +66,8 @@ def upload_room_icon_route(room_id: str):
     rows = db.table("conversations").select("id, created_by").eq("id", room_id).limit(1).execute().data
     if not rows:
         return jsonify(success=False, error="Room not found."), 404
-    if rows[0].get("created_by") != user["id"]:
-        return jsonify(success=False, error="Only the room's creator can change its icon."), 403
+    if not _is_room_admin(db, room_id, rows[0].get("created_by"), user["id"]):
+        return jsonify(success=False, error="Only a room admin can change its icon."), 403
 
     temp_path = None
     try:
