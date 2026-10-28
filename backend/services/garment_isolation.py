@@ -6,6 +6,11 @@ tell a shirt from a bedsheet. GrabCut separates the dominant foreground
 object from the background, which fits the capture flow: one garment laid
 flat or hung up, roughly centred in the frame.
 
+When a clothes-parsing model is available (services/clothes_parser.py) and the
+photo shows a person wearing the garment, only the clothing pixels are kept: the
+face, hair, arms and legs are dropped. Flat-lay photos, or a missing model, use
+GrabCut as above.
+
 It does NOT classify the garment (the user still picks the category) and it
 cannot reliably pick one item out of several. Every result carries an
 honest `ok` flag + `reason`; when the cut-out is not trustworthy the caller
@@ -25,6 +30,8 @@ import cv2
 import numpy as np
 from PIL import Image, ImageOps
 
+from services.clothes_parser import BODY_LABELS, CLOTHING_LABELS, Parser, get_clothes_parser
+
 logger = logging.getLogger(__name__)
 
 # Longest side GrabCut runs at (speed); the output is cut from the full image.
@@ -39,6 +46,9 @@ MAX_COVERAGE = 0.90
 # The largest connected blob must hold this share of all foreground pixels;
 # below it the photo most likely shows several separate objects.
 MIN_DOMINANCE = 0.75
+
+# Body pixels (face, hair, arms, legs) needed before a photo counts as "worn".
+MIN_BODY_COVERAGE = 0.02
 
 OUTPUT_PADDING = 0.04
 OUTPUT_MAX_SIDE = 1280
@@ -130,9 +140,37 @@ def _compose(rgb: np.ndarray, mask: np.ndarray) -> tuple[bytes, int, int]:
     return buf.getvalue(), img.width, img.height
 
 
-def isolate_garment(image_path: str | Path) -> IsolationResult:
+def _clothing_only(rgb: np.ndarray, parser: Parser) -> Optional[IsolationResult]:
+    """Result for a worn garment, or None when the photo shows no body.
+
+    A flat-lay has no face, hair, arms or legs, and the parser is less reliable on
+    those, so they fall through to the plain cut-out.
+    """
+    labels = parser(rgb)
+    total = labels.size
+    body = np.isin(labels, BODY_LABELS).sum() / total
+    if body < MIN_BODY_COVERAGE:
+        return None
+
+    clothes = np.isin(labels, CLOTHING_LABELS).astype(np.uint8)
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    clothes = cv2.morphologyEx(clothes, cv2.MORPH_CLOSE, kernel)
+    coverage = round(float(clothes.sum()) / total, 4)
+    if coverage < MIN_COVERAGE:
+        return IsolationResult(ok=False, reason="no_object", coverage=coverage)
+
+    jpeg, width, height = _compose(rgb, clothes)
+    return IsolationResult(ok=True, coverage=coverage, dominance=1.0, jpeg=jpeg, width=width, height=height)
+
+
+def isolate_garment(image_path: str | Path, parser: Optional[Parser] = None) -> IsolationResult:
     try:
         rgb = _load_rgb(image_path)
+        parser = parser or get_clothes_parser()
+        if parser is not None:
+            worn = _clothing_only(rgb, parser)
+            if worn is not None:
+                return worn
         raw = _foreground_mask(rgb)
     except Exception:
         logger.exception("Garment isolation failed")
