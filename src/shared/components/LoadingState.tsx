@@ -1,6 +1,7 @@
 // C:\OOTDify\src\shared\components\LoadingState.tsx
 // Pulsing skeleton placeholders + centered spinner (no fixed pixel layouts).
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
+import { FlyingPreloader } from "./FlyingPreloader";
 import { Skeleton, SkeletonCard } from "./Skeleton";
 import { useResponsiveColumns } from "../hooks/useResponsiveColumns";
 
@@ -9,11 +10,9 @@ import { useAppTheme } from "../theme/ThemeProvider";
 
 export function LoadingState({ label }: { label?: string }) {
   const styles = useStyles();
-  const theme = useAppTheme();
   return (
     <View style={styles.center} testID="loading-state">
-      <ActivityIndicator color={theme.colors.brand} size="large" />
-      {label ? <View /> : null}
+      <FlyingPreloader size={104} label={label} />
     </View>
   );
 }
