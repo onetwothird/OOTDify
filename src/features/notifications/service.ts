@@ -214,7 +214,7 @@ export async function registerForPush(): Promise<PushSetup> {
   if (!Notifications) return "unsupported";
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync("default", {
-      name: "OOTDify",
+      name: "Penggi",
       importance: Notifications.AndroidImportance.HIGH,
       lightColor: "#3A5A96",
     });
