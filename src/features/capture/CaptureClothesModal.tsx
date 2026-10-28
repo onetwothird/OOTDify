@@ -14,10 +14,10 @@ import * as ImagePicker from "expo-image-picker";
 import { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
+  TextInput,
   Text,
   View,
 } from "react-native";
@@ -28,6 +28,7 @@ import { EmptyState } from "../../shared/components/StateViews";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import { useT } from "../../shared/i18n/useT";
+import { toast } from "../../shared/lib/toast";
 import { uuid } from "../../shared/lib/uuid";
 import { insertClothingItem, uploadToWardrobeBucket } from "../clothing/service";
 import { ClothingItem } from "../clothing/types";
@@ -43,6 +44,8 @@ type CapturedEntry = {
   /** The photo exactly as the user took/picked it. */
   uri: string;
   category: string;
+  /** Typed by the user, or filled from the AI's description until they edit it. */
+  description: string;
   isolation: "pending" | IsolationOutcome;
   /** Save the cut-out (when there is one) instead of the original. */
   useCutout: boolean;
@@ -83,6 +86,7 @@ export default function CaptureClothesModal() {
       id: uuid(),
       uri,
       category: "",
+      description: "",
       isolation: "pending",
       useCutout: true,
     }));
@@ -101,6 +105,7 @@ export default function CaptureClothesModal() {
                   ...e,
                   isolation: outcome,
                   category: e.category || (suggested && CATEGORIES.includes(suggested) ? suggested : ""),
+                  description: e.description || (outcome.status === "error" ? "" : outcome.garment?.description ?? ""),
                 }
               : e,
           ),
@@ -118,7 +123,7 @@ export default function CaptureClothesModal() {
     // taps "Camera" and has read the context copy above.
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert(
+      toast.error(
         t("capture.camera.permission.title"),
         t("capture.camera.permission.message"),
       );
@@ -127,8 +132,8 @@ export default function CaptureClothesModal() {
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ["images"],
       quality: 0.7,
+      // Free crop (no fixed ratio): frame just the garment you want to keep.
       allowsEditing: true,
-      aspect: [3, 4],
     });
     if (!result.canceled && result.assets?.length) {
       addUris(result.assets.map((a) => a.uri));
@@ -141,8 +146,9 @@ export default function CaptureClothesModal() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       quality: 0.7,
-      allowsMultipleSelection: true,
-      selectionLimit: 10,
+      // One photo at a time: the system crop screen only opens for a single pick.
+      // Crop to the garment you want; pick again to add more.
+      allowsEditing: true,
     });
     if (!result.canceled && result.assets?.length) {
       addUris(result.assets.map((a) => a.uri));
@@ -151,6 +157,10 @@ export default function CaptureClothesModal() {
 
   const setCategory = (index: number, category: string) => {
     setEntries((prev) => prev.map((e, i) => (i === index ? { ...e, category } : e)));
+  };
+
+  const setDescription = (index: number, description: string) => {
+    setEntries((prev) => prev.map((e, i) => (i === index ? { ...e, description } : e)));
   };
 
   const removeEntry = (index: number) => {
@@ -177,6 +187,7 @@ export default function CaptureClothesModal() {
         const garment = garmentOf(entry);
         const row = await insertClothingItem({
           name: garment?.name || entry.category,
+          description: entry.description.trim() || undefined,
           category: entry.category,
           color: garment?.color ?? undefined,
           image_url: storageRef,
@@ -198,7 +209,7 @@ export default function CaptureClothesModal() {
     setProcessing(false);
 
     if (saved.length === 0) {
-      Alert.alert(
+      toast.error(
         t("capture.alert.nothing_saved.title"),
         failed > 0
           ? t("capture.alert.nothing_saved.upload_failed")
@@ -207,11 +218,12 @@ export default function CaptureClothesModal() {
       return;
     }
 
-    Alert.alert(
-      t("capture.alert.added.title"),
+    // Some photos failing makes it a heads-up rather than a clean success.
+    const message =
       t("capture.alert.added.message", { count: saved.length }) +
-        (failed ? t("capture.alert.added.failed_suffix", { count: failed }) : ""),
-    );
+      (failed ? t("capture.alert.added.failed_suffix", { count: failed }) : "");
+    if (failed) toast.info(t("capture.alert.added.title"), message);
+    else toast.success(t("capture.alert.added.title"), message);
     handleClose();
   };
 
@@ -347,6 +359,18 @@ export default function CaptureClothesModal() {
                         );
                       })}
                     </ScrollView>
+
+                    <TextInput
+                      value={entry.description}
+                      onChangeText={(text) => setDescription(idx, text)}
+                      placeholder={t("capture.description.placeholder")}
+                      placeholderTextColor={theme.colors.textMuted}
+                      style={styles.descriptionInput}
+                      maxLength={300}
+                      multiline
+                      editable={!processing}
+                      accessibilityLabel={t("capture.description.label")}
+                    />
                   </View>
                 </View>
               );
@@ -506,6 +530,20 @@ const useStyles = makeStyles((theme) => ({
     textDecorationLine: "underline",
   },
   chipRow: { gap: 6, paddingRight: 4 },
+  descriptionInput: {
+    marginTop: 8,
+    minHeight: 40,
+    maxHeight: 88,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 13.5,
+    color: theme.colors.text,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.background,
+    textAlignVertical: "top",
+  },
   chip: {
     flexDirection: "row",
     alignItems: "center",
