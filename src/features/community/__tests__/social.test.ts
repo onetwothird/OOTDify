@@ -1,6 +1,10 @@
 import {
   firstUnseenIndex,
   friendStateWith,
+  dmsByFriend,
+  cleanNote,
+  NOTE_MAX,
+  noteIsLive,
   groupMyDay,
   isOnline,
   presenceOf,
@@ -9,6 +13,7 @@ import {
   type FriendshipRow,
   type MyDayPostRow,
 } from "../social";
+import type { ConversationListEntry } from "../types";
 
 const NOW = Date.parse("2026-10-28T12:00:00Z");
 
@@ -98,5 +103,59 @@ describe("presenceOf", () => {
 
   it("treats an unknown status as online", () => {
     expect(presenceOf(recent, "weird", NOW)).toBe("online");
+  });
+});
+
+describe("dmsByFriend", () => {
+  const entry = (over: Partial<ConversationListEntry>): ConversationListEntry => ({
+    id: "c1",
+    isRoom: false,
+    isGroup: false,
+    groupTitle: null,
+    groupCategory: null,
+    otherUserId: "a",
+    otherName: "Ana",
+    otherAvatar: null,
+    lastMessage: "hi",
+    lastMessageAt: "2026-10-28T10:00:00Z",
+    unread: 2,
+    ...over,
+  });
+
+  it("keys private chats by the friend on the other side", () => {
+    const map = dmsByFriend([entry({}), entry({ id: "c2", otherUserId: "b", unread: 0 })]);
+    expect(map.get("a")).toMatchObject({ id: "c1", unread: 2, lastMessage: "hi" });
+    expect(map.get("b")).toMatchObject({ id: "c2", unread: 0 });
+  });
+
+  it("leaves out the everyone room, group rooms and chats with no other person", () => {
+    const map = dmsByFriend([
+      entry({ id: "room", isRoom: true, otherUserId: "x" }),
+      entry({ id: "group", isGroup: true, otherUserId: "y" }),
+      entry({ id: "solo", otherUserId: null }),
+    ]);
+    expect(map.size).toBe(0);
+  });
+});
+
+describe("friend notes", () => {
+  it("trims a note and squeezes line breaks into spaces", () => {
+    expect(cleanNote("  out for coffee\n\n  later ")).toEqual({ ok: true, note: "out for coffee later" });
+  });
+
+  it("refuses an empty note", () => {
+    expect(cleanNote("  \n ")).toEqual({ ok: false, error: "empty" });
+  });
+
+  it("refuses a note over the limit", () => {
+    expect(cleanNote("x".repeat(NOTE_MAX + 1))).toEqual({ ok: false, error: "too_long" });
+    expect(cleanNote("x".repeat(NOTE_MAX)).ok).toBe(true);
+  });
+
+  it("is live until it expires", () => {
+    const note = { body: "hi", expiresAt: new Date(NOW + 60_000).toISOString() };
+    expect(noteIsLive(note, NOW)).toBe(true);
+    expect(noteIsLive({ ...note, expiresAt: new Date(NOW - 1).toISOString() }, NOW)).toBe(false);
+    expect(noteIsLive({ ...note, expiresAt: "not a date" }, NOW)).toBe(false);
   });
 });
