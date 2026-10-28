@@ -41,7 +41,7 @@ export function AuthHero({ title, subtitle, onBack }: HeroProps) {
           <View style={styles.backSpacer} />
         )}
 
-        <Text style={styles.brandName}>OOTDify</Text>
+        <Text style={styles.brandName}>Penggi</Text>
 
         <View style={styles.backSpacer} />
       </View>
