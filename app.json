@@ -1,16 +1,28 @@
 {
   "expo": {
-    "name": "ootdify",
-    "slug": "ootdify",
+    "name": "Penggi",
+    "slug": "penggi",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/ootdify-icon.png",
+    "icon": "./assets/images/icon.png",
     "scheme": "ootdify",
     "userInterfaceStyle": "automatic",
     "android": {
       "package": "com.ootdify.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#253B64"
+      },
       "googleServicesFile": "./google-services.json",
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ]
     },
     "web": {
       "output": "static",
@@ -40,27 +52,27 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "OOTDify uses the camera only when you tap Scan Me, to take a full-body photo for AI body analysis and virtual try-on."
+          "cameraPermission": "Penggi uses the camera only when you tap Scan Me, to take a full-body photo for AI body analysis and virtual try-on."
         }
       ],
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "OOTDify uses your location only to show your current city in the app header."
+          "locationWhenInUsePermission": "Penggi uses your location only to show your current city in the app header."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "OOTDify accesses your photos only for the profile picture you choose.",
-          "cameraPermission": "OOTDify uses the camera only for the profile picture you choose to take."
+          "photosPermission": "Penggi accesses your photos only for the profile picture you choose.",
+          "cameraPermission": "Penggi uses the camera only for the profile picture you choose to take."
         }
       ],
       "expo-sharing",
       [
         "expo-local-authentication",
         {
-          "faceIDPermission": "OOTDify uses Face ID only to unlock the app when you turn on biometric unlock."
+          "faceIDPermission": "Penggi uses Face ID only to unlock the app when you turn on biometric unlock."
         }
       ],
       [
@@ -76,6 +88,21 @@
     },
     "ios": {
       "bundleIdentifier": "com.ootdify.app"
-    }
+    },
+    "extra": {
+      "router": {
+        "headers": {
+          "Cross-Origin-Embedder-Policy": "credentialless",
+          "Cross-Origin-Opener-Policy": "same-origin"
+        },
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "45afae54-11b9-4b22-a98c-685b081bd30d"
+      }
+    },
+    "owner": "ootdify"
   }
 }
