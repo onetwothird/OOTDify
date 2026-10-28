@@ -73,12 +73,13 @@ function localFileExists(uri: string): boolean {
 
 /**
  * Pick (or shoot) a photo and return its real metadata: square from the front
- * camera for an avatar, a 16:9 banner from the back camera for a cover.
+ * camera for an avatar, a 16:9 banner from the back camera for a cover, or an
+ * uncropped photo from the back camera ("free", for chats).
  * Returns null when the user cancelled or denied the camera.
  */
 export async function pickAvatarPhoto(
   source: AvatarSource,
-  shape: "square" | "cover" = "square",
+  shape: "square" | "cover" | "free" = "square",
 ): Promise<PickedPhoto | null> {
   if (source === "camera") {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -94,10 +95,10 @@ export async function pickAvatarPhoto(
   const options: ImagePicker.ImagePickerOptions = {
     mediaTypes: ["images"],
     quality: 0.7,
-    allowsEditing: true,
+    allowsEditing: shape !== "free",
     aspect: shape === "cover" ? [16, 9] : [1, 1],
   };
-  const cameraType = shape === "cover" ? ImagePicker.CameraType.back : ImagePicker.CameraType.front;
+  const cameraType = shape === "square" ? ImagePicker.CameraType.front : ImagePicker.CameraType.back;
 
   const result =
     source === "camera"
@@ -173,28 +174,6 @@ export async function changeProfileAvatar(source: AvatarSource): Promise<string 
     );
     return null;
   }
-}
-
-/** The chooser shown when an avatar is tapped. */
-export function promptAvatarSource(onPick: (source: AvatarSource) => void) {
-  Alert.alert("Profile photo", "Your photo appears on your profile and in Community.", [
-    { text: "Take photo", onPress: () => onPick("camera") },
-    { text: "Choose from library", onPress: () => onPick("library") },
-    { text: "Cancel", style: "cancel" },
-  ]);
-}
-
-/**
- * Chooser → pick → upload → persist, reporting the new ref.
- * For screens that offer their own "Change photo" button.
- */
-export function promptAvatarChange(onChanged: (ref: string) => void): void {
-  promptAvatarSource((source) => {
-    void (async () => {
-      const ref = await changeProfileAvatar(source);
-      if (ref) onChanged(ref);
-    })();
-  });
 }
 
 // ---------------------------------------------------------------------------
