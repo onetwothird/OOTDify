@@ -15,7 +15,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { resolveMediaUrl } from "../../shared/lib/storageUrl";
-import { changeProfileAvatar, promptAvatarSource } from "./avatar";
+import { AvatarSourceSheet } from "./AvatarSourceSheet";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import { useT } from "../../shared/i18n/useT";
@@ -62,7 +62,7 @@ export function ProfileAvatar({
   const theme = useAppTheme();
   const { t } = useT();
   const [resolved, setResolved] = useState<string | null>(null);
-  const [picking, setPicking] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   // Clear immediately when the ref is removed (render-phase adjust, so no
   // synchronous setState runs inside an effect).
@@ -84,16 +84,7 @@ export function ProfileAvatar({
   }, [avatarRef]);
 
   const shown = uri ?? resolved;
-  const busy = picking || busyProp;
-
-  const pick = (source: "library" | "camera") => {
-    void (async () => {
-      setPicking(true);
-      const ref = await changeProfileAvatar(source);
-      setPicking(false);
-      if (ref) onChanged?.(ref);
-    })();
-  };
+  const busy = busyProp;
 
   const interactive = Boolean(onPress || onChanged);
   const handlePress = () => {
@@ -102,7 +93,7 @@ export function ProfileAvatar({
       onPress();
       return;
     }
-    if (onChanged) promptAvatarSource(pick);
+    if (onChanged) setSheetOpen(true);
   };
 
   const badgeSize = Math.max(20, Math.round(size * 0.34));
@@ -183,6 +174,10 @@ export function ProfileAvatar({
         >
           <Ionicons name="camera" size={Math.round(badgeSize * 0.52)} color={effectiveBadgeColor} />
         </View>
+      ) : null}
+
+      {onChanged ? (
+        <AvatarSourceSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} onChanged={onChanged} />
       ) : null}
     </View>
   );
