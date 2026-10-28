@@ -40,16 +40,12 @@ const CARD_W_SUBTRACTION = 64; // screen padding (32) + card padding (≈30)
 export function PostCard({
   post,
   isOwn,
-  meId,
   onLikeChanged,
-  onMessage,
   onDelete,
 }: {
   post: FeedPost;
   isOwn: boolean;
-  meId: string | null;
   onLikeChanged: (postId: string, likedByMe: boolean, likeCount: number) => void;
-  onMessage: (authorId: string) => void;
   onDelete: (post: FeedPost) => void;
 }) {
   const styles = useStyles();
@@ -218,17 +214,6 @@ export function PostCard({
           <Text style={styles.actionText}>{post.comment_count}</Text>
         </Pressable>
 
-        {!isOwn && post.user_id !== meId ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t("community.post.message_a11y", { name: authorName })}
-            onPress={() => onMessage(post.user_id)}
-            style={styles.actionBtn}
-          >
-            <Ionicons name="paper-plane-outline" size={18} color={theme.colors.text} />
-            <Text style={styles.actionText}>{t("community.post.message")}</Text>
-          </Pressable>
-        ) : null}
       </View>
 
       {/* ---------------------------------------------------------- Comments */}
@@ -241,9 +226,16 @@ export function PostCard({
           ) : comments && comments.length ? (
             comments.map((c) => (
               <View key={c.id} style={styles.commentRow}>
-                <Text style={styles.commentAuthor}>{c.authorName}</Text>
-                <Text style={styles.commentBody}>{c.body}</Text>
-                <Text style={styles.commentTime}>{timeAgo(c.created_at)}</Text>
+                <ProfileAvatar
+                  size={30}
+                  initial={(c.authorName[0] ?? "?").toUpperCase()}
+                  avatarRef={c.authorAvatar}
+                />
+                <View style={styles.commentText}>
+                  <Text style={styles.commentAuthor}>{c.authorName}</Text>
+                  <Text style={styles.commentBody}>{c.body}</Text>
+                  <Text style={styles.commentTime}>{timeAgo(c.created_at)}</Text>
+                </View>
               </View>
             ))
           ) : (
@@ -309,7 +301,8 @@ const useStyles = makeStyles((theme) => ({
   },
   commentsEmpty: { fontSize: 12.5, color: theme.colors.textMuted },
   commentsError: { fontSize: 12.5, color: theme.colors.danger },
-  commentRow: { gap: 2 },
+  commentRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  commentText: { flex: 1, minWidth: 0, gap: 2 },
   commentAuthor: { fontSize: 12.5, fontWeight: "700", color: theme.colors.text },
   commentBody: { fontSize: 13, lineHeight: 18, color: theme.colors.text },
   commentTime: { fontSize: 10.5, color: theme.colors.textMuted },
