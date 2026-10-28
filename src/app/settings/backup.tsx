@@ -1,5 +1,5 @@
 // C:\OOTDify\src\app\settings\backup.tsx
-// Backup — export every device-local entry OOTDify keeps in AsyncStorage to a
+// Backup — export every device-local entry Penggi keeps in AsyncStorage to a
 // JSON file (shared through the system share sheet), or restore one back.
 //
 // SCOPE (stated honestly on screen): this covers DEVICE data only — settings,
@@ -79,7 +79,7 @@ export default function BackupScreen() {
       }
       await Sharing.shareAsync(file.uri, {
         mimeType: "application/json",
-        dialogTitle: "Save your OOTDify backup",
+        dialogTitle: "Save your Penggi backup",
         UTI: "public.json",
       });
       setLastExportAt(new Date().toISOString());
