@@ -32,12 +32,13 @@ import { RoomIcon } from "../../features/community/components/RoomIcon";
 import {
   communityErrorMessage,
   deletePost,
+  COMMUNITY_ROOM_ID,
   ensureCommunityRoom,
   fetchConversations,
+  fetchRoomMeta,
   fetchFeed,
   fetchPublicRooms,
   joinRoom,
-  startDirectConversation,
   subscribeToFeed,
 } from "../../features/community/service";
 import type { CommunityRoom, ConversationListEntry, FeedPost } from "../../features/community/types";
@@ -52,6 +53,7 @@ import { timeAgo } from "../../features/community/format";
 import { toast } from "../../shared/lib/toast";
 import { useT } from "../../shared/i18n/useT";
 import { useHideOnScroll, useTabBarSpace } from "../../shared/navigation/useTabChrome";
+import { FlyingPreloader } from "../../shared/components/FlyingPreloader";
 
 type Tab = "feed" | "chats" | "friends";
 
@@ -137,7 +139,13 @@ export default function CommunityScreen() {
     }
   }, []);
 
+  // The everyone room's own name and picture, set by its admin.
+  const [roomMeta, setRoomMeta] = useState<{ title: string | null; iconUrl: string | null; iconPreset: string | null } | null>(null);
+
   const loadChats = useCallback(async () => {
+    void fetchRoomMeta(COMMUNITY_ROOM_ID)
+      .then((m) => setRoomMeta(m))
+      .catch(() => {});
 
     try {
       setConversations(await fetchConversations());
@@ -231,25 +239,6 @@ export default function CommunityScreen() {
     [],
   );
 
-  const handleMessage = useCallback(
-    (authorId: string) => {
-      if (!meId) return;
-      if (authorId === meId) {
-        toast.info(t("community.toast.own_post.title"), t("community.toast.own_post.message"));
-        return;
-      }
-      void (async () => {
-        try {
-          const conversationId = await startDirectConversation(authorId);
-          router.push(`/community/chat/${conversationId}`);
-        } catch (e) {
-          toast.error(t("community.toast.chat_error.title"), communityErrorMessage(e));
-        }
-      })();
-    },
-    [meId, router, t],
-  );
-
   const handleDelete = useCallback(async (post: FeedPost) => {
     try {
       await deletePost(post);
@@ -304,13 +293,11 @@ export default function CommunityScreen() {
       <PostCard
         post={item}
         isOwn={item.user_id === meId}
-        meId={meId}
         onLikeChanged={handleLikeChanged}
-        onMessage={handleMessage}
         onDelete={(p) => void handleDelete(p)}
       />
     ),
-    [meId, handleLikeChanged, handleMessage, handleDelete],
+    [meId, handleLikeChanged, handleDelete],
   );
 
   // Direct messages only. Group rooms are rendered under Communities, and the
@@ -376,7 +363,7 @@ export default function CommunityScreen() {
         <FriendsPanel bottomSpace={tabBarSpace} onScroll={hideOnScroll.onScroll} />
       ) : tab === "feed" ? (
         posts === null && !feedError ? (
-          <ActivityIndicator color={theme.colors.brand} style={styles.centered} />
+          <FlyingPreloader size={88} style={styles.centered} />
         ) : feedError ? (
           <ErrorState message={feedError} onRetry={() => void loadFeed()} />
         ) : (
@@ -408,7 +395,7 @@ export default function CommunityScreen() {
           />
         )
       ) : conversations === null && !chatsError ? (
-        <ActivityIndicator color={theme.colors.brand} style={styles.centered} />
+        <FlyingPreloader size={88} style={styles.centered} />
       ) : chatsError ? (
         <ErrorState message={chatsError} onRetry={() => void loadChats()} />
       ) : (
@@ -434,11 +421,13 @@ export default function CommunityScreen() {
                 disabled={openingRoom}
                 style={({ pressed }) => [styles.roomRow, pressed && { opacity: 0.85 }]}
               >
-                <View style={styles.roomIcon}>
-                  <Text style={styles.roomIconText}>OC</Text>
-                </View>
+                <RoomIcon
+                  title={roomMeta?.title || t("community.chat.title.community_chat")}
+                  iconUrl={roomMeta?.iconUrl}
+                  iconPreset={roomMeta?.iconPreset}
+                />
                 <View style={styles.roomBody}>
-                  <Text style={styles.roomTitle}>{t("community.chat.open_community")}</Text>
+                  <Text style={styles.roomTitle}>{roomMeta?.title || t("community.chat.open_community")}</Text>
                   <Text style={styles.roomHint}>{t("community.chat.open_community.hint")}</Text>
                 </View>
                 {openingRoom ? (
@@ -467,7 +456,7 @@ export default function CommunityScreen() {
                 {/* Rows are their own group so the section heading hugs them. */}
                 <View style={styles.rowGroup}>
                   {rooms === null ? (
-                    <ActivityIndicator color={theme.colors.brand} style={styles.roomsLoading} />
+                    <FlyingPreloader size={88} style={styles.roomsLoading} />
                   ) : rooms.length === 0 ? (
                     <Text style={styles.roomsEmpty}>
                       {t("community.chat.empty_communities")}
@@ -513,7 +502,9 @@ export default function CommunityScreen() {
               </View>
 
               {chatRows.length ? (
-                <Text style={styles.sectionTitle}>{t("community.chat.dms")}</Text>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>{t("community.chat.dms")}</Text>
+                </View>
               ) : null}
             </View>
           }
@@ -528,7 +519,7 @@ export default function CommunityScreen() {
               message={t("community.chat.no_dms.message")}
               actionLabel={t("community.chat.no_dms.action")}
               actionIcon="people-outline"
-              onAction={() => setTab("feed")}
+              onAction={() => setTab("friends")}
             />
           }
           renderItem={({ item }) => (
