@@ -1,4 +1,4 @@
-import { ROOM_ICON_PRESETS, roomIconPreset } from "../roomIcons";
+import { ROOM_ICON_PRESETS, cleanRoomTitle, roomIconPreset } from "../roomIcons";
 
 describe("room icon presets", () => {
   it("every key satisfies the database check constraint", () => {
@@ -15,5 +15,20 @@ describe("room icon presets", () => {
     expect(roomIconPreset(ROOM_ICON_PRESETS[0])).toBe(ROOM_ICON_PRESETS[0]);
     expect(roomIconPreset("not-a-preset")).toBeNull();
     expect(roomIconPreset(null)).toBeNull();
+  });
+});
+
+describe("cleanRoomTitle", () => {
+  it("trims the name", () => {
+    expect(cleanRoomTitle("  Everyday Streetwear ")).toEqual({ ok: true, title: "Everyday Streetwear" });
+  });
+
+  it("refuses an empty name", () => {
+    expect(cleanRoomTitle("   ")).toEqual({ ok: false, error: "Give your community a name" });
+  });
+
+  it("refuses a name over 60 characters", () => {
+    expect(cleanRoomTitle("x".repeat(61))).toEqual({ ok: false, error: "Keep the name under 60 characters" });
+    expect(cleanRoomTitle("x".repeat(60)).ok).toBe(true);
   });
 });
