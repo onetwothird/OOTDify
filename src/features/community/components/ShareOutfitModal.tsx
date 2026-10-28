@@ -7,7 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { fetchSavedOutfits, SavedOutfit } from "../../clothing/service";
 import { AppButton } from "../../../shared/components/AppButton";
@@ -18,6 +18,7 @@ import { useAppTheme } from "../../../shared/theme/ThemeProvider";
 import { useT } from "../../../shared/i18n/useT";
 import { supabase } from "../../../shared/lib/supabase";
 import { shareOutfit } from "../service";
+import { FlyingPreloader } from "../../../shared/components/FlyingPreloader";
 
 /** Resolve an outfit's piece images for the picker preview. */
 async function previewRefs(outfits: SavedOutfit[]): Promise<Map<string, string | null>> {
@@ -212,7 +213,7 @@ export function ShareOutfitModal({
 
       <Text style={styles.groupLabel}>{t("community.share_modal.choose_label")}</Text>
       {outfits === null && !loadError ? (
-        <ActivityIndicator color={theme.colors.brand} style={{ marginVertical: 12 }} />
+        <FlyingPreloader size={88} style={{ marginVertical: 12 }} />
       ) : loadError ? (
         <Pressable accessibilityRole="button" onPress={() => void load()} style={styles.noteRow}>
           <Ionicons name="alert-circle-outline" size={16} color={theme.colors.danger} />
