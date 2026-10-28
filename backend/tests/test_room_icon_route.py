@@ -17,14 +17,23 @@ ROOM = "11111111-2222-3333-4444-555555555555"
 
 
 class _Db:
-    """table().select().eq().limit().execute() and table().update().eq().execute()."""
+    """table().select().eq().limit().execute() and table().update().eq().execute().
 
-    def __init__(self, rooms):
+    Two tables: conversations (keyed by id) and conversation_admins, whose rows
+    are (room, user) pairs matched on both columns.
+    """
+
+    def __init__(self, rooms, admins=()):
         self.rooms = rooms
+        self.admins = set(admins)
         self.updates = []
         self._pending = None
+        self._table = None
+        self._filters = {}
 
-    def table(self, _name):
+    def table(self, name):
+        self._table = name
+        self._filters = {}
         return self
 
     def select(self, *_a):
@@ -35,15 +44,18 @@ class _Db:
         self._pending = values
         return self
 
-    def eq(self, _col, value):
-        self._id = value
+    def eq(self, col, value):
+        self._filters[col] = value
         return self
 
     def limit(self, _n):
         return self
 
     def execute(self):
-        row = self.rooms.get(self._id)
+        if self._table == "conversation_admins":
+            key = (self._filters.get("conversation_id"), self._filters.get("user_id"))
+            return type("R", (), {"data": [{"user_id": key[1]}] if key in self.admins else []})()
+        row = self.rooms.get(self._filters.get("id"))
         if self._pending is not None:
             self.updates.append(self._pending)
             row = {**row, **self._pending}
@@ -52,7 +64,10 @@ class _Db:
 
 @pytest.fixture
 def db(monkeypatch):
-    fake = _Db({ROOM: {"id": ROOM, "created_by": "owner", "icon_url": None, "icon_preset": "sparkles"}})
+    fake = _Db(
+        {ROOM: {"id": ROOM, "created_by": "owner", "icon_url": None, "icon_preset": "sparkles"}},
+        admins={(ROOM, "co-admin")},
+    )
     monkeypatch.setattr(community, "get_supabase", lambda: fake)
     monkeypatch.setattr(ratelimit, "_events", defaultdict(deque))
     monkeypatch.setattr(community.image_service, "ingest_upload", lambda *a, **k: "/tmp/icon.jpg")
@@ -95,7 +110,14 @@ def test_owner_uploads_and_the_photo_replaces_the_preset(db, monkeypatch):
     assert resp.get_json()["room"]["icon_url"].endswith("room.jpg")
 
 
-def test_only_the_creator_can_change_the_icon(db, monkeypatch):
+def test_a_listed_admin_can_change_the_icon_too(db, monkeypatch):
+    monkeypatch.setattr(cloudinary_service, "upload_room_icon", lambda *_a: "https://res.cloudinary.com/demo/image/upload/admin.jpg")
+    resp = _upload(_client("co-admin"))
+    assert resp.status_code == 200, resp.get_json()
+    assert db.updates[-1]["icon_url"].endswith("admin.jpg")
+
+
+def test_only_an_admin_can_change_the_icon(db, monkeypatch):
     def never(*_a):
         raise AssertionError("must not upload for a non-owner")
 
