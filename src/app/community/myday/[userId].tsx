@@ -52,6 +52,7 @@ import { useT } from "../../../shared/i18n/useT";
 import { toast } from "../../../shared/lib/toast";
 import { makeStyles } from "../../../shared/theme/makeStyles";
 import { useAppTheme } from "../../../shared/theme/ThemeProvider";
+import { FlyingPreloader } from "../../../shared/components/FlyingPreloader";
 
 const POST_MS = 5000;
 
@@ -430,7 +431,7 @@ function ActivitySheet({
       scroll={false}
     >
       {data === null ? (
-        <ActivityIndicator color={theme.colors.brand} style={styles.sheetLoading} />
+        <FlyingPreloader size={88} style={styles.sheetLoading} />
       ) : data.viewers.length === 0 && data.comments.length === 0 ? (
         <Text style={styles.noViewers}>{t("myday.viewers.empty")}</Text>
       ) : (
