@@ -24,6 +24,7 @@ import type { TranslationKey } from "../../shared/i18n/translate";
 import { toast } from "../../shared/lib/toast";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
+import { FlyingPreloader } from "../../shared/components/FlyingPreloader";
 
 type Kind = "messages" | "group_chats" | "friends" | "posts" | "my_day" | "communities";
 
@@ -136,7 +137,7 @@ export default function NotificationSettingsScreen() {
         <Text style={styles.label}>{t("notifications.settings.kinds")}</Text>
         <View style={styles.card}>
           {settings === null ? (
-            <ActivityIndicator color={theme.colors.brand} style={styles.loading} />
+            <FlyingPreloader size={88} style={styles.loading} />
           ) : (
             KINDS.map((k, i) => (
               <View key={k.key}>
