@@ -28,3 +28,7 @@ requests>=2.31.0
 # Serves the app in the Docker image (Railway / any Linux host) via
 # `gunicorn app:app` — the module-level `create_app()` result in app.py.
 gunicorn>=21.2.0
+# ---- Clothes parsing (optional: keeps only clothes in a photo of someone wearing them) ----
+# Needs the ONNX weights at CLOTHES_PARSER_MODEL_PATH; without them isolation falls
+# back to its classical cut-out. See services/clothes_parser.py for the licence.
+onnxruntime>=1.18
