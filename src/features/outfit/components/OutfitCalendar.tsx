@@ -30,6 +30,7 @@ import {
   setOutfitPlan,
   toISODate,
 } from "../planner";
+import { FlyingPreloader } from "../../../shared/components/FlyingPreloader";
 
 interface Props {
   outfits: SavedOutfit[];
@@ -224,7 +225,7 @@ export function OutfitCalendar({ outfits, onOpenOutfit }: Props) {
       {/* Day grid */}
       {loading ? (
         <View style={styles.gridLoading}>
-          <ActivityIndicator color={theme.colors.brand} />
+          <FlyingPreloader size={88} />
         </View>
       ) : (
         <View style={styles.grid}>
