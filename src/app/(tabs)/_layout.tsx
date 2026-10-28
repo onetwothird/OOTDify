@@ -127,8 +127,13 @@ export default function TabLayout() {
             ),
           }}
         />
-        {/* Create opens from the floating (+), not the menu. */}
-        <Tabs.Screen name="scan" options={{ href: null }} />
+        {/* Create opens from the floating (+), not the menu. It is not `href: null`:
+            SDK 58 turns that into `hidden`, and a hidden tab that gets focus is
+            redirected to Home. Its bar item is collapsed instead. */}
+        <Tabs.Screen
+          name="scan"
+          options={{ tabBarButton: () => null, tabBarItemStyle: { display: "none" } }}
+        />
         <Tabs.Screen
           name="outfits"
           options={{
