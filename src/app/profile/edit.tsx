@@ -21,7 +21,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CATALOG_CATEGORIES, OCCASIONS } from "../../features/clothing/types";
 import { ProfileAvatar } from "../../features/profile/ProfileAvatar";
-import { captureSelfie, promptAvatarChange } from "../../features/profile/avatar";
+import { captureSelfie } from "../../features/profile/avatar";
+import { AvatarSourceSheet } from "../../features/profile/AvatarSourceSheet";
 import { useAvatarStore } from "../../features/profile/avatarStore";
 import { clampNickname, namesFromMetadata, NICKNAME_MAX } from "../../features/profile/names";
 import { supabase } from "../../shared/lib/supabase";
@@ -87,6 +88,7 @@ export default function ProfileScreen() {
   const photoCheck = useAvatarStore((s) => s.check);
   const setPhotoCheck = useAvatarStore((s) => s.setCheck);
   const [checkingPhoto, setCheckingPhoto] = useState(false);
+  const [photoSheetOpen, setPhotoSheetOpen] = useState(false);
   const [gender, setGender] = useState("");
   const [stylesSel, setStylesSel] = useState<Set<string>>(new Set());
   const [colorsSel, setColorsSel] = useState<Set<string>>(new Set());
@@ -257,7 +259,7 @@ export default function ProfileScreen() {
                   </Text>
                   <Pressable
                     accessibilityRole="button"
-                    onPress={() => promptAvatarChange(setAvatarRef)}
+                    onPress={() => setPhotoSheetOpen(true)}
                     hitSlop={6}
                     style={({ pressed }) => [
                       styles.heroAction,
@@ -267,6 +269,11 @@ export default function ProfileScreen() {
                     <Ionicons name="camera-outline" size={13} color={theme.colors.onPrimary} />
                     <Text style={styles.heroActionText}>{t("profile.change_photo.label_short")}</Text>
                   </Pressable>
+                  <AvatarSourceSheet
+                    visible={photoSheetOpen}
+                    onClose={() => setPhotoSheetOpen(false)}
+                    onChanged={setAvatarRef}
+                  />
                 </View>
               </View>
 
