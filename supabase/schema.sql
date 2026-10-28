@@ -78,6 +78,7 @@ create table if not exists public.clothing_items (
   created_at timestamptz not null default now()
 );
 
+alter table public.clothing_items add column if not exists description text;
 alter table public.clothing_items add column if not exists size text;
 alter table public.clothing_items add column if not exists season text;
 alter table public.clothing_items add column if not exists occasion text[] not null default '{}';
