@@ -32,10 +32,10 @@ describe("buildBackup / parseBackup", () => {
     expect(() => parseBackup("not json")).toThrow(/valid JSON/);
   });
 
-  it("rejects JSON that isn't an OOTDify backup", () => {
-    expect(() => parseBackup('{"app":"other"}')).toThrow(/isn't an OOTDify backup/);
-    expect(() => parseBackup("[1,2,3]")).toThrow(/isn't an OOTDify backup/);
-    expect(() => parseBackup('"just a string"')).toThrow(/isn't an OOTDify backup/);
+  it("rejects JSON that isn't a Penggi backup", () => {
+    expect(() => parseBackup('{"app":"other"}')).toThrow(/isn't a Penggi backup/);
+    expect(() => parseBackup("[1,2,3]")).toThrow(/isn't a Penggi backup/);
+    expect(() => parseBackup('"just a string"')).toThrow(/isn't a Penggi backup/);
   });
 
   it("rejects a backup written by a newer app version", () => {
