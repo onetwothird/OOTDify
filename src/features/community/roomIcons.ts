@@ -30,3 +30,13 @@ export type RoomIconPreset = (typeof ROOM_ICON_PRESETS)[number];
 export function roomIconPreset(key: string | null | undefined): RoomIconPreset | null {
   return (ROOM_ICON_PRESETS as readonly string[]).includes(key ?? "") ? (key as RoomIconPreset) : null;
 }
+
+export const ROOM_TITLE_MAX = 60;
+
+/** A community name ready to save, or the message to show when it can't be. */
+export function cleanRoomTitle(raw: string): { ok: true; title: string } | { ok: false; error: string } {
+  const title = raw.trim();
+  if (!title) return { ok: false, error: "Give your community a name" };
+  if (title.length > ROOM_TITLE_MAX) return { ok: false, error: "Keep the name under 60 characters" };
+  return { ok: true, title };
+}
