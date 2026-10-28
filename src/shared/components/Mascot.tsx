@@ -1,11 +1,10 @@
 // C:\OOTDify\src\shared\components\Mascot.tsx
-// "Penny" — the OOTDify penguin mascot. Shipped as a transparent PNG so it
-// keeps its crisp, no-background look at any size. A pre-scaled 512px copy is
-// used in the UI (the 2048px master lives at assets/images/mascott.png).
+// "Penny" — the Penggi penguin mascot. Shipped as a transparent PNG so it
+// keeps its crisp, no-background look at any size.
 import { Image } from "expo-image";
 import { StyleSheet, View } from "react-native";
 
-const PENGUIN = require("../../../assets/images/mascot-penguin.png");
+const PENGUIN = require("../../../assets/images/mascot-penggi.png");
 
 export function Mascot({ size = 44 }: { size?: number }) {
   return (
@@ -15,7 +14,7 @@ export function Mascot({ size = 44 }: { size?: number }) {
         style={{ width: size, height: size }}
         contentFit="contain"
         transition={120}
-        accessibilityLabel="OOTDify penguin mascot"
+        accessibilityLabel="Penggi penguin mascot"
       />
     </View>
   );
