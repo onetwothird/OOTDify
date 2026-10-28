@@ -66,7 +66,7 @@ export default function LandingScreen() {
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
-        <Text style={styles.wordmark}>OOTDify</Text>
+        <Text style={styles.wordmark}>Penggi</Text>
 
         <Text style={styles.display} accessibilityRole="header">
           {t("auth.landing.display")}
