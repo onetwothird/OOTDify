@@ -4,13 +4,12 @@
 // sends the push; the app only reads its own rows, marks them read, and
 // tells the database where to reach this phone.
 import Constants from "expo-constants";
-import * as Notifications from "expo-notifications";
-import { AndroidImportance } from "expo-notifications";
 import { Platform } from "react-native";
 
 import { supabase } from "../../shared/lib/supabase";
 import type { DirectoryProfile } from "../community/types";
 import type { InboxRow } from "./inbox";
+import { nativePush } from "./nativePush";
 
 export interface InboxEntryRow extends InboxRow {
   actor: DirectoryProfile | null;
@@ -211,11 +210,12 @@ function projectId(): string | null {
  * signed-in user. The inbox works whatever this returns.
  */
 export async function registerForPush(): Promise<PushSetup> {
-  if (Platform.OS === "web") return "unsupported";
+  const Notifications = nativePush();
+  if (!Notifications) return "unsupported";
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync("default", {
       name: "OOTDify",
-      importance: AndroidImportance.HIGH,
+      importance: Notifications.AndroidImportance.HIGH,
       lightColor: "#3A5A96",
     });
   }
