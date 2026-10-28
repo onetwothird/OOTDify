@@ -27,6 +27,12 @@ export interface DirectoryProfile {
   avatar_url: string | null;
 }
 
+/** What a friend's profile page shows (get_friend_profile; friends only). */
+export interface FriendProfile extends DirectoryProfile {
+  bio: string | null;
+  cover_url: string | null;
+}
+
 /** A feed post enriched with author info and the viewer's like state. */
 export interface FeedPost extends CommunityPost {
   author: DirectoryProfile | null;
@@ -45,6 +51,8 @@ export interface CommunityComment {
 /** A comment enriched with its author (join done client-side). */
 export interface FeedComment extends CommunityComment {
   authorName: string;
+  /** The commenter's photo ref (null when unset: render their initial). */
+  authorAvatar: string | null;
 }
 
 /** A conversation row in the Chats list, enriched for display. */
@@ -76,6 +84,8 @@ export interface ChatMessageEntry {
   conversation_id: string;
   sender_id: string;
   body: string;
+  /** 'chat/…' ref of a photo sent in this message, or null for plain text. */
+  image_ref: string | null;
   created_at: string;
   senderName: string;
   /** Sender's avatar ref; null for realtime inserts (resolved by the screen). */
