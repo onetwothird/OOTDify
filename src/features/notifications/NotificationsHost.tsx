@@ -7,7 +7,7 @@
 //     nothing shows twice);
 //   * opens the right screen when a phone notification is tapped, including
 //     the one that launched the app.
-import * as Notifications from "expo-notifications";
+import type * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 import { useEffect } from "react";
 
@@ -16,13 +16,14 @@ import { toast } from "../../shared/lib/toast";
 import { useT } from "../../shared/i18n/useT";
 import { useSettingsStore } from "../settings/settingsStore";
 import { routeFor, type InboxRoute, type InboxRow } from "./inbox";
+import { nativePush } from "./nativePush";
 import { openInboxRoute } from "./openNotification";
 import { fetchUnreadCount, markRead, registerForPush, subscribeToInbox, syncDeviceContext } from "./service";
 import { useNotificationsStore } from "./store";
 import { inboxText } from "./text";
 
 // While the app is open the in-app banner covers it; keep the list and badge.
-Notifications.setNotificationHandler({
+nativePush()?.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: false,
     shouldShowList: true,
@@ -104,6 +105,8 @@ export function NotificationsHost() {
 
   // A tapped phone notification, including the one that opened the app.
   useEffect(() => {
+    const push = nativePush();
+    if (!push) return;
     const open = async (response: Notifications.NotificationResponse | null) => {
       if (!response) return;
       const target = routeFromPush(response.notification.request.content.data as Record<string, unknown>);
@@ -111,8 +114,8 @@ export function NotificationsHost() {
       if (target.id) void markRead([target.id]).catch(() => {});
       openInboxRoute(router, target.route, await currentUserId());
     };
-    void Notifications.getLastNotificationResponseAsync().then(open).catch(() => {});
-    const sub = Notifications.addNotificationResponseReceivedListener((r) => void open(r));
+    void push.getLastNotificationResponseAsync().then(open).catch(() => {});
+    const sub = push.addNotificationResponseReceivedListener((r) => void open(r));
     return () => sub.remove();
   }, [router]);
 
