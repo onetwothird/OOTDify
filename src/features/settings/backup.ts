@@ -1,5 +1,5 @@
 // C:\OOTDify\src\features\settings\backup.ts
-// Local backup of DEVICE data: a JSON snapshot of everything OOTDify keeps in
+// Local backup of DEVICE data: a JSON snapshot of everything Penggi keeps in
 // AsyncStorage on this device (settings, camera consent, pending avatar info).
 //
 // Account data — wardrobe, outfits, body photos — lives in Supabase and is
@@ -40,7 +40,7 @@ export function serializeBackup(backup: LocalBackup): string {
 
 /**
  * Parses a backup file's text. Throws Error with a plain, user-readable
- * message when the file isn't an OOTDify backup or was written by a newer
+ * message when the file isn't a Penggi backup or was written by a newer
  * app version — never restores a half-understood file.
  */
 export function parseBackup(raw: string): LocalBackup {
@@ -48,17 +48,17 @@ export function parseBackup(raw: string): LocalBackup {
   try {
     data = JSON.parse(raw);
   } catch {
-    throw new Error("That file isn't valid JSON, so it can't be an OOTDify backup.");
+    throw new Error("That file isn't valid JSON, so it can't be a Penggi backup.");
   }
   if (typeof data !== "object" || data === null || Array.isArray(data)) {
-    throw new Error("That file isn't an OOTDify backup.");
+    throw new Error("That file isn't a Penggi backup.");
   }
   const b = data as Record<string, unknown>;
   if (b.app !== "ootdify" || b.kind !== BACKUP_KIND) {
-    throw new Error("That file isn't an OOTDify backup.");
+    throw new Error("That file isn't a Penggi backup.");
   }
   if (typeof b.version !== "number" || b.version > BACKUP_VERSION) {
-    throw new Error("That backup was made by a newer version of OOTDify.");
+    throw new Error("That backup was made by a newer version of Penggi.");
   }
   if (typeof b.entries !== "object" || b.entries === null || Array.isArray(b.entries)) {
     throw new Error("That backup contains no entries to restore.");
@@ -78,7 +78,7 @@ export function parseBackup(raw: string): LocalBackup {
   };
 }
 
-/** Reads every key OOTDify has stored on this device. */
+/** Reads every key Penggi has stored on this device. */
 export async function collectStoredEntries(): Promise<Record<string, string>> {
   const keys = await AsyncStorage.getAllKeys();
   const pairs = await AsyncStorage.multiGet(keys);
