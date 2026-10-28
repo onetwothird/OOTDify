@@ -68,6 +68,7 @@ export interface ClothingItem {
   user_id: string;
   clothing_id: string | null;
   name: string | null;
+  description?: string | null;
   category: string | null;
   color: string | null;
   size: string | null;
