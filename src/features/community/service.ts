@@ -21,6 +21,8 @@ import { shrinkForUpload } from "../../shared/lib/shrinkImage";
 import { supabase } from "../../shared/lib/supabase";
 import { resolveMediaUrl } from "../../shared/lib/storageUrl";
 import { uuid } from "../../shared/lib/uuid";
+import { chatPhotoPath, chatPhotoRef, photoMessageBody } from "./chatMedia";
+import { cleanRoomTitle } from "./roomIcons";
 import type {
   ChatMessageEntry,
   CommunityComment,
@@ -66,7 +68,7 @@ async function fetchDirectory(userIds: string[]): Promise<Map<string, DirectoryP
 }
 
 function authorDisplayName(profile: DirectoryProfile | null | undefined): string {
-  return profile?.display_name || profile?.first_name || "OOTDify member";
+  return profile?.display_name || profile?.first_name || "Penggi member";
 }
 
 /**
@@ -157,6 +159,18 @@ export async function fetchMyPosts(limit = 30): Promise<CommunityPost[]> {
   return (data ?? []) as CommunityPost[];
 }
 
+/** Another member's posts (posts are public to every signed-in member). */
+export async function fetchUserPosts(userId: string, limit = 30): Promise<CommunityPost[]> {
+  const { data, error } = await supabase
+    .from("community_posts")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as CommunityPost[];
+}
+
 /** Like a post. like_count is maintained by a SQL trigger. */
 export async function likePost(postId: string): Promise<void> {
   const uid = await currentUserId();
@@ -214,6 +228,7 @@ export async function fetchComments(postId: string): Promise<FeedComment[]> {
   return rows.map((c) => ({
     ...c,
     authorName: authorDisplayName(directory.get(c.user_id)),
+    authorAvatar: directory.get(c.user_id)?.avatar_url ?? null,
   }));
 }
 
@@ -398,8 +413,20 @@ export async function startDirectConversation(otherUserId: string): Promise<stri
       .eq("user_id", otherUserId)
       .in("conversation_id", myIds);
     if (sErr) throw sErr;
-    const existing = shared?.[0]?.conversation_id as string | undefined;
-    if (existing) return existing;
+    // You and a friend can both be in the same public room; only a private
+    // chat counts, otherwise Message would open that room instead.
+    const sharedIds = (shared ?? []).map((r) => r.conversation_id as string);
+    if (sharedIds.length) {
+      const { data: privateOnes, error: pErr } = await supabase
+        .from("conversations")
+        .select("id")
+        .in("id", sharedIds)
+        .eq("is_public", false)
+        .limit(1);
+      if (pErr) throw pErr;
+      const existing = privateOnes?.[0]?.id as string | undefined;
+      if (existing) return existing;
+    }
   }
 
   const conversationId = uuid();
@@ -414,7 +441,13 @@ export async function startDirectConversation(otherUserId: string): Promise<stri
   const { error: p2 } = await supabase
     .from("conversation_participants")
     .insert({ conversation_id: conversationId, user_id: otherUserId });
-  if (p2) throw p2;
+  if (p2) {
+    // The database only lets a chat start with an accepted friend. Undo the
+    // empty chat so a refused attempt leaves nothing behind.
+    await supabase.from("conversations").delete().eq("id", conversationId);
+    if (p2.code === "42501") throw new Error("You can only message friends. Send a friend request first.");
+    throw p2;
+  }
   return conversationId;
 }
 
@@ -438,9 +471,9 @@ export async function createRoom(input: {
 }): Promise<string> {
   const uid = await currentUserId();
   if (!uid) throw new Error("Not signed in");
-  const title = input.title.trim();
-  if (!title) throw new Error("Give your community a name");
-  if (title.length > 60) throw new Error("Keep the name under 60 characters");
+  const cleaned = cleanRoomTitle(input.title);
+  if (!cleaned.ok) throw new Error(cleaned.error);
+  const title = cleaned.title;
 
   const roomId = uuid();
   const { error: cErr } = await supabase.from("conversations").insert({
@@ -544,6 +577,8 @@ export async function fetchRoomMeta(roomId: string): Promise<{
   category: string | null;
   isPublic: boolean;
   createdBy: string | null;
+  /** True when I may rename the room and change its icon (its creator or a listed admin). */
+  canEdit: boolean;
   iconUrl: string | null;
   iconPreset: string | null;
 } | null> {
@@ -562,14 +597,39 @@ export async function fetchRoomMeta(roomId: string): Promise<{
     icon_url: string | null;
     icon_preset: string | null;
   };
+  const uid = await currentUserId();
+  let canEdit = Boolean(uid) && row.created_by === uid;
+  if (uid && !canEdit) {
+    // I can only read my own rows, so any row here means I am an admin.
+    const { data: admin } = await supabase
+      .from("conversation_admins")
+      .select("user_id")
+      .eq("conversation_id", roomId)
+      .eq("user_id", uid)
+      .maybeSingle();
+    canEdit = Boolean(admin);
+  }
   return {
     title: row.title,
     category: row.category,
     isPublic: row.is_public,
     createdBy: row.created_by,
+    canEdit,
     iconUrl: row.icon_url,
     iconPreset: row.icon_preset,
   };
+}
+
+/**
+ * Rename a room. A database trigger lets only the room's creator (its admin)
+ * do this.
+ */
+export async function renameRoom(roomId: string, rawTitle: string): Promise<string> {
+  const cleaned = cleanRoomTitle(rawTitle);
+  if (!cleaned.ok) throw new Error(cleaned.error);
+  const { error } = await supabase.from("conversations").update({ title: cleaned.title }).eq("id", roomId);
+  if (error) throw error;
+  return cleaned.title;
 }
 
 /**
@@ -703,12 +763,14 @@ export async function fetchMessages(
     conversation_id: string;
     sender_id: string;
     body: string;
+    image_ref?: string | null;
     created_at: string;
   }[];
   if (!rows.length) return [];
   const directory = await fetchDirectory(rows.map((m) => m.sender_id));
   return rows.map((m) => ({
     ...m,
+    image_ref: m.image_ref ?? null,
     senderName: authorDisplayName(directory.get(m.sender_id)),
     senderAvatar: directory.get(m.sender_id)?.avatar_url ?? null,
   }));
@@ -724,6 +786,32 @@ export async function sendMessage(conversationId: string, body: string): Promise
     .from("messages")
     .insert({ conversation_id: conversationId, sender_id: uid, body: trimmed });
   if (error) throw error;
+}
+
+/**
+ * Send a photo (with an optional caption) in a conversation. The photo is
+ * shrunk, uploaded to the private chat bucket, then the message points at it;
+ * if the message is refused the upload is removed so nothing is left behind.
+ */
+export async function sendPhotoMessage(conversationId: string, photoUri: string, caption = ""): Promise<void> {
+  const uid = await currentUserId();
+  if (!uid) throw new Error("Not signed in");
+  const small = await shrinkForUpload(photoUri);
+  const path = chatPhotoPath(conversationId, uid, uuid());
+  const { error: uploadError } = await supabase.storage
+    .from("chat")
+    .upload(path, formFile(small), { contentType: "image/jpeg" });
+  if (uploadError) throw uploadError;
+  const { error } = await supabase.from("messages").insert({
+    conversation_id: conversationId,
+    sender_id: uid,
+    body: photoMessageBody(caption),
+    image_ref: chatPhotoRef(path),
+  });
+  if (error) {
+    await supabase.storage.from("chat").remove([path]);
+    throw error;
+  }
 }
 
 /** Mark a conversation read up to now (owner-only via RLS). */
