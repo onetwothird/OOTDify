@@ -3,9 +3,11 @@
 // icons, or the initials of its name. A large live preview shows the result
 // exactly as the Communities list will. Controlled: the caller saves.
 import { Ionicons } from "@expo/vector-icons";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { pickAvatarPhoto, type AvatarSource } from "../../profile/avatar";
+import { PhotoSourceOptions } from "../../profile/PhotoSourceOptions";
 import type { TranslationKey } from "../../../shared/i18n/translate";
 import { useT } from "../../../shared/i18n/useT";
 import { makeStyles } from "../../../shared/theme/makeStyles";
@@ -37,19 +39,22 @@ export function RoomIconPicker({
   const theme = useAppTheme();
   const { t } = useT();
 
-  const pick = (source: AvatarSource) => {
-    void (async () => {
-      const picked = await pickAvatarPhoto(source, "square");
-      if (picked) onChange({ kind: "photo", uri: picked.uri, isNew: true });
-    })();
-  };
+  // The take/choose cards open right under the preview, like the profile photo's.
+  const [sourcesOpen, setSourcesOpen] = useState(false);
+  const [picking, setPicking] = useState<AvatarSource | null>(null);
 
-  const choosePhoto = () => {
-    Alert.alert(t("community.room_icon.photo_title"), undefined, [
-      { text: t("community.room_icon.take_photo"), onPress: () => pick("camera") },
-      { text: t("community.room_icon.from_library"), onPress: () => pick("library") },
-      { text: t("community.room_icon.cancel"), style: "cancel" },
-    ]);
+  const pick = async (source: AvatarSource) => {
+    if (picking) return;
+    setPicking(source);
+    try {
+      const picked = await pickAvatarPhoto(source, "square");
+      if (picked) {
+        onChange({ kind: "photo", uri: picked.uri, isNew: true });
+        setSourcesOpen(false);
+      }
+    } finally {
+      setPicking(null);
+    }
   };
 
   return (
@@ -65,7 +70,7 @@ export function RoomIconPicker({
           <Pressable
             accessibilityRole="button"
             disabled={disabled}
-            onPress={choosePhoto}
+            onPress={() => setSourcesOpen((o) => !o)}
             style={({ pressed }) => [styles.action, pressed && styles.pressed]}
           >
             <Ionicons name="image-outline" size={17} color={theme.colors.text} />
@@ -89,6 +94,10 @@ export function RoomIconPicker({
           </Pressable>
         </View>
       </View>
+
+      {sourcesOpen ? (
+        <PhotoSourceOptions busy={picking} locked={disabled} onPick={(s) => void pick(s)} />
+      ) : null}
 
       <Text style={styles.label}>{t("community.room_icon.presets_label")}</Text>
       <View style={styles.grid}>
