@@ -90,19 +90,27 @@ export async function clearOutfitPlan(planDate: string): Promise<void> {
 export async function fetchClothingImageRefs(ids: string[]): Promise<Record<string, string>> {
   const unique = Array.from(new Set(ids.filter(Boolean)));
   if (!unique.length) return {};
-  const { data, error } = await supabase
-    .from("clothing")
-    .select("id, thumbnail_url, image_url")
-    .in("id", unique);
-  if (error) throw error;
+  // A look can hold catalog pieces (`clothing`) and the user's own wardrobe
+  // items (`clothing_items`, owner-only via RLS); the ids are distinct uuids, so
+  // ask both tables and merge. Looking only in the catalog left every look made
+  // from the user's own clothes without a picture.
+  const [catalog, closet] = await Promise.all([
+    supabase.from("clothing").select("id, thumbnail_url, image_url").in("id", unique),
+    supabase.from("clothing_items").select("id, image_url").in("id", unique),
+  ]);
+  if (catalog.error) throw catalog.error;
+  if (closet.error) throw closet.error;
   const map: Record<string, string> = {};
-  for (const row of (data ?? []) as {
+  for (const row of (catalog.data ?? []) as {
     id: string;
     thumbnail_url: string | null;
     image_url: string | null;
   }[]) {
     const ref = row.thumbnail_url || row.image_url;
     if (ref) map[row.id] = ref;
+  }
+  for (const row of (closet.data ?? []) as { id: string; image_url: string | null }[]) {
+    if (row.image_url) map[row.id] = row.image_url;
   }
   return map;
 }
