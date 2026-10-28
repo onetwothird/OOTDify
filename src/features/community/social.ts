@@ -1,6 +1,7 @@
 // C:\OOTDify\src\features\community\social.ts
 // Pure rules behind friends, online status and My Day, kept apart from the
 // Supabase calls so they can be tested directly.
+import type { ConversationListEntry } from "./types";
 
 /** A friend counts as online when the app checked in within this window. */
 export const ONLINE_WINDOW_MS = 150_000;
@@ -116,4 +117,37 @@ export type Presence = PickedStatus | "offline";
 export function presenceOf(lastSeenAt: string | null | undefined, status: string | null | undefined, now: number): Presence {
   if (!isOnline(lastSeenAt, now)) return "offline";
   return status === "idle" || status === "dnd" ? status : "online";
+}
+
+/**
+ * The private chat with each friend, keyed by that friend's id. The everyone
+ * room and group rooms are left out: they belong to Community, not Friends.
+ */
+export function dmsByFriend(entries: ConversationListEntry[]): Map<string, ConversationListEntry> {
+  const map = new Map<string, ConversationListEntry>();
+  for (const e of entries) {
+    if (e.isRoom || e.isGroup || !e.otherUserId) continue;
+    map.set(e.otherUserId, e);
+  }
+  return map;
+}
+
+/** A note is one short line, like a status, shown above your circle for a day. */
+export const NOTE_MAX = 60;
+
+export function cleanNote(raw: string): { ok: true; note: string } | { ok: false; error: "empty" | "too_long" } {
+  const note = raw.replace(/\s+/g, " ").trim();
+  if (!note) return { ok: false, error: "empty" };
+  if (note.length > NOTE_MAX) return { ok: false, error: "too_long" };
+  return { ok: true, note };
+}
+
+export interface FriendNote {
+  body: string;
+  expiresAt: string;
+}
+
+export function noteIsLive(note: FriendNote, now: number): boolean {
+  const expires = Date.parse(note.expiresAt);
+  return !Number.isNaN(expires) && expires > now;
 }
