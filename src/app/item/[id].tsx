@@ -5,7 +5,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -28,6 +27,7 @@ import { PHOTO_TRYON_AVAILABLE } from "../../features/tryon/config";
 import { useTryOnSelection } from "../../features/tryon/selectionStore";
 import { useWardrobeStore } from "../../features/wardrobe/store";
 import { AppButton } from "../../shared/components/AppButton";
+import { ConfirmSheet } from "../../shared/components/ConfirmSheet";
 import { EmptyState, ErrorState } from "../../shared/components/StateViews";
 import { LoadingState } from "../../shared/components/LoadingState";
 import { SmartImage } from "../../shared/components/SmartImage";
@@ -35,6 +35,7 @@ import { makeStyles } from "../../shared/theme/makeStyles";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import type { Theme } from "../../shared/config/theme";
 import { useT } from "../../shared/i18n/useT";
+import { toast } from "../../shared/lib/toast";
 
 export default function ItemDetailScreen() {
   const insets = useSafeAreaInsets();
@@ -51,6 +52,8 @@ export default function ItemDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [fav, setFav] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Reset to the loading state during render when the route param changes —
   // React's documented alternative to a synchronous setState inside an effect.
@@ -103,33 +106,21 @@ export default function ItemDetailScreen() {
     }
   }, [item, fav]);
 
-  const confirmDelete = useCallback(() => {
-    if (!item) return;
-    Alert.alert(
-      t("item.delete_confirm.title"),
-      t("item.delete_confirm.message"),
-      [
-        { text: t("item.delete_confirm.cancel"), style: "cancel" },
-        {
-          text: t("item.delete_confirm.confirm"),
-          style: "destructive",
-          onPress: () => {
-            void (async () => {
-              try {
-                await useWardrobeStore.getState().removeItem(item.id);
-                router.back();
-              } catch (e) {
-                Alert.alert(
-                  t("item.delete_error.title"),
-                  e instanceof Error ? e.message : t("item.delete_error.message"),
-                );
-              }
-            })();
-          },
-        },
-      ],
-    );
-  }, [item, router, t]);
+  const deleteItem = useCallback(async () => {
+    if (!item || deleting) return;
+    setDeleting(true);
+    try {
+      await useWardrobeStore.getState().removeItem(item.id);
+      setDeleteOpen(false);
+      router.back();
+    } catch (e) {
+      setDeleting(false);
+      toast.error(
+        t("item.delete_error.title"),
+        e instanceof Error ? e.message : t("item.delete_error.message"),
+      );
+    }
+  }, [item, deleting, router, t]);
 
   const meta = useMemo(() => {
     if (!item) return [] as { k: string; v: string }[];
@@ -263,7 +254,7 @@ export default function ItemDetailScreen() {
             icon="create-outline"
             onPress={() => setEditOpen(true)}
           />
-          <Pressable accessibilityRole="button" onPress={confirmDelete} style={styles.deleteBtn}>
+          <Pressable accessibilityRole="button" onPress={() => setDeleteOpen(true)} style={styles.deleteBtn}>
             <Ionicons name="trash-outline" size={16} color={theme.colors.danger} />
             <Text style={styles.deleteText}>{t("item.action.delete")}</Text>
           </Pressable>
@@ -279,6 +270,25 @@ export default function ItemDetailScreen() {
       {editOpen ? (
         <EditClothingModal item={item} onClose={() => setEditOpen(false)} />
       ) : null}
+
+      <ConfirmSheet
+        visible={deleteOpen}
+        onClose={() => !deleting && setDeleteOpen(false)}
+        icon="trash-outline"
+        title={t("item.delete_confirm.title")}
+        message={t("item.delete_confirm.message")}
+        confirmLabel={t("item.delete_confirm.confirm")}
+        cancelLabel={t("item.delete_confirm.keep")}
+        busy={deleting}
+        hero={
+          <SmartImage
+            source={item.image_url}
+            style={styles.deleteHero}
+            accessibilityLabel={item.name ?? ""}
+          />
+        }
+        onConfirm={() => void deleteItem()}
+      />
     </View>
   );
 }
@@ -349,6 +359,13 @@ const useStyles = makeStyles((theme: Theme) => ({
     marginTop: 4,
   },
   actions: { gap: 10, marginTop: 24 },
+  deleteHero: {
+    width: 84,
+    height: 112,
+    borderRadius: theme.borderRadius.md,
+    overflow: "hidden",
+    backgroundColor: theme.colors.surfaceAlt,
+  },
   deleteBtn: {
     flexDirection: "row",
     alignItems: "center",
