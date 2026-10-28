@@ -174,6 +174,7 @@ export async function fetchOutfitPieces(ids: string[]): Promise<OutfitPiece[]> {
 
 export async function insertClothingItem(item: {
   name?: string;
+  description?: string;
   category?: string;
   color?: string;
   size?: string;
