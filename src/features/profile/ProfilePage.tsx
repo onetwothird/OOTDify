@@ -10,7 +10,6 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -39,6 +38,7 @@ import { fetchMyPosts } from "../community/service";
 import type { CommunityPost } from "../community/types";
 import { pickAvatarPhoto, type AvatarSource } from "./avatar";
 import { useAvatarStore } from "./avatarStore";
+import { CoverPhotoSheet } from "./CoverPhotoSheet";
 import { ProfileAvatar } from "./ProfileAvatar";
 
 const BIO_MAX = 160;
@@ -73,6 +73,7 @@ export function ProfilePage() {
   const [tab, setTab] = useState<Tab>("closet");
   const [editingBio, setEditingBio] = useState(false);
   const [coverBusy, setCoverBusy] = useState(false);
+  const [coverSheetOpen, setCoverSheetOpen] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -112,44 +113,37 @@ export function ProfilePage() {
   const setCover = (cover_url: string | null) =>
     setData((d) => (d ? { ...d, profile: { ...d.profile, cover_url } } : d));
 
-  const uploadCover = async (source: AvatarSource) => {
+  const uploadCover = async (source: AvatarSource): Promise<boolean> => {
     const picked = await pickAvatarPhoto(source, "cover");
-    if (!picked) return;
+    if (!picked) return false;
     setCoverBusy(true);
     toast.loading(t("profile.page.cover.uploading"), t("profile.page.cover.uploading_body"));
     try {
       const updated = await uploadProfileCover(picked.uri);
       setCover(updated.cover_url ?? null);
       toast.success(t("profile.page.cover.saved"));
+      return true;
     } catch (e) {
       toast.error(t("profile.page.cover.failed"), e instanceof Error ? e.message : "");
+      return false;
     } finally {
       setCoverBusy(false);
     }
   };
 
-  const removeCover = async () => {
+  const removeCover = async (): Promise<boolean> => {
     setCoverBusy(true);
     try {
       await updateProfile({ cover_url: null });
       setCover(null);
       toast.success(t("profile.page.cover.removed"));
+      return true;
     } catch (e) {
       toast.error(t("profile.page.cover.failed"), e instanceof Error ? e.message : "");
+      return false;
     } finally {
       setCoverBusy(false);
     }
-  };
-
-  const promptCover = (hasCover: boolean) => {
-    Alert.alert(t("profile.page.cover.title"), t("profile.page.cover.message"), [
-      { text: t("profile.page.cover.take"), onPress: () => void uploadCover("camera") },
-      { text: t("profile.page.cover.choose"), onPress: () => void uploadCover("library") },
-      ...(hasCover
-        ? [{ text: t("profile.page.cover.remove"), style: "destructive" as const, onPress: () => void removeCover() }]
-        : []),
-      { text: t("profile.page.bio.cancel"), style: "cancel" as const },
-    ]);
   };
 
   if (error) {
@@ -206,7 +200,7 @@ export function ProfilePage() {
               accessibilityRole="button"
               accessibilityLabel={t("profile.page.cover.edit")}
               disabled={coverBusy}
-              onPress={() => promptCover(Boolean(profile?.cover_url))}
+              onPress={() => setCoverSheetOpen(true)}
               hitSlop={6}
               style={({ pressed }) => [styles.coverBtn, pressed && styles.pressed]}
             >
@@ -219,6 +213,13 @@ export function ProfilePage() {
             </Pressable>
           ) : null}
         </View>
+        <CoverPhotoSheet
+          visible={coverSheetOpen}
+          onClose={() => setCoverSheetOpen(false)}
+          coverUrl={profile?.cover_url ?? null}
+          onPick={uploadCover}
+          onRemove={removeCover}
+        />
 
         {/* Identity */}
         <View style={styles.identity}>
