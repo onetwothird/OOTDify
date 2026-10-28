@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "321459825766",
+    "project_id": "ootdify-b813a",
+    "storage_bucket": "ootdify-b813a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:321459825766:android:fc524091b9cd94183911a7",
+        "android_client_info": {
+          "package_name": "com.ootdify.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAECvtrQ1DMXjhmJx_0U0LPlVDusY1U_aU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
