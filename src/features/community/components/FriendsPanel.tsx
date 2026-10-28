@@ -35,8 +35,8 @@ import { useAppTheme } from "../../../shared/theme/ThemeProvider";
 import { useAvatarStore } from "../../profile/avatarStore";
 import { ProfileAvatar } from "../../profile/ProfileAvatar";
 import { timeAgo } from "../format";
-import { communityErrorMessage, startDirectConversation } from "../service";
-import { friendStateWith, type FriendState, type PickedStatus, type Presence } from "../social";
+import { communityErrorMessage, fetchConversations, startDirectConversation } from "../service";
+import { dmsByFriend, friendStateWith, type FriendState, type PickedStatus, type Presence } from "../social";
 import {
   acceptFriendRequest,
   displayName,
@@ -49,7 +49,8 @@ import {
   type FriendsOverview,
   type Person,
 } from "../socialService";
-import type { DirectoryProfile } from "../types";
+import type { ConversationListEntry, DirectoryProfile } from "../types";
+import { FlyingPreloader } from "../../../shared/components/FlyingPreloader";
 
 const PICKABLE: { key: PickedStatus; icon: keyof typeof Ionicons.glyphMap }[] = [
   { key: "online", icon: "ellipse" },
@@ -78,6 +79,8 @@ export function FriendsPanel({
   const myAvatar = useAvatarStore((s) => s.ref);
 
   const [data, setData] = useState<FriendsOverview | null>(null);
+  // Your private chat with each friend, for the unread badge on Message.
+  const [chats, setChats] = useState<Map<string, ConversationListEntry>>(new Map());
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -92,6 +95,10 @@ export function FriendsPanel({
     try {
       setData(await fetchFriends());
       setError(null);
+      // The badge is a nicety: a failure here must not hide the friends list.
+      void fetchConversations()
+        .then((rows) => setChats(dmsByFriend(rows)))
+        .catch(() => {});
     } catch (e) {
       setError(communityErrorMessage(e));
     }
@@ -172,7 +179,17 @@ export function FriendsPanel({
   const searchAction = (person: DirectoryProfile) => {
     const id = person.user_id;
     const state = stateOf(id);
-    if (state === "friends") return <Tag icon="checkmark" label={t("friends.state.friends")} />;
+    if (state === "friends") {
+      return (
+        <IconButton
+          icon="chatbubble-ellipses-outline"
+          label={t("friends.message")}
+          busy={busyId === id}
+          badge={chats.get(id)?.unread}
+          onPress={() => void message(person)}
+        />
+      );
+    }
     if (state === "outgoing") {
       return (
         <SmallButton
@@ -270,7 +287,7 @@ export function FriendsPanel({
         {searching ? (
           <Section title={t("friends.search.results")}>
             {results === null ? (
-              <ActivityIndicator color={theme.colors.brand} style={styles.loading} />
+              <FlyingPreloader size={88} style={styles.loading} />
             ) : results.length === 0 ? (
               <Text style={styles.muted}>{t("friends.search.none")}</Text>
             ) : (
@@ -278,7 +295,7 @@ export function FriendsPanel({
             )}
           </Section>
         ) : data === null && !error ? (
-          <ActivityIndicator color={theme.colors.brand} style={styles.loading} />
+          <FlyingPreloader size={88} style={styles.loading} />
         ) : error ? (
           <ErrorState message={error} onRetry={() => void load()} />
         ) : data ? (
@@ -335,6 +352,7 @@ export function FriendsPanel({
                         icon="chatbubble-ellipses-outline"
                         label={t("friends.message")}
                         busy={busyId === p.user_id}
+                        badge={chats.get(p.user_id)?.unread}
                         onPress={() => void message(p)}
                       />
                     }
@@ -412,8 +430,18 @@ export function FriendsPanel({
           openFriend ? (
             <View style={styles.cardActions}>
               <AppButton
+                label={t("friends.view_profile")}
+                icon="person-circle-outline"
+                onPress={() => {
+                  const id = openFriend.user_id;
+                  setOpenFriend(null);
+                  router.push({ pathname: "/community/profile/[userId]", params: { userId: id } });
+                }}
+              />
+              <AppButton
                 label={t("friends.message_private")}
                 icon="chatbubble-ellipses-outline"
+                variant="ghost"
                 loading={busyId === openFriend.user_id}
                 onPress={() => void message(openFriend)}
               />
@@ -622,11 +650,14 @@ function IconButton({
   icon,
   label,
   busy,
+  badge,
   onPress,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   busy?: boolean;
+  /** Unread messages, shown as a count on the corner. */
+  badge?: number;
   onPress: () => void;
 }) {
   const styles = useStyles();
@@ -645,18 +676,12 @@ function IconButton({
       ) : (
         <Ionicons name={icon} size={19} color={theme.colors.onPrimary} />
       )}
+      {badge ? (
+        <View style={styles.iconBadge}>
+          <Text style={styles.iconBadgeText}>{badge > 99 ? "99+" : badge}</Text>
+        </View>
+      ) : null}
     </Pressable>
-  );
-}
-
-function Tag({ icon, label }: { icon: keyof typeof Ionicons.glyphMap; label: string }) {
-  const styles = useStyles();
-  const theme = useAppTheme();
-  return (
-    <View style={styles.tag}>
-      <Ionicons name={icon} size={14} color={theme.colors.success} />
-      <Text style={styles.tagText}>{label}</Text>
-    </View>
   );
 }
 
@@ -725,8 +750,19 @@ const useStyles = makeStyles((theme) => ({
     justifyContent: "center",
     backgroundColor: theme.colors.primary,
   },
-  tag: { flexDirection: "row", alignItems: "center", gap: 4 },
-  tagText: { fontSize: 13, fontWeight: "600", color: theme.colors.success },
+  iconBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.brand,
+  },
+  iconBadgeText: { fontSize: 10.5, fontWeight: "700", color: theme.colors.onBrand },
   statusList: { gap: 8 },
   statusRow: {
     flexDirection: "row",
