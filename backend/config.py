@@ -90,6 +90,16 @@ class Config:
     SEG_IMAGE_SIZE = int(os.getenv("SEG_IMAGE_SIZE", "640"))
     SEG_DEVICE = os.getenv("SEG_DEVICE", "cpu")
 
+    # ------------------------- Clothes parsing -----------------------------
+    # Optional ONNX export of a SegFormer "clothes" model. With it, a photo of
+    # someone wearing a garment keeps only the clothes (no face, arms or legs).
+    # Leave the file out and isolation uses its classical cut-out. Not bundled:
+    # see services/clothes_parser.py for the weights and their licence.
+    CLOTHES_PARSER_MODEL_PATH = os.getenv(
+        "CLOTHES_PARSER_MODEL_PATH",
+        str(BASE_DIR / "models" / "clothes" / "segformer_b2_clothes.onnx"),
+    )
+
     # ------------------------------- Try-on -------------------------------
     # Folder where try-on job records are persisted (JSON, no DB needed).
     TRYON_DATA_FOLDER = Path(os.getenv("TRYON_DATA_FOLDER", str(BASE_DIR / "data")))
