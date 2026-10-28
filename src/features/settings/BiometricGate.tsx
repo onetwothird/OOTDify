@@ -17,13 +17,25 @@ import { AppButton } from "../../shared/components/AppButton";
 import { useT } from "../../shared/i18n/useT";
 import { supabase } from "../../shared/lib/supabase";
 import { makeStyles } from "../../shared/theme/makeStyles";
-import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import { shouldLockOnReturn } from "./lockPolicy";
 import { useSettingsStore } from "./settingsStore";
 
+const LOGO = 200;
+const LOCK = 46;
+const LOCK_ICON = 34;
+// Blue lock with a white outline, so it stands out on the mascot's dark wing.
+// Fixed in light and dark mode, like the mascot's own art, instead of following
+// the theme.
+const LOCK_FILL = "#2F5BB7";
+const LOCK_OUTLINE = "#FFFFFF";
+// Ionicons has no outlined-glyph option: stacking the outline colour at these
+// offsets under the white glyph gives it a 2px border.
+const OUTLINE_OFFSETS: [number, number][] = [
+  [-2, 0], [2, 0], [0, -2], [0, 2], [-2, -2], [2, -2], [-2, 2], [2, 2],
+];
+
 export function BiometricGate({ signedIn }: { signedIn: boolean }) {
   const styles = useStyles();
-  const theme = useAppTheme();
   const insets = useSafeAreaInsets();
   const { t } = useT();
   const enabled = useSettingsStore((s) => s.biometricLock);
@@ -105,14 +117,23 @@ export function BiometricGate({ signedIn }: { signedIn: boolean }) {
       accessibilityViewIsModal
     >
       <View style={styles.middle}>
-        <Image
-          source={require("../../../assets/images/ootdify-icon.png")}
-          style={styles.logo}
-          resizeMode="contain"
-          accessibilityIgnoresInvertColors
-        />
-        <View style={styles.lockBadge}>
-          <Ionicons name="lock-closed" size={16} color={theme.colors.onPrimary} />
+        <View style={styles.logoWrap}>
+          <Image
+            source={require("../../../assets/images/mascot-penggi.png")}
+            style={styles.logo}
+            resizeMode="contain"
+            accessibilityIgnoresInvertColors
+          />
+          <View style={styles.lockInHand}>
+            {OUTLINE_OFFSETS.map(([dx, dy]) => (
+              <View key={`${dx},${dy}`} style={[styles.lockLayer, { transform: [{ translateX: dx }, { translateY: dy }] }]}>
+                <Ionicons name="lock-closed" size={LOCK_ICON} color={LOCK_OUTLINE} />
+              </View>
+            ))}
+            <View style={styles.lockLayer}>
+              <Ionicons name="lock-closed" size={LOCK_ICON} color={LOCK_FILL} />
+            </View>
+          </View>
         </View>
         <Text style={styles.title} accessibilityRole="header">
           {t("lock.title")}
@@ -149,20 +170,21 @@ const useStyles = makeStyles((theme) => ({
     justifyContent: "space-between",
   },
   middle: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10 },
-  logo: { width: 84, height: 84 },
-  lockBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    marginTop: -22,
-    marginLeft: 60,
+  logoWrap: { width: LOGO, height: LOGO, marginBottom: 6 },
+  logo: { width: LOGO, height: LOGO },
+  // Held in the mascot's raised wing. The PNG has a margin, so the spot is a
+  // fraction of the artwork box (wing tip about 82% across, 41% down).
+  lockInHand: {
+    position: "absolute",
+    left: LOGO * 0.82 - LOCK / 2,
+    top: LOGO * 0.4 - LOCK / 2,
+    width: LOCK,
+    height: LOCK,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: theme.colors.primary,
-    borderWidth: 3,
-    borderColor: theme.colors.background,
   },
-  title: { ...theme.typography.heading, color: theme.colors.text, marginTop: 8 },
+  lockLayer: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center" },
+  title: { ...theme.typography.heading, color: theme.colors.text, marginTop: 8, textAlign: "center" },
   message: { ...theme.typography.body, color: theme.colors.textMuted, textAlign: "center", maxWidth: 300 },
   error: { fontSize: 13, color: theme.colors.danger, textAlign: "center" },
   actions: { gap: 4 },
