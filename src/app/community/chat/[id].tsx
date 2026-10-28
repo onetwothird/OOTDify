@@ -36,14 +36,18 @@ import {
   fetchUserProfile,
   markConversationRead,
   sendMessage,
+  sendPhotoMessage,
   subscribeToMessages,
 } from "../../../features/community/service";
 import type { ChatMessageEntry } from "../../../features/community/types";
+import { CHAT_EMOJI, showsCaption } from "../../../features/community/chatMedia";
 import { clockLabel, dayLabel } from "../../../features/community/format";
+import { ChatPhotoSheet } from "../../../features/community/components/ChatPhotoSheet";
 import { EditRoomIconSheet } from "../../../features/community/components/EditRoomIconSheet";
 import { RoomIcon } from "../../../features/community/components/RoomIcon";
 import { ProfileAvatar } from "../../../features/profile/ProfileAvatar";
 import { ErrorState } from "../../../shared/components/StateViews";
+import { SmartImage } from "../../../shared/components/SmartImage";
 import { HeaderIconButton } from "../../../shared/components/ScreenHeader";
 import { makeStyles } from "../../../shared/theme/makeStyles";
 import { useAppTheme } from "../../../shared/theme/ThemeProvider";
@@ -53,6 +57,7 @@ import { supabase } from "../../../shared/lib/supabase";
 import { toast } from "../../../shared/lib/toast";
 import { fetchUnreadCount, markChatRead } from "../../../features/notifications/service";
 import { useNotificationsStore } from "../../../features/notifications/store";
+import { FlyingPreloader } from "../../../shared/components/FlyingPreloader";
 
 // Consecutive messages from one sender cluster together for at most 5 minutes.
 const CLUSTER_GAP_MS = 5 * 60_000;
@@ -84,6 +89,8 @@ export default function ChatThreadScreen() {
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const [photoOpen, setPhotoOpen] = useState(false);
   const [title, setTitle] = useState(() => t("community.chat.title.default"));
   // Set when this conversation is a public group room, so the header can show
   // its title/category and a group subtitle instead of a DM peer's.
@@ -147,19 +154,31 @@ export default function ChatThreadScreen() {
         // The pinned community room has a known title; DMs resolve the peer name.
         if (conversationId === COMMUNITY_ROOM_ID) {
           if (!alive) return;
-          setTitle(t("community.chat.title.community_chat"));
+          const fallback = t("community.chat.title.community_chat");
+          setTitle(fallback);
+          // Its admin (the room's creator) can rename it and give it a picture
+          // like any room.
+          const meta = await fetchRoomMeta(conversationId);
+          if (!alive || !meta) return;
+          const roomTitle = meta.title || fallback;
+          setTitle(roomTitle);
+          setGroupMeta({
+            title: roomTitle,
+            category: null,
+            mine: meta.canEdit,
+            iconUrl: meta.iconUrl,
+            iconPreset: meta.iconPreset,
+          });
           return;
         }
         // A public group room is named by its own title, not by a peer.
         const meta = await fetchRoomMeta(conversationId);
         if (!alive) return;
         if (meta?.isPublic && meta.title) {
-          const { data: session } = await supabase.auth.getSession();
-          if (!alive) return;
           setGroupMeta({
             title: meta.title,
             category: meta.category,
-            mine: Boolean(meta.createdBy) && meta.createdBy === session?.session?.user?.id,
+            mine: meta.canEdit,
             iconUrl: meta.iconUrl,
             iconPreset: meta.iconPreset,
           });
@@ -350,6 +369,25 @@ export default function ChatThreadScreen() {
     }
   }, [draft, sending, conversationId, load, t]);
 
+  /** Sends a picked photo, with whatever is typed as its caption. */
+  const sendPhoto = useCallback(
+    async (uri: string): Promise<boolean> => {
+      if (!conversationId) return false;
+      try {
+        await sendPhotoMessage(conversationId, uri, draft);
+        setDraft("");
+        atBottomRef.current = true;
+        setNewCount(0);
+        await load();
+        return true;
+      } catch (e) {
+        toast.error(t("community.chat.photo.error"), communityErrorMessage(e));
+        return false;
+      }
+    },
+    [conversationId, draft, load, t],
+  );
+
   const headerInitial =
     conversationId === COMMUNITY_ROOM_ID
       ? "OC"
@@ -442,7 +480,7 @@ export default function ChatThreadScreen() {
             </View>
           ) : messages === null && !error ? (
             <View style={styles.stateFill}>
-              <ActivityIndicator color={theme.colors.brand} />
+              <FlyingPreloader size={88} />
             </View>
           ) : error ? (
             <View style={styles.stateFill}>
@@ -545,9 +583,18 @@ export default function ChatThreadScreen() {
                         <View
                           style={[styles.bubble, bubbleRadius, mine && styles.bubbleMine]}
                         >
-                          <Text style={[styles.bubbleText, mine && styles.bubbleTextMine]}>
-                            {item.body}
-                          </Text>
+                          {item.image_ref ? (
+                            <SmartImage
+                              source={item.image_ref}
+                              style={styles.bubbleImage}
+                              accessibilityLabel={t("community.chat.photo.a11y")}
+                            />
+                          ) : null}
+                          {!item.image_ref || showsCaption(item.body) ? (
+                            <Text style={[styles.bubbleText, mine && styles.bubbleTextMine]}>
+                              {item.body}
+                            </Text>
+                          ) : null}
                           {isLast ? (
                             <Text
                               style={[styles.bubbleClock, mine && styles.bubbleClockMine]}
@@ -583,7 +630,43 @@ export default function ChatThreadScreen() {
         </View>
 
         {/* ---------------------------------------------------------- Composer */}
+        {emojiOpen ? (
+          <View style={styles.emojiTray}>
+            {CHAT_EMOJI.map((emoji) => (
+              <Pressable
+                key={emoji}
+                accessibilityRole="button"
+                accessibilityLabel={emoji}
+                onPress={() => setDraft((d) => d + emoji)}
+                style={({ pressed }) => [styles.emojiBtn, pressed && { opacity: 0.6 }]}
+              >
+                <Text style={styles.emoji}>{emoji}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
         <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("community.chat.photo.title")}
+            onPress={() => setPhotoOpen(true)}
+            style={({ pressed }) => [styles.composerBtn, pressed && { opacity: 0.6 }]}
+          >
+            <Ionicons name="image-outline" size={23} color={theme.colors.textMuted} />
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("community.chat.emoji_a11y")}
+            accessibilityState={{ expanded: emojiOpen }}
+            onPress={() => setEmojiOpen((o) => !o)}
+            style={({ pressed }) => [styles.composerBtn, pressed && { opacity: 0.6 }]}
+          >
+            <Ionicons
+              name={emojiOpen ? "happy" : "happy-outline"}
+              size={23}
+              color={emojiOpen ? theme.colors.brand : theme.colors.textMuted}
+            />
+          </Pressable>
           <TextInput
             style={styles.composerInput}
             value={draft}
@@ -608,6 +691,7 @@ export default function ChatThreadScreen() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+      <ChatPhotoSheet visible={photoOpen} onClose={() => setPhotoOpen(false)} onSend={sendPhoto} />
       {groupMeta?.mine && conversationId ? (
         <EditRoomIconSheet
           visible={editingIcon}
@@ -615,7 +699,10 @@ export default function ChatThreadScreen() {
           roomId={conversationId}
           title={groupMeta.title}
           current={{ iconUrl: groupMeta.iconUrl, iconPreset: groupMeta.iconPreset }}
-          onSaved={(next) => setGroupMeta((m) => (m ? { ...m, ...next } : m))}
+          onSaved={(next) => {
+            setGroupMeta((m) => (m ? { ...m, ...next } : m));
+            setTitle(next.title);
+          }}
         />
       ) : null}
     </View>
@@ -696,6 +783,26 @@ const useStyles = makeStyles((theme: Theme) => ({
     gap: 2,
   },
   bubbleMine: { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
+  bubbleImage: {
+    width: 220,
+    aspectRatio: 3 / 4,
+    maxWidth: "100%",
+    borderRadius: 12,
+    overflow: "hidden",
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  emojiTray: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    paddingHorizontal: theme.spacing.page,
+    paddingVertical: 8,
+    backgroundColor: theme.colors.surface,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: theme.colors.border,
+  },
+  emojiBtn: { width: "12.5%", alignItems: "center", paddingVertical: 6 },
+  emoji: { fontSize: 24 },
+  composerBtn: { width: 36, height: 42, alignItems: "center", justifyContent: "center" },
   bubbleText: { fontSize: 14.5, lineHeight: 20, color: theme.colors.text },
   bubbleTextMine: { color: theme.colors.onPrimary },
   // Exactly one clock label per cluster, trailing on its final bubble.
