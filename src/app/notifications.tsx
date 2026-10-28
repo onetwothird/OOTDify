@@ -6,7 +6,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, SectionList, StyleSheet, Text, View } from "react-native";
+import { Pressable, RefreshControl, SectionList, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { timeAgo } from "../features/community/format";
@@ -30,6 +30,7 @@ import { supabase } from "../shared/lib/supabase";
 import { toast } from "../shared/lib/toast";
 import { makeStyles } from "../shared/theme/makeStyles";
 import { useAppTheme } from "../shared/theme/ThemeProvider";
+import { FlyingPreloader } from "../shared/components/FlyingPreloader";
 
 type Entry = InboxItem & { row: InboxEntryRow };
 
@@ -171,7 +172,7 @@ export default function NotificationsScreen() {
       ) : null}
 
       {rows === null && !error ? (
-        <ActivityIndicator color={theme.colors.brand} style={styles.loading} />
+        <FlyingPreloader size={88} style={styles.loading} />
       ) : error ? (
         <ErrorState message={error} onRetry={() => void load()} />
       ) : (
