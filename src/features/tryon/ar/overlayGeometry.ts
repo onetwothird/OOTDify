@@ -36,7 +36,7 @@ export type OverlayFit =
   | { kind: "unsupported" }
   | { kind: "no_pose" };
 
-export const MIN_KEYPOINT_CONFIDENCE = 0.4;
+export const MIN_KEYPOINT_CONFIDENCE = 0.3;
 
 type Joint = "shoulder" | "hip" | "knee" | "ankle";
 
