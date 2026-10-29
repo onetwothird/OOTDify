@@ -211,6 +211,25 @@ class TryOnJobStore:
 # --------------------------------------------------------------------------
 # Pipeline
 # --------------------------------------------------------------------------
+def resolve_clothing_item(user_id: str, item_id: str) -> Optional[dict]:
+    """Image and category for a clothing id the caller may use, else None.
+
+    Checks the shared `clothing` catalog first, then the caller's own
+    `clothing_items` (filtered by user_id, so another user's item is never
+    returned). Same queries and ownership filter as
+    `TryOnPipeline._resolve_clothing_refs`.
+    """
+    for table, owned in (("clothing", False), ("clothing_items", True)):
+        query = get_supabase().table(table).select("id, image_url, category").eq("id", item_id)
+        if owned:
+            query = query.eq("user_id", user_id)
+        rows = query.execute().data or []
+        for row in rows:
+            if row.get("image_url"):
+                return {"image_url": row["image_url"], "category": row.get("category")}
+    return None
+
+
 def _resolve_image_bytes(image_ref: str) -> bytes:
     """Fetch an image from private storage (bucket path) or a public URL."""
     if any(image_ref.startswith(prefix) for prefix in BUCKET_PREFIXES):
