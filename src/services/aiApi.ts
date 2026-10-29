@@ -308,6 +308,31 @@ export async function isolateClothing(
   return { ...isolation, garment: garment ?? null };
 }
 
+/** A closet item as a transparent PNG (the backend reads the image by id). */
+export interface ClothingCutout {
+  ok: boolean;
+  reason: IsolationReason | null;
+  png_base64: string | null;
+  width: number | null;
+  height: number | null;
+}
+
+export async function getClothingCutout(
+  itemId: string,
+  timeoutMs = API_AI_TIMEOUT_MS,
+): Promise<ClothingCutout> {
+  const payload = (await apiRequest<{ success: boolean; cutout: ClothingCutout }>(
+    `/api/clothing/${encodeURIComponent(itemId)}/cutout`,
+    { method: "GET" },
+    { timeoutMs },
+  )) as unknown;
+  const { cutout } = payload as { cutout?: ClothingCutout };
+  if (!cutout) {
+    throw new ApiError("invalid-response", "The AI service returned an unexpected response.", 200, payload);
+  }
+  return cutout;
+}
+
 // ---------------------------------------------------------------------------
 // Body photos (private; owned by the signed-in user only)
 // ---------------------------------------------------------------------------
