@@ -4,11 +4,16 @@
 // frame worklet → shared value → Skia mesh on the UI thread); no frame leaves
 // the phone. A sheet at the bottom says what's happening. A rough placement by
 // design: the full photo try-on on Scan stays the real result.
+//
+// "Go realistic" (opt-in, up to 1 minute, needs steady framing and the
+// cut-out) streams the camera to Decart, which redraws the user wearing the
+// garment. While it runs the VisionCamera is inactive (LiveKit owns the
+// camera) and the AR layers are hidden; "Back to live preview" restores both.
 import { Ionicons } from "@expo/vector-icons";
 import { useImage } from "@shopify/react-native-skia";
 import { Image } from "expo-image";
-import { useIsFocused, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useFocusEffect, useIsFocused, useRouter } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import { AccessibilityInfo, AppState, LayoutChangeEvent, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Camera, useCameraPermission } from "react-native-vision-camera";
@@ -23,10 +28,14 @@ import type { Size } from "../../features/tryon/ar/overlayGeometry";
 import { useLiveTracker } from "../../features/tryon/ar/useLiveTracker";
 import { useSteadyHint } from "../../features/tryon/ar/useSteadyHint";
 import { getGarmentCutout, type CutoutOutcome } from "../../features/tryon/cutout";
+import { RealisticConsentSheet, RealisticStage } from "../../features/tryon/realistic/RealisticView";
+import { releasesCamera } from "../../features/tryon/realistic/session";
+import { useRealisticSession } from "../../features/tryon/realistic/useRealisticSession";
 import type { Theme } from "../../shared/config/theme";
 import { useT } from "../../shared/i18n/useT";
 import { useResolvedImage } from "../../shared/lib/useResolvedImage";
 import { makeStyles } from "../../shared/theme/makeStyles";
+import { useAppTheme } from "../../shared/theme/ThemeProvider";
 
 function useAppActive(): boolean {
   const [active, setActive] = useState(AppState.currentState === "active");
@@ -39,6 +48,7 @@ function useAppActive(): boolean {
 
 export default function LiveTryOnScreen() {
   const styles = useStyles();
+  const brand = useAppTheme().colors.brand;
   const { t } = useT();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -88,10 +98,19 @@ export default function LiveTryOnScreen() {
           ? "ready"
           : "loading";
 
+  // Realistic mode. While it holds the camera, the preview and tracker pause.
+  const realistic = useRealisticSession(cutoutState === "ready" ? readyUri : null, facing);
+  const released = releasesCamera(realistic.phase);
+  // Leaving the screen (blur) ends any open session; the hook's unmount
+  // cleanup covers the back button.
+  const stopRealistic = realistic.stop;
+  useFocusEffect(useCallback(() => stopRealistic, [stopRealistic]));
+
   const category = garment?.category ?? null;
   const supported = isSupportedCategory(category);
   const live = useLiveTracker({
-    active: focused && appActive && !!garment && hasPermission && supported && cutoutState === "ready",
+    active:
+      focused && appActive && !released && !!garment && hasPermission && supported && cutoutState === "ready",
     facing,
     preview,
     category,
@@ -102,13 +121,16 @@ export default function LiveTryOnScreen() {
 
   // The framing guide takes over once nothing else needs saying. A status line
   // (tracker or cut-out trouble, unsupported garment) outranks the hint text.
-  const guideOn = hasPermission && supported && cutoutState === "ready" && statusKey === null;
+  const guideOn = hasPermission && supported && cutoutState === "ready" && statusKey === null && !released;
   const steady = useSteadyHint(guideOn ? live.hint : "no_person");
 
   // Android announces via accessibilityLiveRegion; iOS needs an explicit call.
   useEffect(() => {
     if (status && Platform.OS === "ios") AccessibilityInfo.announceForAccessibility(status);
   }, [status]);
+
+  // Enabled only while framing is steady "good" and the cut-out is ready.
+  const canGoRealistic = steady.readyToShoot && cutoutState === "ready" && realistic.phase === "idle";
 
   if (!garment) return null;
 
@@ -124,12 +146,12 @@ export default function LiveTryOnScreen() {
           <Camera
             style={StyleSheet.absoluteFill}
             device={facing}
-            isActive={focused && appActive}
+            isActive={focused && appActive && !released}
             outputs={[live.frameOutput]}
             orientationSource="interface"
           />
         ) : null}
-        {hasPermission && cutoutState === "ready" ? (
+        {hasPermission && cutoutState === "ready" && !released ? (
           <LiveGarmentLayer
             image={garmentImage}
             bounds={bounds}
@@ -140,10 +162,11 @@ export default function LiveTryOnScreen() {
           />
         ) : null}
         {guideOn ? <FramingGuide hint={steady.shown} topOffset={insets.top + 64} /> : null}
+        <RealisticStage session={realistic} facing={facing} topOffset={insets.top + 16} />
 
         <View style={[styles.topRow, { top: insets.top + 8 }]}>
           <CameraButton icon="chevron-back" label={t("tryon.live.back_a11y")} onPress={goBack} />
-          {hasPermission ? (
+          {hasPermission && !released ? (
             <CameraButton
               icon="camera-reverse-outline"
               label={t("tryon.live.flip_a11y")}
@@ -183,8 +206,25 @@ export default function LiveTryOnScreen() {
             <Text style={styles.primaryBtnText}>{t("tryon.live.full_tryon")}</Text>
           </Pressable>
         )}
+        {hasPermission && supported ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityHint={t("tryon.live.realistic_hint")}
+            accessibilityState={{ disabled: !canGoRealistic }}
+            disabled={!canGoRealistic}
+            style={[styles.realisticBtn, !canGoRealistic && styles.realisticBtnOff]}
+            onPress={realistic.start}
+          >
+            <Ionicons name="sparkles-outline" size={18} color={brand} />
+            <View style={styles.realisticBtnLabel}>
+              <Text style={styles.realisticBtnText}>{t("tryon.live.go_realistic")}</Text>
+              <Text style={styles.realisticHint}>{t("tryon.live.realistic_hint")}</Text>
+            </View>
+          </Pressable>
+        ) : null}
         <Text style={styles.disclaimer}>{t("tryon.live.disclaimer")}</Text>
       </View>
+      <RealisticConsentSheet session={realistic} />
     </View>
   );
 }
@@ -240,5 +280,19 @@ const useStyles = makeStyles((theme: Theme) => ({
     alignItems: "center",
   },
   primaryBtnText: { color: theme.colors.onBrand, fontWeight: "600", fontSize: 15 },
+  realisticBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderWidth: 1.5,
+    borderColor: theme.colors.brand,
+    borderRadius: theme.borderRadius.md,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  realisticBtnOff: { opacity: 0.45 },
+  realisticBtnLabel: { flex: 1, gap: 1 },
+  realisticBtnText: { color: theme.colors.brand, fontWeight: "600", fontSize: 15 },
+  realisticHint: { ...theme.typography.caption, color: theme.colors.textMuted },
   disclaimer: { ...theme.typography.caption, color: theme.colors.textMuted },
 }));
