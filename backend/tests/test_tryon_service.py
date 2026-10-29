@@ -158,9 +158,9 @@ class TestResolveClothingItem:
         assert fake_client.executed[0].table == "clothing"
 
     def test_own_item_is_filtered_by_user(self, fake_client):
-        fake_client.responses = [[], [{"id": "i1", "image_url": "wardrobe/i1.jpg", "category": None}]]
+        fake_client.responses = [[], [{"id": "i1", "image_url": "wardrobe/user-1/i1.jpg", "category": None}]]
         got = tryon_service.resolve_clothing_item("user-1", "i1")
-        assert got == {"image_url": "wardrobe/i1.jpg", "category": None}
+        assert got == {"image_url": "wardrobe/user-1/i1.jpg", "category": None}
         own = fake_client.executed[1]
         assert own.table == "clothing_items"
         assert ("eq", ("user_id", "user-1")) in own.ops
@@ -173,3 +173,18 @@ class TestResolveClothingItem:
     def test_row_without_image_is_none(self, fake_client):
         fake_client.responses = [[{"id": "c1", "image_url": None, "category": "tops"}], []]
         assert tryon_service.resolve_clothing_item("user-1", "c1") is None
+
+    @pytest.mark.parametrize(
+        "ref",
+        [
+            "wardrobe/user-2/x.jpg",
+            "users/user-2/x.jpg",
+            "wardrobe/user-1/../user-2/x.jpg",
+            "wardrobe/user-10/x.jpg",
+            "https://evil.example/x.jpg",
+            "http://169.254.169.254/latest",
+        ],
+    )
+    def test_own_row_with_foreign_or_external_ref_is_none(self, fake_client, ref):
+        fake_client.responses = [[], [{"id": "i1", "image_url": ref, "category": "tops"}]]
+        assert tryon_service.resolve_clothing_item("user-1", "i1") is None
