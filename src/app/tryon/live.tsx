@@ -92,7 +92,7 @@ export default function LiveTryOnScreen() {
   const category = garment?.category ?? null;
   const supported = isSupportedCategory(category);
   const live = useLiveTracker({
-    active: !!garment && hasPermission && supported && cutoutState === "ready",
+    active: focused && appActive && !!garment && hasPermission && supported && cutoutState === "ready",
     facing,
     preview,
   });
@@ -136,6 +136,7 @@ export default function LiveTryOnScreen() {
             bounds={bounds}
             category={category}
             keypoints={live.keypoints}
+            facing={facing}
             onFitKind={setFitKind}
           />
         ) : null}
