@@ -13,6 +13,17 @@ BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(dotenv_path=BASE_DIR / ".env")
 
 
+def parse_session_seconds(raw, default: int = 60, maximum: int = 300) -> int:
+    """Realistic session length: a positive int, else `default`, capped at `maximum`."""
+    try:
+        value = int(str(raw).strip())
+    except (TypeError, ValueError):
+        return default
+    if value <= 0:
+        return default
+    return min(value, maximum)
+
+
 class Config:
     # ----------------------------- Flask core -----------------------------
     # Flask debug mode: OFF by default. The Werkzeug debugger exposes an
@@ -163,7 +174,7 @@ class Config:
     # receives a short-lived client token. Leave empty to disable (503).
     DECART_API_KEY = os.getenv("DECART_API_KEY", "")
     DECART_MODEL = os.getenv("DECART_MODEL", "lucy-vton-3.6")
-    REALISTIC_SESSION_SECONDS = int(os.getenv("REALISTIC_SESSION_SECONDS", "60"))
+    REALISTIC_SESSION_SECONDS = parse_session_seconds(os.getenv("REALISTIC_SESSION_SECONDS"))
 
     # ----------------------------- Rate limiting ---------------------------
     # Simple in-memory limits (per authenticated user, per rule name).
