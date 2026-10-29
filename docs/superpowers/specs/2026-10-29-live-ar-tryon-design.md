@@ -205,8 +205,8 @@ it mentions the server for live preview (it doesn't today).
 
 ## Testing
 
-**Jest** (native modules mocked in `jest.setup` so existing suites are
-unaffected):
+**Jest** (the tested units are pure TypeScript and import nothing native, so
+no mocks are needed; Jest stays `testEnvironment: node`):
 - `parseMoveNet`: order, names, (y,x) swap.
 - One-Euro: converges on a still point, follows a fast step within a bounded
   lag, resets a joint after low confidence.
