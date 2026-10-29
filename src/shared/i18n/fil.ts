@@ -1201,6 +1201,8 @@ export const fil: Record<keyof typeof en, string> = {
   "tryon.live.starting": "Hinahanap ka sa frame…",
   "tryon.live.tracker_failed": "Hindi available ang live tracking sa device na ito.",
   "tryon.live.loading": "Inihahanda ang live tracker…",
+  "tryon.live.cutout_loading": "Inihahanda ang iyong damit…",
+  "tryon.live.cutout_failed": "Hindi namin ma-cut out ang item na ito, kaya hindi ito maipapakita nang live.",
   "tryon.live.full_tryon": "Gumawa ng buong try-on",
   "tryon.live.back_a11y": "Bumalik sa try-on",
   "tryon.live.flip_a11y": "Palitan ang camera",
