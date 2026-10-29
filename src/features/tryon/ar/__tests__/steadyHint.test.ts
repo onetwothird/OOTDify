@@ -43,6 +43,14 @@ describe("nextSteadyHint", () => {
     expect(isReadyToShoot(s, 1600)).toBe(true);
   });
 
+  it("is not ready once the candidate leaves good, even while good is still shown", () => {
+    let s = nextSteadyHint(start, "good", 1000);
+    s = nextSteadyHint(s, "good", 1300);
+    s = nextSteadyHint(s, "step_back", 1400);
+    expect(s.shown).toBe("good");
+    expect(isReadyToShoot(s, 1900)).toBe(false);
+  });
+
   it("is never ready when the shown hint is not good", () => {
     expect(isReadyToShoot(start, 99999)).toBe(false);
   });
