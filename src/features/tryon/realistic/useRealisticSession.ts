@@ -17,11 +17,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createDecartClient, isRealtimeModel, models, resolveFpsNumber, type RealTimeClient } from "@decartai/sdk";
 import { mediaDevices, type MediaStream } from "@livekit/react-native-webrtc";
 import { File } from "expo-file-system";
-import { useCallback, useEffect, useReducer, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { AppState } from "react-native";
 
 import { requestRealisticToken } from "../../../services/aiApi";
 import {
+  createDialGate,
   INITIAL_REALISTIC,
   isNotConfiguredError,
   realisticReducer,
@@ -36,6 +37,21 @@ export const REALISTIC_CONSENT_KEY = "ootdify.tryon.realistic.consent.v1";
  * false; give it a moment before LiveKit asks for the same camera.
  */
 const CAMERA_RELEASE_MS = 300;
+
+/**
+ * Bounded dialling: one re-dial on failure and at most 10 s of capacity
+ * re-dials (SDK defaults are 5 and 60 s). Each dial mints a token, and tokens
+ * count against the 15 sessions/hour cap.
+ */
+const CONNECT_RETRIES = 1;
+const CAPACITY_RETRY_BUDGET_MS = 10_000;
+
+/**
+ * Module-wide, not per hook instance: a dial left over from a session on a
+ * screen that has since unmounted must still finish before the next session
+ * (even on a remounted screen) dials.
+ */
+const dialGate = createDialGate();
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -65,9 +81,18 @@ export function useRealisticSession(
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const open = sessionOpen(state.phase);
 
+  // Latest props, read by the session effect once, when the session opens.
+  // A prop change mid-session must not tear down and re-dial. (Written in an
+  // effect and read only in effects: never during render.)
+  const latest = useRef({ cutoutUri, facing });
+  useEffect(() => {
+    latest.current = { cutoutUri, facing };
+  }, [cutoutUri, facing]);
+
   // --- Session -------------------------------------------------------------
   useEffect(() => {
     if (!open) return;
+    const { cutoutUri, facing } = latest.current;
     let closed = false;
     let stream: MediaStream | null = null;
     let client: RealTimeClient | null = null;
@@ -76,7 +101,8 @@ export function useRealisticSession(
     // background (the reducer leaves the open phases, so this effect cleans
     // up), an error (same), and unmount. It disconnects from Decart and stops
     // the local camera tracks. Anything still in flight checks `closed` and
-    // releases what it gets.
+    // releases what it gets; a connect() still dialling is disconnected by
+    // dialGate when it resolves, and apiKeyProvider refuses further dials.
     const teardown = () => {
       closed = true;
       if (client) {
@@ -95,6 +121,10 @@ export function useRealisticSession(
 
     const run = async () => {
       if (!cutoutUri) throw new Error("Garment cut-out is not ready.");
+      // An earlier session's dial may still be in flight: let it settle (it is
+      // disconnected if abandoned) before this session mints or dials anything.
+      await dialGate.idle();
+      if (closed) return;
       // First token up front: it names the model, and a 503 not_configured
       // fails here before the camera is ever opened.
       const first = await requestRealisticToken();
@@ -128,6 +158,8 @@ export function useRealisticSession(
       let unused: string | null = first.apiKey;
       const decart = createDecartClient({
         apiKeyProvider: async () => {
+          // Stopped while dialling: refuse, so the SDK mints no more tokens.
+          if (closed) throw new Error("cancelled");
           if (unused) {
             const key = unused;
             unused = null;
@@ -136,18 +168,19 @@ export function useRealisticSession(
           return (await requestRealisticToken()).apiKey;
         },
       });
-      const rt = await decart.realtime.connect<MediaStream>(local, {
+      const dial = decart.realtime.connect<MediaStream>(local, {
         model,
         preferredVideoCodec: "vp8",
+        retries: CONNECT_RETRIES,
+        capacityRetryBudgetMs: CAPACITY_RETRY_BUDGET_MS,
         initialState: { image },
         onRemoteStream: (remote) => {
           if (!closed) setRemoteStream(remote);
         },
       });
-      if (closed) {
-        rt.disconnect();
-        return;
-      }
+      // If teardown ran while dialling, the gate disconnects the late client.
+      const rt = await dialGate.track(dial, (late) => late.disconnect(), () => closed);
+      if (closed) return;
       client = rt;
       rt.on("error", (e) => {
         console.warn("Realistic mode error:", e.code);
@@ -168,7 +201,7 @@ export function useRealisticSession(
     });
 
     return teardown;
-  }, [open, cutoutUri, facing]);
+  }, [open]);
 
   // --- Countdown -----------------------------------------------------------
   const live = state.phase === "live";
