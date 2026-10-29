@@ -21,7 +21,7 @@ export function useSteadyHint(hint: FramingHint): { shown: FramingHint; readyToS
   // `since`, so a late timer can never leave a held hint unswitched.
   useEffect(() => {
     if (state.candidate === state.shown) return;
-    const wait = Math.max(0, state.since + SWITCH_MS - Date.now());
+    const wait = Math.max(0, state.since + SWITCH_MS + 5 - Date.now());
     const id = setTimeout(() => setState((prev) => nextSteadyHint(prev, hint, Date.now())), wait);
     return () => clearTimeout(id);
   }, [state, hint]);
