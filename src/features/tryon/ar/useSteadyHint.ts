@@ -3,32 +3,37 @@
 import { useEffect, useState } from "react";
 
 import type { FramingHint } from "./framing";
-import { INITIAL_STEADY, READY_MS, SWITCH_MS, nextSteadyHint } from "./steadyHint";
+import { INITIAL_STEADY, READY_MS, SWITCH_MS, isReadyToShoot, nextSteadyHint } from "./steadyHint";
 
 export function useSteadyHint(hint: FramingHint): { shown: FramingHint; readyToShoot: boolean } {
   const [state, setState] = useState(INITIAL_STEADY);
-  // The `since` value the ready timer last fired for; ready only while it matches.
-  const [readySince, setReadySince] = useState<number | null>(null);
+  // The reducer state for which the ready timer confirmed READY_MS of steady
+  // "good". Any new state object (a changed candidate) invalidates it.
+  const [readyState, setReadyState] = useState<typeof INITIAL_STEADY | null>(null);
 
-  // Feed each new hint in, and re-evaluate once the switch delay has passed
-  // (the hint itself may not change again to trigger it).
+  // Feed each new hint in (from a timer: effects don't set state directly).
   useEffect(() => {
-    const feed = () => setState((prev) => nextSteadyHint(prev, hint, Date.now()));
-    const first = setTimeout(feed, 0);
-    const later = setTimeout(feed, SWITCH_MS);
-    return () => {
-      clearTimeout(first);
-      clearTimeout(later);
-    };
+    const id = setTimeout(() => setState((prev) => nextSteadyHint(prev, hint, Date.now())), 0);
+    return () => clearTimeout(id);
   }, [hint]);
+
+  // Re-check once the switch delay has elapsed, timed from the state's own
+  // `since`, so a late timer can never leave a held hint unswitched.
+  useEffect(() => {
+    if (state.candidate === state.shown) return;
+    const wait = Math.max(0, state.since + SWITCH_MS - Date.now());
+    const id = setTimeout(() => setState((prev) => nextSteadyHint(prev, hint, Date.now())), wait);
+    return () => clearTimeout(id);
+  }, [state, hint]);
 
   useEffect(() => {
     if (state.shown !== "good") return;
-    const wait = Math.max(0, state.since + READY_MS - Date.now());
-    const id = setTimeout(() => setReadySince(state.since), wait);
+    const wait = Math.max(0, state.since + READY_MS + 5 - Date.now());
+    const id = setTimeout(() => {
+      if (isReadyToShoot(state, Date.now())) setReadyState(state);
+    }, wait);
     return () => clearTimeout(id);
-  }, [state.shown, state.since]);
+  }, [state]);
 
-  const readyToShoot = state.shown === "good" && readySince === state.since;
-  return { shown: state.shown, readyToShoot };
+  return { shown: state.shown, readyToShoot: readyState === state };
 }
