@@ -623,6 +623,50 @@ export async function pollTryOnJob(
 }
 
 // ---------------------------------------------------------------------------
+// Realistic live mode (Decart). The backend mints a short-lived client token;
+// the long-lived DECART_API_KEY never reaches the app.
+// ---------------------------------------------------------------------------
+export interface RealisticToken {
+  /** Short-lived Decart client token (never the permanent key). */
+  apiKey: string;
+  expiresAt: string;
+  /** Decart realtime model the token is scoped to, e.g. "lucy-vton-3.6". */
+  model: string;
+  /** App-side session length in seconds. */
+  sessionSeconds: number;
+}
+
+/**
+ * POST /api/tryon/realistic/token. When realistic mode isn't configured the
+ * route answers 503 `{error: "not_configured"}`: that rejects as an ApiError
+ * with `status === 503` and that payload (see `isNotConfiguredError` in
+ * features/tryon/realistic/session.ts). A provider failure is a 502.
+ */
+export async function requestRealisticToken(): Promise<RealisticToken> {
+  const payload = (await apiRequest("/api/tryon/realistic/token", { method: "POST" })) as unknown;
+  const p = payload as {
+    token?: { apiKey?: unknown; expiresAt?: unknown } | null;
+    model?: unknown;
+    session_seconds?: unknown;
+  } | null;
+  const apiKey = p?.token?.apiKey;
+  const expiresAt = p?.token?.expiresAt;
+  if (
+    typeof apiKey !== "string" ||
+    !apiKey ||
+    typeof expiresAt !== "string" ||
+    typeof p?.model !== "string" ||
+    !p.model ||
+    typeof p.session_seconds !== "number" ||
+    !(p.session_seconds > 0)
+  ) {
+    // The payload holds a token: don't attach it to the error.
+    throw new ApiError("invalid-response", "The AI service returned an unexpected response.", 200, null);
+  }
+  return { apiKey, expiresAt, model: p.model, sessionSeconds: p.session_seconds };
+}
+
+// ---------------------------------------------------------------------------
 // Recommendations (real catalog ids, scored server-side)
 // ---------------------------------------------------------------------------
 export async function recommendCatalog(
