@@ -12,7 +12,7 @@ import { useResizer } from "react-native-vision-camera-resizer";
 import { scheduleOnRN } from "react-native-worklets";
 
 import type { TrackerState } from "./liveStatus";
-import { framingHint, type FramingHint } from "./framing";
+import { framingHint, mirrorSides, type FramingHint } from "./framing";
 import { MOVENET_INPUT_SIZE, parseMoveNet } from "./moveNet";
 import { MIN_KEYPOINT_CONFIDENCE, pointToPreview, type Keypoint, type Size } from "./overlayGeometry";
 import { createSmoother, smoothKeypoints, type SmootherState } from "./smoothing";
@@ -233,7 +233,9 @@ export function useLiveTracker({
           const now = performance.now();
           const smoothed = smoothKeypoints(state.smoother, placed, now);
           keypoints.value = smoothed;
-          const hint = framingHint(category, smoothed);
+          // Left/right are in the user's terms only on the mirrored (front) preview.
+          const framed = framingHint(category, smoothed);
+          const hint = frame.isMirrored ? framed : mirrorSides(framed);
           state.errors = 0;
           if ((personSeen !== state.sentSeen || hint !== state.sentHint) && now - state.lastPush >= PUSH_INTERVAL_MS) {
             state.sentSeen = personSeen;
