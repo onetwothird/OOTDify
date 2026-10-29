@@ -6,10 +6,9 @@ import { Animated, View } from "react-native";
 
 import { useT } from "../../../shared/i18n/useT";
 import { makeStyles } from "../../../shared/theme/makeStyles";
+import { CAMERA_BG, ON_CAMERA } from "./cameraChrome";
 import { SAFE_X, SAFE_Y, type FramingHint } from "./framing";
 
-// Camera chrome sits on the live feed, which isn't themed.
-const ON_CAMERA = "#FFFFFF";
 const GOOD = "#3DDC84";
 const BRACKET_LENGTH = 28;
 const BRACKET_THICKNESS = 3;
@@ -53,6 +52,7 @@ export function FramingGuide({ hint, topOffset }: { hint: FramingHint; topOffset
       {(["tl", "tr", "bl", "br"] as const).map(bracket)}
       <View style={[styles.hintWrap, { top: topOffset }]}>
         <View style={styles.hintPill}>
+          <View style={styles.hintScrim} />
           <Animated.Text style={[styles.hintText, { color }]} accessibilityLiveRegion="polite">
             {t(`tryon.live.frame.${hint}`)}
           </Animated.Text>
@@ -71,6 +71,7 @@ const useStyles = makeStyles(() => ({
     right: 0,
     alignItems: "center",
   },
-  hintPill: { borderRadius: 16, backgroundColor: "#00000073" },
+  hintPill: { borderRadius: 16, overflow: "hidden" },
+  hintScrim: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: CAMERA_BG, opacity: 0.45 },
   hintText: { fontSize: 15, fontWeight: "600", paddingHorizontal: 14, paddingVertical: 6, textAlign: "center" },
 }));
