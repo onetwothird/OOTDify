@@ -1,4 +1,7 @@
 // C:\OOTDify\src\features\tryon\__tests__\cutout.test.ts
+import { getClothingCutout } from "../../../services/aiApi";
+import { cutoutFileName, getGarmentCutout } from "../cutout";
+
 const mockFiles = new Map<string, string>();
 
 jest.mock("expo-file-system", () => ({
@@ -23,9 +26,6 @@ jest.mock("expo-file-system", () => ({
 jest.mock("../../../services/aiApi", () => ({
   getClothingCutout: jest.fn(),
 }));
-
-import { getClothingCutout } from "../../../services/aiApi";
-import { cutoutFileName, getGarmentCutout } from "../cutout";
 
 const api = getClothingCutout as jest.Mock;
 const ok = { ok: true, reason: null, png_base64: "AAAA", width: 120, height: 200 };
