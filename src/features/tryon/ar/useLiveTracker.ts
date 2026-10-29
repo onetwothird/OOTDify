@@ -4,10 +4,10 @@
 // Skia garment layer reads on the UI thread. Nothing leaves the device and no
 // React state changes per frame: the JS side only hears about the person being
 // seen and tracker failures, at most every 250 ms.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSharedValue, type SharedValue } from "react-native-reanimated";
-import { useTensorflowModel, type TensorflowModelDelegate } from "react-native-fast-tflite";
-import { CommonResolutions, useFrameOutput, type CameraFrameOutput } from "react-native-vision-camera";
+import { useTensorflowModel, type TensorflowModelDelegate, type TensorflowPlugin } from "react-native-fast-tflite";
+import { CommonResolutions, useFrameOutput, type CameraFrameOutput, type Frame } from "react-native-vision-camera";
 import { useResizer } from "react-native-vision-camera-resizer";
 import { scheduleOnRN } from "react-native-worklets";
 
@@ -23,26 +23,56 @@ const CPU: TensorflowModelDelegate[] = [];
 
 const MAX_CONSECUTIVE_ERRORS = 30;
 const PUSH_INTERVAL_MS = 250;
+const STATS_INTERVAL_MS = 2000;
+// Captured by value into the worklet: measurement logs only in dev builds.
+const IS_DEV = __DEV__;
 
 type Orientation = "up" | "right" | "down" | "left";
 
-/** Worklet-private bookkeeping, kept in one shared value so a frame reads and writes it once. */
+/**
+ * Worklet-private bookkeeping. It lives on the frame runtime's own global
+ * object, so a frame never blocks on another thread to read or write it.
+ * `session` ties it to one facing/active session; a new session starts fresh.
+ */
 interface FrameState {
+  session: string;
   smoother: SmootherState;
   errors: number;
   failed: boolean;
   sentSeen: boolean;
   lastPush: number;
+  statsFrames: number;
+  statsInferMs: number;
+  statsSince: number;
 }
 
-function initialFrameState(): FrameState {
+interface FrameRuntimeGlobal {
+  __ootdifyLiveTracker?: FrameState;
+}
+
+function frameStateFor(session: string): FrameState {
   "worklet";
-  return { smoother: createSmoother(), errors: 0, failed: false, sentSeen: false, lastPush: -Infinity };
+  const g = globalThis as unknown as FrameRuntimeGlobal;
+  const existing = g.__ootdifyLiveTracker;
+  if (existing && existing.session === session) return existing;
+  const fresh: FrameState = {
+    session,
+    smoother: createSmoother(),
+    errors: 0,
+    failed: false,
+    sentSeen: false,
+    lastPush: -Infinity,
+    statsFrames: 0,
+    statsInferMs: 0,
+    statsSince: performance.now(),
+  };
+  g.__ootdifyLiveTracker = fresh;
+  return fresh;
 }
 
 /**
- * A MoveNet point (normalized to the centred square the resizer cropped from
- * the raw buffer) → normalized to the upright, output-mirrored frame.
+ * A MoveNet point (normalized to the square the resizer letterboxed the raw
+ * buffer into) → normalized to the upright, output-mirrored frame.
  * With physical buffer rotation the orientation is always "up"; the other
  * cases are a fallback. "right" means the pixels are rotated +90° (clockwise).
  */
@@ -55,10 +85,10 @@ function toUprightFrame(
   mirrored: boolean,
 ): { x: number; y: number } {
   "worklet";
-  // Undo the resizer's centred "cover" crop to the square.
-  const side = Math.min(bufferW, bufferH);
-  let u = ((bufferW - side) / 2 + x * side) / bufferW;
-  let v = ((bufferH - side) / 2 + y * side) / bufferH;
+  // Undo the resizer's centred "contain" padding to the square.
+  const side = Math.max(bufferW, bufferH);
+  let u = (x * side - (side - bufferW) / 2) / bufferW;
+  let v = (y * side - (side - bufferH) / 2) / bufferH;
   if (orientation === "right") {
     const t = u;
     u = v;
@@ -76,9 +106,15 @@ function toUprightFrame(
   return { x: u, y: v };
 }
 
+function logStats(fps: number, inferMs: number, orientation: string, mirrored: boolean, delegate: string) {
+  console.log(
+    `[LiveTracker] fps=${fps.toFixed(1)} infer=${inferMs.toFixed(1)} orientation=${orientation} mirrored=${mirrored} delegate=${delegate}`,
+  );
+}
+
 export interface LiveTracker {
   frameOutput: CameraFrameOutput;
-  /** Smoothed keypoints, normalized 0..1 of the on-screen preview; null before the first frame. */
+  /** Smoothed keypoints, normalized 0..1 of the on-screen preview; null when there is no track. */
   keypoints: SharedValue<Keypoint[] | null>;
   tracker: TrackerState;
   /** Any keypoint scored at least MIN_KEYPOINT_CONFIDENCE recently. */
@@ -90,50 +126,138 @@ export function useLiveTracker({
   facing,
   preview,
 }: {
-  /** False skips inference (e.g. unsupported garment); the camera keeps running. */
+  /** False skips inference and clears the track (camera inactive, unsupported garment…). */
   active: boolean;
   facing: "front" | "back";
   /** On-screen preview size, for the cover crop between frame and preview. */
   preview: Size | null;
 }): LiveTracker {
-  // GPU first; one CPU retry if the GPU delegate fails to load.
+  // GPU first; one CPU retry if the GPU delegate fails to load. The GPU error
+  // object is remembered so the stale error seen right after switching to the
+  // CPU is not mistaken for the CPU attempt failing.
   const [delegates, setDelegates] = useState(GPU);
+  const [gpuError, setGpuError] = useState<TensorflowPlugin | null>(null);
   const plugin = useTensorflowModel(MODEL, delegates);
-  if (plugin.state === "error" && delegates === GPU) setDelegates(CPU);
+  if (plugin.state === "error" && delegates === GPU) {
+    setGpuError(plugin);
+    setDelegates(CPU);
+  }
+  const modelFailed = plugin.state === "error" && delegates === CPU && plugin !== gpuError;
   const model = plugin.state === "loaded" ? plugin.model : undefined;
+  const delegateName = delegates === GPU ? "gpu" : "cpu";
 
   const resizerState = useResizer({
     width: MOVENET_INPUT_SIZE,
     height: MOVENET_INPUT_SIZE,
     channelOrder: "rgb",
     dataType: "uint8",
-    scaleMode: "cover",
+    scaleMode: "contain",
     pixelLayout: "interleaved",
   });
   const resizer = resizerState.resizer;
 
   const keypoints = useSharedValue<Keypoint[] | null>(null);
-  const frameState = useSharedValue<FrameState>(initialFrameState());
-  const previewSize = useSharedValue<Size | null>(preview);
 
-  const [personSeen, setPersonSeen] = useState(false);
+  // Reports carry their session, so one from before a camera flip is ignored.
+  const session = `${facing}:${active ? "on" : "off"}`;
+  const [seen, setSeen] = useState({ session: "", value: false });
   const [frameError, setFrameError] = useState<string | null>(null);
-  const report = useCallback((seen: boolean, error: string | null) => {
-    setPersonSeen(seen);
+  const report = useCallback((from: string, value: boolean, error: string | null) => {
+    setSeen({ session: from, value });
     if (error !== null) setFrameError(error);
   }, []);
 
-  useEffect(() => {
-    previewSize.value = preview;
-  }, [preview, previewSize]);
+  const failure = modelFailed
+    ? `model failed to load: ${plugin.state === "error" ? plugin.error?.message : "unknown error"}`
+    : resizerState.state === "error"
+      ? `resizer failed: ${resizerState.error.message}`
+      : frameError !== null
+        ? `${MAX_CONSECUTIVE_ERRORS} frames failed in a row: ${frameError}`
+        : null;
+  const failed = failure !== null;
 
-  // A new camera means a new view of the body: drop the old track.
   useEffect(() => {
-    frameState.value = initialFrameState();
+    if (failure !== null) console.warn(`Live tracker failed (${failure}).`);
+  }, [failure]);
+
+  // No track while inactive, failed or after a flip: the garment layer then
+  // runs its normal hold-and-fade instead of freezing on the last pose.
+  useEffect(() => {
     keypoints.value = null;
-  }, [facing, frameState, keypoints]);
+  }, [session, failed, keypoints]);
 
-  const running = active && model != null && resizer != null;
+  const running = active && !failed && model != null && resizer != null;
+
+  const onFrame = useMemo(() => {
+    const size = preview;
+    return (frame: Frame) => {
+      "worklet";
+      let resized: { dispose: () => void; getPixelBuffer: () => ArrayBuffer } | undefined;
+      try {
+        if (!running || model == null || resizer == null) return;
+        if (size == null || size.width <= 0 || size.height <= 0) return;
+        const state = frameStateFor(session);
+        if (state.failed) return;
+        try {
+          const t0 = performance.now();
+          resized = resizer.resize(frame);
+          const out = model.runSync([resized.getPixelBuffer()]);
+          const inferMs = performance.now() - t0;
+          const raw = parseMoveNet(new Float32Array(out[0]));
+          const orientation = frame.orientation as Orientation;
+          const swap = orientation === "left" || orientation === "right";
+          const upright = swap
+            ? { width: frame.height, height: frame.width }
+            : { width: frame.width, height: frame.height };
+          let personSeen = false;
+          const placed: Keypoint[] = [];
+          for (let i = 0; i < raw.length; i++) {
+            const k = raw[i];
+            if (k.confidence >= MIN_KEYPOINT_CONFIDENCE) personSeen = true;
+            const p = toUprightFrame(k.x, k.y, frame.width, frame.height, orientation, frame.isMirrored);
+            const px = pointToPreview(p, upright, size, false);
+            placed.push({ name: k.name, x: px.x / size.width, y: px.y / size.height, confidence: k.confidence });
+          }
+          const now = performance.now();
+          keypoints.value = smoothKeypoints(state.smoother, placed, now);
+          state.errors = 0;
+          if (personSeen !== state.sentSeen && now - state.lastPush >= PUSH_INTERVAL_MS) {
+            state.sentSeen = personSeen;
+            state.lastPush = now;
+            scheduleOnRN(report, session, personSeen, null);
+          }
+          if (IS_DEV) {
+            state.statsFrames += 1;
+            state.statsInferMs += inferMs;
+            const elapsed = now - state.statsSince;
+            if (elapsed >= STATS_INTERVAL_MS) {
+              scheduleOnRN(
+                logStats,
+                (state.statsFrames * 1000) / elapsed,
+                state.statsInferMs / state.statsFrames,
+                orientation,
+                frame.isMirrored,
+                delegateName,
+              );
+              state.statsFrames = 0;
+              state.statsInferMs = 0;
+              state.statsSince = now;
+            }
+          }
+        } catch (e) {
+          state.errors += 1;
+          if (state.errors >= MAX_CONSECUTIVE_ERRORS) {
+            state.failed = true;
+            keypoints.value = null;
+            scheduleOnRN(report, session, false, String(e));
+          }
+        }
+      } finally {
+        resized?.dispose();
+        frame.dispose();
+      }
+    };
+  }, [running, model, resizer, preview, session, keypoints, report, delegateName]);
 
   const frameOutput = useFrameOutput({
     targetResolution: CommonResolutions.VGA_16_9,
@@ -143,71 +267,11 @@ export function useLiveTracker({
     onFrameDropped: () => {
       // Expected while inference runs; the default handler would warn per frame.
     },
-    onFrame(frame) {
-      "worklet";
-      let resized: { dispose: () => void; getPixelBuffer: () => ArrayBuffer } | undefined;
-      try {
-        if (!running || model == null || resizer == null) return;
-        const size = previewSize.value;
-        if (size == null || size.width <= 0 || size.height <= 0) return;
-        const state = frameState.value;
-        if (state.failed) return;
-        try {
-          resized = resizer.resize(frame);
-          const out = model.runSync([resized.getPixelBuffer()]);
-          const raw = parseMoveNet(new Float32Array(out[0]));
-          const orientation = frame.orientation as Orientation;
-          const swap = orientation === "left" || orientation === "right";
-          const upright = swap
-            ? { width: frame.height, height: frame.width }
-            : { width: frame.width, height: frame.height };
-          let seen = false;
-          const placed: Keypoint[] = [];
-          for (let i = 0; i < raw.length; i++) {
-            const k = raw[i];
-            if (k.confidence >= MIN_KEYPOINT_CONFIDENCE) seen = true;
-            const p = toUprightFrame(k.x, k.y, frame.width, frame.height, orientation, frame.isMirrored);
-            const px = pointToPreview(p, upright, size, false);
-            placed.push({ name: k.name, x: px.x / size.width, y: px.y / size.height, confidence: k.confidence });
-          }
-          const now = performance.now();
-          keypoints.value = smoothKeypoints(state.smoother, placed, now);
-          state.errors = 0;
-          if (seen !== state.sentSeen && now - state.lastPush >= PUSH_INTERVAL_MS) {
-            state.sentSeen = seen;
-            state.lastPush = now;
-            scheduleOnRN(report, seen, null);
-          }
-        } catch (e) {
-          state.errors += 1;
-          if (state.errors >= MAX_CONSECUTIVE_ERRORS) {
-            state.failed = true;
-            scheduleOnRN(report, false, String(e));
-          }
-        }
-        frameState.value = state;
-      } finally {
-        resized?.dispose();
-        frame.dispose();
-      }
-    },
+    onFrame,
   });
 
-  const modelFailed = plugin.state === "error" && delegates === CPU;
-  const failure = modelFailed
-    ? `model failed to load: ${plugin.error?.message ?? "unknown error"}`
-    : resizerState.state === "error"
-      ? `resizer failed: ${resizerState.error.message}`
-      : frameError !== null
-        ? `${MAX_CONSECUTIVE_ERRORS} frames failed in a row: ${frameError}`
-        : null;
+  const tracker: TrackerState = failed ? "failed" : model != null && resizer != null ? "ready" : "loading";
+  const personSeen = tracker === "ready" && seen.session === session && seen.value;
 
-  useEffect(() => {
-    if (failure !== null) console.warn(`Live tracker failed (${failure}).`);
-  }, [failure]);
-
-  const tracker: TrackerState = 
-    failure !== null ? "failed" : model != null && resizer != null ? "ready" : "loading";
-
-  return { frameOutput, keypoints, tracker, personSeen: tracker === "ready" && personSeen };
+  return { frameOutput, keypoints, tracker, personSeen };
 }
