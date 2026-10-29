@@ -14,6 +14,7 @@ from routes import cutout
 from services import ratelimit, tryon_service
 from services.garment_isolation import IsolationResult
 
+UID = "123e4567-e89b-12d3-a456-426614174000"
 PNG = b"\x89PNG\r\n\x1a\nfake"
 
 
@@ -52,35 +53,35 @@ def env(monkeypatch, tmp_path):
 
 
 def test_cutout_own_item_returns_png(env, tmp_path):
-    resp = env["client"].get("/api/clothing/i1/cutout")
+    resp = env["client"].get(f"/api/clothing/{UID}/cutout")
     body = resp.get_json()
     assert resp.status_code == 200, body
     assert body["success"] is True
     assert body["cutout"]["ok"] is True
     assert base64.b64decode(body["cutout"]["png_base64"]) == PNG
     assert (body["cutout"]["width"], body["cutout"]["height"]) == (10, 20)
-    assert env["seen"]["lookup"] == ("user-1", "i1")
+    assert env["seen"]["lookup"] == ("user-1", UID)
     assert env["seen"]["transparent"] is True
     assert list(tmp_path.iterdir()) == []  # temp file deleted
 
 
 def test_cutout_catalog_item_returns_png(env):
     env["item"] = {"image_url": "wardrobe/cat.jpg", "category": None}
-    resp = env["client"].get("/api/clothing/cat1/cutout")
+    resp = env["client"].get(f"/api/clothing/{UID}/cutout")
     assert resp.status_code == 200
     assert resp.get_json()["cutout"]["ok"] is True
 
 
 def test_cutout_other_users_item_is_404(env):
     env["item"] = None
-    resp = env["client"].get("/api/clothing/theirs/cutout")
+    resp = env["client"].get(f"/api/clothing/{UID}/cutout")
     assert resp.status_code == 404
     assert resp.get_json()["success"] is False
 
 
 def test_cutout_failed_isolation_returns_ok_false_without_image(env):
     env["result"] = IsolationResult(ok=False, reason="no_object")
-    resp = env["client"].get("/api/clothing/i1/cutout")
+    resp = env["client"].get(f"/api/clothing/{UID}/cutout")
     body = resp.get_json()
     assert resp.status_code == 200
     assert body["cutout"] == {"ok": False, "reason": "no_object", "png_base64": None, "width": None, "height": None}
@@ -88,5 +89,12 @@ def test_cutout_failed_isolation_returns_ok_false_without_image(env):
 
 def test_cutout_requires_auth(env):
     env["authed"]["on"] = False
-    resp = env["client"].get("/api/clothing/i1/cutout")
+    resp = env["client"].get(f"/api/clothing/{UID}/cutout")
     assert resp.status_code == 401
+
+
+def test_cutout_malformed_id_is_404(env):
+    env["item"] = {"image_url": "wardrobe/user-1/a.jpg", "category": None}
+    resp = env["client"].get("/api/clothing/abc/cutout")
+    assert resp.status_code == 404
+    assert "lookup" not in env["seen"]
