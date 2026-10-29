@@ -90,37 +90,79 @@ needs a signed-in request.
   - `413` → still too large; lower `MAX_UPLOAD_SIDE` or raise `MAX_CONTENT_LENGTH`.
   - `500` → paste the traceback that follows it.
 
-## 3. AI live try-on — FEATURE_GUIDE #4 (built on `feat/live-tryon`, not checked on a phone)
+## 3. AI live AR try-on (`feat/live-ar-tryon`, not checked on a phone)
 
-Live **2D overlay**, built per
-[docs/superpowers/plans/2026-10-27-live-tryon-overlay.md](./docs/superpowers/plans/2026-10-27-live-tryon-overlay.md).
-Scan → select exactly one garment → **Try it live** opens `/tryon/live`: full-screen
-camera, the garment hung from your pose points (chalk ticks show which ones),
-about 1–2 updates per second. The photo try-on stays the real result.
+Specs:
+[live AR](./docs/superpowers/specs/2026-10-29-live-ar-tryon-design.md),
+[cut-out, framing, photo](./docs/superpowers/specs/2026-10-29-tryon-cutout-framing-photo-design.md).
+Plans:
+[live AR](./docs/superpowers/plans/2026-10-29-live-ar-tryon.md),
+[cut-out, framing, photo](./docs/superpowers/plans/2026-10-29-tryon-cutout-framing-photo.md).
+(The old server-pose overlay plan, `2026-10-27-live-tryon-overlay.md`, is superseded.)
 
-- **Backend:** `POST /api/tryon/live/pose`. Stateless, pose at 320 px, nearest
-  person only, keypoints normalized 0..1, its own limit (240/min).
-- **App:** `src/features/tryon/ar/` (geometry, loop, status, overlay, chalk marks)
-  and `src/app/tryon/live.tsx`. Tops/outerwear: shoulders → hips; dresses → knees;
-  bottoms: hips → ankles; shoes/bags/accessories say "not supported".
-- Verified: `tsc` clean, Jest 95/95, backend pytest 91/91, lint 0 errors,
-  Android bundle builds.
+What exists: Scan → one garment → **Try it live** opens `/tryon/live`. MoveNet runs
+on the phone (VisionCamera + fast-tflite), so the garment is a Skia mesh that follows
+shoulders → hips (dresses → knees, bottoms → ankles). Framing brackets and hints guide
+the user. **Go realistic** redraws the garment live through Decart for a limited time,
+after a consent sheet.
 
-- [ ] On a phone (`npx expo start -c`), signed in:
-  - [ ] Front camera: the garment sits on you, not mirrored to the other side.
-  - [ ] Back camera (someone else in frame): same.
-  - [ ] A top, a dress and a pair of bottoms each land on the right body span.
-  - [ ] A shoe shows "Live preview works with tops, outerwear, dresses and bottoms."
-  - [ ] Walk partly out of frame → "Step back so your … are in view."
-  - [ ] Airplane mode → garment fades, "Connection lost. Retrying…"; back online recovers.
-  - [ ] Leave the screen → Railway access log stops showing `/api/tryon/live/pose`.
-  - [ ] Tune the garment proportions in `overlayGeometry.ts` (width ×1.5, 12% above
-        the top anchors) if it looks too wide or short.
-- [ ] Railway (optional; defaults apply): `RATE_LIMIT_LIVE_MAX=240`,
-      `RATE_LIMIT_LIVE_WINDOW=60`, `LIVE_POSE_IMAGE_SIZE=320`.
-- Smooth ~30 fps tracking would need on-device pose (vision-camera frame
-  processors + a TFLite/MediaPipe model), which means a dev build, not Expo Go.
-  Out of scope for v1.
+- **Backend:** `routes/cutout.py` (garment cut-out PNG) and `routes/realistic.py`
+  (`realistic_token`: mints a short-lived Decart client token). Both use
+  `upload_limits` (15/hour). The old `/api/tryon/live/pose` route is gone.
+- **App:** `src/features/tryon/ar/` (moveNet, smoothing, bodyMesh, alphaBounds, framing,
+  steadyHint, useLiveTracker, LiveGarmentLayer, FramingGuide, cameraChrome),
+  `src/features/tryon/realistic/`, `src/features/tryon/cutout.ts`, `src/app/tryon/live.tsx`.
+- **Phone-gate numbers:** none recorded. The gate could not run (no phone connected), so
+  the tracker was built with safe defaults: `enablePhysicalBufferRotation: true`,
+  `android-gpu` delegate with CPU fallback, frames honour `isMirrored`. Record fps,
+  inference ms and delegate from the `[LiveTracker]` log below.
+- **Rulings:** resizer uses "contain" so knees and ankles are not cropped; the texture is
+  flipped on the back camera; "ready" is timed 500 ms from when framing first reads good;
+  Decart replaces FASHN for the realistic mode; the Decart connect check (task 7 step 1)
+  moved to this checklist.
+- Verified in CI-style checks: tsc clean, Jest 207, backend pytest 174, lint 0 errors,
+  arm64 `assembleDebug` builds.
+
+### Setup
+
+1. `backend/.env` (and the same names in Railway variables):
+   - `DECART_API_KEY=...`. Server-side only; **never** an `EXPO_PUBLIC_*` variable.
+     Without it the token route answers 503 `not_configured` and the app says
+     "Realistic mode isn't set up yet."
+   - `DECART_MODEL` (default `lucy-vton-3.6`).
+   - `REALISTIC_SESSION_SECONDS` (default 60, clamped to 1..300).
+   - Decart charges about $0.02 per second and may train on the streamed video. The
+     consent sheet says so; keep that wording if you change the copy.
+2. Remove any old `RATE_LIMIT_LIVE_*` / `LIVE_POSE_IMAGE_SIZE` Railway variables; nothing
+   reads them now.
+3. Build a dev build (Expo Go cannot run this). `C:\o` is a separate non-git copy of the
+   project, used for short Windows paths, so sync it first:
+   1. `robocopy C:\OOTDify\src C:\o\src /MIR`. Also copy `package.json`,
+      `package-lock.json`, `app.json` and `index.ts` when they changed, then `npm install`
+      in `C:\o`. Run `npx expo prebuild --platform android --no-install` when plugins change.
+   2. `cd C:\o\android`, then
+      `gradlew assembleDebug -PreactNativeArchitectures=arm64-v8a -Dorg.gradle.jvmargs="-Xmx4g"`.
+   3. `adb install -r C:\o\android\app\build\outputs\apk\debug\app-debug.apk`.
+   4. From `C:\OOTDify`, start Metro: `npx expo start`.
+
+### Phone checklist (signed in, with a garment selected)
+
+- [ ] Metro or logcat shows `[LiveTracker] fps=… infer=… delegate=…`. Note the numbers
+      here: fps ____ infer ____ ms delegate ____ (gpu, or cpu if the GPU load failed).
+- [ ] The garment sits on the body, on both the front and back cameras.
+- [ ] The cut-out shows with no box and no background.
+- [ ] Shoulders → hips: the garment follows with no visible lag.
+- [ ] Framing brackets turn green when the body is in position; the hints change correctly
+      as you move and do not flicker; left/right are correct on both cameras.
+- [ ] "Go realistic": consent sheet appears (once, then remembered), it connects, the
+      redrawn stream appears about 1.5 s later, the countdown runs from 60, **Stop** works,
+      backgrounding the app ends the session, and the screen returns to the AR.
+- [ ] No "camera in use" error when realistic starts (the 300 ms `CAMERA_RELEASE_MS` is a guess).
+- [ ] Front camera looks mirrored in realistic mode; back camera does not.
+- [ ] No key set → "Realistic mode isn't set up yet." and no camera opens.
+- [ ] After Stop, the Decart dashboard shows no session still billing.
+- [ ] A native Filipino speaker checks the new `tryon.live.*` and framing strings in
+      `src/shared/i18n/fil.ts`.
 
 ## 3b. Closet-first app (built on `feat/closet-first`, not checked on a phone)
 
