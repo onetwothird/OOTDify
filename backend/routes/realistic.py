@@ -25,6 +25,8 @@ realistic_bp = Blueprint("realistic", __name__)
 
 DECART_TOKEN_URL = "https://api.decart.ai/v1/client/tokens"
 DECART_TIMEOUT_SECONDS = 10
+# The token itself always lives 60 s; session_seconds is the app-side session length.
+TOKEN_EXPIRES_IN = 60
 
 
 def _provider_error():
@@ -36,7 +38,7 @@ def _provider_error():
 @upload_limits("realistic_token")
 @require_consent
 def realistic_token():
-    api_key = Config.DECART_API_KEY
+    api_key = (Config.DECART_API_KEY or "").strip()
     if not api_key:
         return jsonify(success=False, error="not_configured"), 503
 
@@ -46,11 +48,11 @@ def realistic_token():
         resp = requests.post(
             DECART_TOKEN_URL,
             headers={"x-api-key": api_key},
-            json={"expiresIn": seconds, "allowedModels": [model]},
+            json={"expiresIn": TOKEN_EXPIRES_IN, "allowedModels": [model]},
             timeout=DECART_TIMEOUT_SECONDS,
         )
-    except requests.RequestException as exc:
-        # Class name only: exception text could echo request details.
+    except Exception as exc:  # noqa: BLE001 - any failure must not leak the key
+        # Class name only: exception text could echo the key or request details.
         logger.warning("Decart token request failed (%s)", type(exc).__name__)
         return _provider_error()
 
