@@ -38,7 +38,7 @@ ideas, run virtual try-ons, and keep your photos secure.
 - [Reanimated](https://docs.swmansion.com/react-native-reanimated/) + `expo-image` for smooth UI
 
 ```
-Expo app (Expo Go / device)  ──HTTP──▶  Flask backend (:5000)
+Expo app (dev build / device)  ──HTTP──▶  Flask backend (:5000)
         │                                   │
         └──────────▶ Supabase (Auth + DB + Storage)  ◀── service-role client (backend only)
 ```
@@ -65,7 +65,8 @@ OOTDify/
 - Node 20+ and npm
 - Python 3.12
 - A Supabase project (free tier is fine)
-- Expo Go on your phone (or an emulator) for device testing
+- An Android phone (or emulator) with the OOTDify **dev build** installed. Expo Go is not
+  enough: live try-on uses native modules (VisionCamera, fast-tflite, WebRTC)
 
 ### 1. Apply the Supabase schema (once)
 
@@ -152,8 +153,18 @@ Invoke-WebRequest http://127.0.0.1:5000/health     # PowerShell
 npx expo start
 ```
 
-Scan the QR code in Expo Go (phone and PC must be on the same Wi-Fi). Press
-`i` / `a` for simulators, `w` for web.
+Open the installed dev build on your phone (phone and PC must be on the same Wi-Fi) and
+connect to Metro. Build and install the dev build once, and again when native
+dependencies or plugins change (Windows, from a short-path copy at `C:\o`; see
+`REMAINING_TASKS.md` §3 for the full steps):
+
+```bash
+npx expo prebuild --platform android --no-install
+cd android && gradlew assembleDebug -PreactNativeArchitectures=arm64-v8a
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+Press `a` for an emulator, `w` for web.
 
 ### 5. One command for everything (recommended)
 
