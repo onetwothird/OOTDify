@@ -11,7 +11,7 @@ import pytest
 import requests
 from flask import Flask, g
 
-from config import Config
+from config import Config, parse_session_seconds
 from routes import realistic
 from services import ratelimit
 
@@ -147,3 +147,34 @@ def test_token_requires_auth(env):
     resp = env["client"].post(URL)
     assert resp.status_code == 401
     assert env["calls"] == []
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [("abc", 60), ("60s", 60), ("", 60), (None, 60), ("0", 60), ("-5", 60), ("90", 90), ("9999", 300)],
+)
+def test_session_seconds_parsing_is_guarded(raw, expected):
+    assert parse_session_seconds(raw) == expected
+
+
+def test_expires_in_is_fixed_while_session_seconds_follows_config(env, monkeypatch):
+    monkeypatch.setattr(Config, "REALISTIC_SESSION_SECONDS", 90)
+    body = env["client"].post(URL).get_json()
+    assert env["calls"][0][1]["json"]["expiresIn"] == 60
+    assert body["session_seconds"] == 90
+
+
+def test_non_requests_exception_is_502_and_key_not_logged(env, caplog):
+    caplog.set_level(logging.DEBUG)
+    env["response"] = UnicodeEncodeError("ascii", KEY, 0, 1, f"bad {KEY}")
+    resp = env["client"].post(URL)
+    assert resp.status_code == 502
+    assert resp.get_json() == {"success": False, "error": "provider_error"}
+    assert KEY not in resp.get_data(as_text=True)
+    assert KEY not in caplog.text
+
+
+def test_key_is_stripped_before_sending(env, monkeypatch):
+    monkeypatch.setattr(Config, "DECART_API_KEY", f"  {KEY}\n")
+    env["client"].post(URL)
+    assert env["calls"][0][1]["headers"]["x-api-key"] == KEY
