@@ -1,12 +1,12 @@
 // Which one line the live try-on sheet shows under the garment name.
-import type { LiveLoopState } from "./liveLoop";
-import type { OverlayFit } from "./overlayGeometry";
+import type { MeshFit } from "./bodyMesh";
+
+export type TrackerState = "loading" | "ready" | "failed";
 
 export type LiveStatusKey =
   | "tryon.live.unsupported"
-  | "tryon.live.signed_out"
-  | "tryon.live.rate_limited"
-  | "tryon.live.lost"
+  | "tryon.live.tracker_failed"
+  | "tryon.live.loading"
   | "tryon.live.starting"
   | "tryon.live.no_pose.upper"
   | "tryon.live.no_pose.dress"
@@ -23,12 +23,20 @@ function noPoseKey(category: string | null): LiveStatusKey {
   }
 }
 
-/** The status to show, most important first; null when the garment is placed. */
-export function liveStatusKey(category: string | null, fit: OverlayFit, loop: LiveLoopState): LiveStatusKey | null {
-  if (fit.kind === "unsupported") return "tryon.live.unsupported";
-  if (loop.signedOut) return "tryon.live.signed_out";
-  if (loop.rateLimited) return "tryon.live.rate_limited";
-  if (loop.lost) return "tryon.live.lost";
-  if (fit.kind === "no_pose") return loop.pose ? noPoseKey(category) : "tryon.live.starting";
+/**
+ * The status to show, most important first; null when the garment is placed.
+ * `personSeen` is true when any keypoint scores at least 0.3 in the current frame.
+ */
+export function liveStatusKey(
+  category: string | null,
+  fitKind: MeshFit["kind"],
+  tracker: TrackerState,
+  personSeen: boolean,
+): LiveStatusKey | null {
+  if (fitKind === "unsupported") return "tryon.live.unsupported";
+  if (tracker === "failed") return "tryon.live.tracker_failed";
+  if (tracker === "loading") return "tryon.live.loading";
+  if (!personSeen) return "tryon.live.starting";
+  if (fitKind === "no_pose") return noPoseKey(category);
   return null;
 }
