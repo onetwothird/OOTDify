@@ -24,9 +24,10 @@ says otherwise.
 **Agreed with the user:**
 - Do **both**:
   - the live AR, to see the garment follow you;
-  - a **"Take photo"** button that produces a realistic AI image.
-- The AI provider is **FASHN** (`tryon-v1.6`, about $0.075 per photo). The
-  key lives only in `backend/.env`.
+  - a realistic AI mode.
+- The AI provider was **FASHN** photos at first. On 2026-10-29 it was
+  replaced by **Decart Lucy VTON** realistic *live* mode (§3), after the user
+  pointed at anywear.decart.ai. The key lives only in `backend/.env`.
 - The live overlay shows the garment only, with no background box.
 - A framing guide tells the user where to stand.
 - The body-outline (silhouette) fit is **not** in scope. The AI photo gives the
@@ -38,7 +39,7 @@ fashn … smoothen them all". The order is:
 2. The smooth live try-on: the existing plan's Task 7, the lag work (§Lag),
    soft cut-out edges, and steady garment motion.
 3. Framing guide (§2).
-4. AI photo with FASHN (§3), last.
+4. Realistic live mode with Decart (§3), last. This was FASHN before 2026-10-29.
 
 ## Success criteria
 
@@ -50,11 +51,14 @@ fashn … smoothen them all". The order is:
    - a single directional hint (step back, come closer, move left, move right);
    - "looks good".
    The hint covers exactly the joints the garment needs.
-3. "Take photo" is enabled only while framing is "good". It produces a
-   FASHN try-on of the person in that photo wearing the selected garment,
-   shown in the existing try-on history.
-4. The live path still sends nothing off the device. Only the photo the user
-   explicitly takes is uploaded, and the screen says so before the first upload.
+3. "Go realistic" is enabled only while framing is "good" and the cut-out is
+   ready.
+   - It starts a Decart live session of at most `REALISTIC_SESSION_SECONDS`
+     (60), showing the person wearing the garment.
+   - When the session ends, the screen always returns to the free AR preview.
+4. The default AR path still sends nothing off the device. Video is streamed
+   only during a realistic session, which the user starts after a consent
+   sheet that names Decart and its training use.
 5. The lag is measured on the real dev build, and the fix is decided from
    the numbers (see §Lag).
 
@@ -138,7 +142,7 @@ by `SAFE_Y = 0.04` at the top and bottom.
 
 **Steadiness** lives in the screen, not the pure unit:
 - A hint must hold for 300 ms before it replaces the shown hint.
-- `good` must hold for 500 ms before "Take photo" is enabled.
+- `good` must hold for 500 ms before "Go realistic" is enabled.
 
 **Component** `src/features/tryon/ar/FramingGuide.tsx`:
 - Four corner brackets drawn on the safe-zone corners.
@@ -163,56 +167,100 @@ by `SAFE_Y = 0.04` at the top and bottom.
 `starting` and `no_pose.*` messages. Those keys stay in `liveStatus.ts`
 only as long as something still uses them; Task 7 removes the unused ones.
 
-## 3. AI photo (FASHN)
+## 3. Realistic live mode (Decart Lucy VTON)
 
-**Backend: provider**
-- `services/tryon_service.py` gets a `FashnProvider(VTONProvider)`.
-- **Configuration.**
-  - `FASHN_API_KEY` and `FASHN_MODEL` (default `tryon-v1.6`) are added to
-    `config.py` and `.env.example`.
-  - `VTONProvider` selection: if `FASHN_API_KEY` is set, use
-    `FashnProvider`; otherwise use the current not-configured provider,
-    whose jobs fail honestly with "model not configured".
-- **`generate(inputs)`, for each garment in order:**
-  1. POST `https://api.fashn.ai/v1/run` with `Authorization: Bearer <key>`
-     and `{"model_name": FASHN_MODEL, "inputs": {"model_image": <data URI>, "garment_image": <data URI>, "category": <mapped>, "garment_photo_type": "auto", "mode": "balanced", "output_format": "png", "return_base64": true}}`.
-  2. Poll `GET /v1/status/<id>` every 2 s, for up to 90 s.
-  3. On `completed`, decode `output[0]` (a data URI) to a temp file.
-  4. On `failed`, raise `TryOnError` carrying FASHN's `error.message`.
-  5. On timeout, raise `TryOnError("timed out")`.
-- **Several garments.** The output of one step becomes the next step's
-  `model_image`. That costs one credit per garment, and the job records how
-  many credits it used.
-- **Category mapping:** tops and outerwear → `tops`; bottoms → `bottoms`;
-  dresses → `one-pieces`; anything else → `auto`. `inputs` gains
-  `garment_categories: [str]`, filled by `Pipeline.run` from the same rows
-  `_resolve_clothing_refs` reads.
-- **Network.** `requests` with timeouts. The key is never logged and never
-  returned to the app.
-- **Errors.** API-level errors (401, 429) become a `TryOnError` with a
-  user-safe message: "The try-on service rejected the request", or "busy,
-  try again".
+**Changed 2026-10-29:** this replaces the FASHN photo try-on. The user pointed at
+https://anywear.decart.ai/ and chose "Decart replaces FASHN".
 
-**App: "Take photo" on `/tryon/live`**
-- A `usePhotoOutput` is added next to the frame output. The button is
-  enabled only when framing is steady `good`.
-- **First use.** If the try-on consent (`ootdify.tryon.consent.v1`, the
-  same flag Scan uses) isn't given, a sheet explains that the photo is
-  uploaded to make the try-on, and asks for consent. Nothing uploads
-  without it.
-- **On capture:**
-  1. `shrinkForUpload()`.
-  2. `uploadBodyPhoto(uri)`, the existing call that creates a
-     `body_photos` row.
-  3. `createTryOnJob({ bodyPhotoId, clothingIds: [item.id] })`.
-  4. Navigate to the Scan tab (`/(tabs)/scan`). Its try-on history already
-     lists jobs, polls active ones every 5 s, shows the result image when
-     the job completes, and shows failures honestly.
-- **Copy:**
-  - `tryon.live.take_photo` "Take photo"
-  - `tryon.live.take_photo_hint` "Get a realistic photo of you in this"
-  - `tryon.live.photo_uploading` "Uploading your photo…"
-  - `tryon.live.photo_failed` "Couldn't start the try-on. Try again."
+**What it is:** Decart's Lucy VTON is a real-time video model. It redraws the
+live camera stream with the garment on the person. It runs over WebRTC
+(LiveKit) and starts about 1.5 s after connecting.
+
+- Model: `lucy-vton-3.6`.
+- Price: $0.02 per second of active generation at 720p.
+
+The free on-device AR stays the default view. Realistic mode is an opt-in,
+time-limited session.
+
+**Backend: client tokens** (`backend/routes/realistic.py`)
+
+- Route: `POST /api/tryon/realistic/token`.
+  - Decorators: `require_auth`, `require_consent`, `upload_limits("realistic_token")`.
+  - The upload cap (15 per hour per user) is the cost cap: at most 15 sessions
+    per user per hour.
+- It calls Decart at `POST https://api.decart.ai/v1/client/tokens`.
+  - Header: `x-api-key: <DECART_API_KEY>`.
+  - Body: `{"expiresIn": 60, "allowedModels": [DECART_MODEL]}`.
+- On success it returns `{success: true, token: {apiKey, expiresAt}, model, session_seconds}`.
+- Settings, added to `config.py` and `.env.example`:
+  - `DECART_API_KEY`: empty by default.
+  - `DECART_MODEL`: default `lucy-vton-3.6`.
+  - `REALISTIC_SESSION_SECONDS`: default `60`.
+- Errors:
+  - No key configured → `503 {success: false, error: "not_configured"}`.
+  - Decart 401, 429 or 5xx, or a 10 s timeout → `502 {success: false, error: "provider_error"}`.
+- The key and Decart's response text are never logged or returned.
+
+**App: dependencies**
+
+- Install with `npx expo install`:
+  - `@decartai/sdk`;
+  - LiveKit's React Native packages as Decart's docs name them:
+    `@livekit/react-native`, `@livekit/react-native-webrtc` and the LiveKit
+    Expo config plugin.
+- Plain `react-native-webrtc` is not supported by Decart.
+- These are native modules, so a new dev build is needed.
+
+**App: session** (`src/features/tryon/realistic/`)
+
+- `requestRealisticToken(): Promise<{ apiKey; expiresAt; model; sessionSeconds }>`
+  in `aiApi.ts`.
+- `useRealisticSession(itemCutoutUri)` returns
+  `{ phase, remoteStream, secondsLeft, start(), stop() }`.
+  - `phase` is one of
+    `"idle" | "consent" | "connecting" | "live" | "ended" | "failed" | "not_configured"`.
+- `start()` runs these steps in order:
+  1. If the realistic consent flag (`ootdify.tryon.realistic.consent.v1`) is
+     not stored, set `phase` to `consent` and show the sheet.
+  2. Release the camera: the VisionCamera `<Camera>` goes inactive so LiveKit
+     can open it.
+  3. Call `client.realtime.connect(localStream, { model, onRemoteStream, initialState: { image: <cut-out PNG> } })`.
+     `apiKeyProvider` fetches a fresh token from the backend for every dial.
+  4. Count down from `sessionSeconds`.
+- The session ends at 0, on `stop()`, or when the app goes to the background.
+  It then disconnects and sets `phase` to `ended`.
+- "Back to live preview" re-activates the VisionCamera and resumes the
+  on-device AR.
+- Connection or stream errors set `phase` to `failed` and show an honest
+  message. There is no silent fallback.
+
+**App: screen**
+
+- On `/tryon/live`, a **"Go realistic"** button is enabled only while framing
+  is steady `good` and the cut-out is ready.
+- While the session is `live`:
+  - the remote stream fills the camera area, drawn with LiveKit's video view
+    and mirrored for the front camera;
+  - a countdown pill and a **"Stop"** button sit over it;
+  - the framing guide and the garment layer are hidden.
+
+**Copy**
+
+- `tryon.live.go_realistic` "Go realistic"
+- `tryon.live.realistic_hint` "See a realistic live preview (up to 1 minute)"
+- `tryon.live.realistic_consent` "Realistic mode streams your camera video to our partner Decart, which redraws you wearing this item. Decart may use the video to improve its AI. It runs for up to 1 minute. The normal preview never leaves your phone."
+- `tryon.live.realistic_connecting` "Starting realistic mode…"
+- `tryon.live.realistic_seconds` "{{seconds}}s left"
+- `tryon.live.realistic_stop` "Stop"
+- `tryon.live.realistic_ended` "Realistic preview ended"
+- `tryon.live.realistic_back` "Back to live preview"
+- `tryon.live.realistic_failed` "Realistic mode couldn't start. Check your connection and try again."
+- `tryon.live.realistic_not_configured` "Realistic mode isn't set up yet."
+
+**Unknown until tried on the phone:** whether `@decartai/sdk`'s realtime
+client runs under React Native with LiveKit's RN packages. Decart's docs say it
+is supported. The plan starts this work with a minimal connect check on the
+phone. If it can't connect, we stop and decide with the user.
 
 ## Lag
 
@@ -231,16 +279,18 @@ The user's lag report came from the old build. After the new build is installed:
 
 ## Privacy
 
-- The live path is unchanged: no frame or keypoint data leaves the device.
+- The default live AR is unchanged: no frame or keypoint data leaves the
+  device.
 - Cut-outs: the backend reads the item image from storage by id. The app
   uploads nothing for this.
-- AI photo:
-  - one user-initiated photo is uploaded to the backend;
-  - the backend sends it to FASHN with `return_base64: true`, so the result
-    comes back through the backend and is stored in the private `tryons`
-    bucket like every try-on today;
-  - FASHN's own retention applies to the request, and the consent sheet
-    names FASHN.
+- Realistic mode:
+  - Camera video goes to Decart only during a session the user starts.
+  - Before the first session, a consent sheet says this and names Decart's
+    training use.
+  - Each session is capped at 60 s, and server-side at 15 sessions per user
+    per hour.
+  - The Decart API key never reaches the app. The app only gets 60-second
+    client tokens.
 
 ## Testing
 
@@ -260,20 +310,19 @@ The user's lag report came from the old build. After the new build is installed:
   - returns 404 for another user's item;
   - returns 200 with PNG data for the caller's own item;
   - returns `ok: false` with no image when isolation fails.
-- `FashnProvider`, with `requests` mocked:
-  - the request body shape and auth header;
-  - polling until `completed`;
-  - `failed` raises a `TryOnError` with FASHN's message;
-  - timeout;
-  - chaining two garments;
-  - the key never appears in logs or errors.
-- Provider selection: with no key, the current not-configured provider is
-  used.
+- Realistic token route, with `requests` mocked:
+  - the request URL, the `x-api-key` header and the body;
+  - 200 returns the token;
+  - no key gives 503 `not_configured`;
+  - a Decart 401, a 429 and a timeout each give 502 `provider_error`;
+  - the key never appears in the response or the logs;
+  - `require_auth` is enforced.
 
 **Phone**
 - The cut-out shows with no box.
 - The guide hints change correctly as you move.
-- "Take photo" produces a FASHN result in the history.
+- "Go realistic" redraws the garment on the person live, counts down from
+  60, and returns to the AR preview.
 
 ## Verification
 
