@@ -20,6 +20,7 @@ from flask_cors import CORS
 
 from config import Config
 from routes.community import community_bp
+from routes.cutout import cutout_bp
 from routes.detection import detection_bp
 from routes.outfits import outfits_bp
 from routes.users import users_bp
@@ -75,6 +76,7 @@ def create_app(config_object=Config) -> Flask:
 
     # Register route blueprints
     app.register_blueprint(detection_bp)
+    app.register_blueprint(cutout_bp)
     app.register_blueprint(users_bp)
     app.register_blueprint(community_bp)
     app.register_blueprint(pose_bp)
