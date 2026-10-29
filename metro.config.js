@@ -8,4 +8,7 @@ const config = getDefaultConfig(__dirname);
 // "Unable to resolve module ./wa-sqlite/wa-sqlite.wasm".
 config.resolver.assetExts.push("wasm");
 
+// On-device pose model (MoveNet) is bundled as a .tflite asset.
+config.resolver.assetExts.push("tflite");
+
 module.exports = config;
