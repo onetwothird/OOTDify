@@ -347,6 +347,7 @@ export default function ScanScreen() {
     const item = liveItem;
     if (!item) return;
     useLiveGarment.getState().set({
+      id: item.id,
       imageRef: item.image_url,
       category: item.category ?? null,
       name: item.name || t("scan.item_fallback"),
