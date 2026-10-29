@@ -1209,5 +1209,15 @@ export const fil: Record<keyof typeof en, string> = {
   "tryon.live.back_a11y": "Bumalik sa try-on",
   "tryon.live.flip_a11y": "Palitan ang camera",
   "tryon.live.permission": "Payagan ang camera para makita ito sa iyo.",
-  "tryon.live.grant": "Payagan ang camera"
+  "tryon.live.grant": "Payagan ang camera",
+  "tryon.live.go_realistic": "Gawing makatotohanan",
+  "tryon.live.realistic_hint": "Tingnan ang makatotohanang live preview (hanggang 1 minuto)",
+  "tryon.live.realistic_consent": "Ipinapadala ng realistic mode ang video ng camera mo sa partner naming Decart, na muling gumuguhit sa iyo na suot ang item na ito. Maaaring gamitin ng Decart ang video para pagbutihin ang AI nito. Tumatakbo ito nang hanggang 1 minuto. Hindi kailanman umaalis sa phone mo ang karaniwang preview.",
+  "tryon.live.realistic_connecting": "Sinisimulan ang realistic mode…",
+  "tryon.live.realistic_seconds": "{seconds}s na lang",
+  "tryon.live.realistic_stop": "Ihinto",
+  "tryon.live.realistic_ended": "Tapos na ang makatotohanang preview",
+  "tryon.live.realistic_back": "Bumalik sa live preview",
+  "tryon.live.realistic_failed": "Hindi nakapagsimula ang realistic mode. Tingnan ang koneksyon mo at subukang muli.",
+  "tryon.live.realistic_not_configured": "Hindi pa naka-set up ang realistic mode."
 };
