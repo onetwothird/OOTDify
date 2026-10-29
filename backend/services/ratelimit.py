@@ -94,8 +94,3 @@ def default_limits(rule: str) -> Callable:
 def upload_limits(rule: str) -> Callable:
     """Strict limit for image uploads / processing endpoints (per hour)."""
     return rate_limit(Config.RATE_LIMIT_UPLOAD_MAX, Config.RATE_LIMIT_UPLOAD_WINDOW, rule)
-
-
-def live_limits(rule: str) -> Callable:
-    """Per-minute limit for the live try-on preview loop (stateless pose)."""
-    return rate_limit(lambda: Config.RATE_LIMIT_LIVE_MAX, lambda: Config.RATE_LIMIT_LIVE_WINDOW, rule)
