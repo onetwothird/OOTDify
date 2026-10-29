@@ -1,30 +1,25 @@
-// Live try-on preview: the camera fills the screen, the garment picked on
-// Scan is hung from the user's pose points (marked with chalk ticks), and a
-// sheet at the bottom says what's happening. A rough placement by design —
-// the full photo try-on on Scan stays the real result.
+// Live try-on preview: the camera fills the screen and the garment picked on
+// Scan, cut out of its photo (no background box), follows the user's body.
+// Tracking runs on the device at frame rate (MoveNet in the VisionCamera
+// frame worklet → shared value → Skia mesh on the UI thread); no frame leaves
+// the phone. A sheet at the bottom says what's happening. A rough placement by
+// design: the full photo try-on on Scan stays the real result.
 import { Ionicons } from "@expo/vector-icons";
-import { CameraType, CameraView, useCameraPermissions } from "expo-camera";
+import { useImage } from "@shopify/react-native-skia";
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { AccessibilityInfo, LayoutChangeEvent, Platform, Pressable, Text, View } from "react-native";
+import { useIsFocused, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
+import { AccessibilityInfo, AppState, LayoutChangeEvent, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Camera, useCameraPermission } from "react-native-vision-camera";
 
-import { ChalkMarks } from "../../features/tryon/ar/ChalkMarks";
-import { GarmentOverlay } from "../../features/tryon/ar/GarmentOverlay";
+import { isSupportedCategory, type MeshFit } from "../../features/tryon/ar/bodyMesh";
+import { LiveGarmentLayer, useGarmentBounds } from "../../features/tryon/ar/LiveGarmentLayer";
 import { useLiveGarment } from "../../features/tryon/ar/liveGarmentStore";
-import { liveStatusKey } from "../../features/tryon/ar/liveStatus";
-import { pickLivePictureSize } from "../../features/tryon/ar/pictureSize";
-import {
-  Anchors,
-  garmentFit,
-  OverlayFit,
-  photoToPreview,
-  Point,
-  pointToPreview,
-  Size,
-} from "../../features/tryon/ar/overlayGeometry";
-import { useLivePose } from "../../features/tryon/ar/useLivePose";
+import { liveStatusKey, type CutoutState } from "../../features/tryon/ar/liveStatus";
+import type { Size } from "../../features/tryon/ar/overlayGeometry";
+import { useLiveTracker } from "../../features/tryon/ar/useLiveTracker";
+import { getGarmentCutout, type CutoutOutcome } from "../../features/tryon/cutout";
 import type { Theme } from "../../shared/config/theme";
 import { useT } from "../../shared/i18n/useT";
 import { useResolvedImage } from "../../shared/lib/useResolvedImage";
@@ -34,18 +29,28 @@ import { makeStyles } from "../../shared/theme/makeStyles";
 const ON_CAMERA = "#FFFFFF";
 const CAMERA_BG = "#000000";
 
+function useAppActive(): boolean {
+  const [active, setActive] = useState(AppState.currentState === "active");
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (next) => setActive(next === "active"));
+    return () => sub.remove();
+  }, []);
+  return active;
+}
+
 export default function LiveTryOnScreen() {
   const styles = useStyles();
   const { t } = useT();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const focused = useIsFocused();
+  const appActive = useAppActive();
   const garment = useLiveGarment((s) => s.garment);
-  const image = useResolvedImage(garment?.imageRef);
-  const [perm, requestPerm] = useCameraPermissions();
-  const [facing, setFacing] = useState<CameraType>("front");
+  const thumb = useResolvedImage(garment?.imageRef);
+  const { hasPermission, requestPermission } = useCameraPermission();
+  const [facing, setFacing] = useState<"front" | "back">("front");
   const [preview, setPreview] = useState<Size | null>(null);
-  const [pictureSize, setPictureSize] = useState<string | undefined>(undefined);
-  const cameraRef = useRef<CameraView | null>(null);
+  const [fitKind, setFitKind] = useState<MeshFit["kind"]>("no_pose");
 
   const goBack = () => (router.canGoBack() ? router.back() : router.replace("/(tabs)/scan"));
 
@@ -55,30 +60,50 @@ export default function LiveTryOnScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [garment]);
 
+  // The cut-out (transparent PNG), keyed by garment so a stale result is ignored.
+  const garmentKey = garment ? `${garment.id}|${garment.imageRef}` : null;
+  const [cutout, setCutout] = useState<{ key: string; outcome: CutoutOutcome } | null>(null);
+  useEffect(() => {
+    if (!garment || !garmentKey) return;
+    let cancelled = false;
+    void getGarmentCutout({ id: garment.id, image_url: garment.imageRef }).then((outcome) => {
+      if (!cancelled) setCutout({ key: garmentKey, outcome });
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [garmentKey]);
+  const outcome = cutout?.key === garmentKey ? cutout.outcome : null;
+  const readyUri = outcome?.status === "ready" ? outcome.uri : null;
+  const [imageFailedUri, setImageFailedUri] = useState<string | null>(null);
+  const garmentImage = useImage(readyUri, () => setImageFailedUri(readyUri));
+  const bounds = useGarmentBounds(garmentImage);
+
+  const cutoutState: CutoutState =
+    outcome === null
+      ? "loading"
+      : outcome.status !== "ready" || imageFailedUri === readyUri
+        ? "failed"
+        : garmentImage
+          ? "ready"
+          : "loading";
+
   const category = garment?.category ?? null;
-  const supported = garmentFit(category, []).kind !== "unsupported";
-  const loop = useLivePose(cameraRef, !!garment && !!perm?.granted && supported, facing);
+  const supported = isSupportedCategory(category);
+  const live = useLiveTracker({
+    active: !!garment && hasPermission && supported && cutoutState === "ready",
+    facing,
+    preview,
+  });
 
-  const fit: OverlayFit = useMemo(() => {
-    if (!supported) return { kind: "unsupported" };
-    return loop.pose ? garmentFit(category, loop.pose.keypoints) : { kind: "no_pose" };
-  }, [supported, category, loop.pose]);
-
-  const mirrored = facing === "front";
-  // Memoized: ChalkMarks keeps the last anchors in state by identity.
-  const { rect, anchors } = useMemo(() => {
-    if (fit.kind !== "rect" || !loop.pose || !preview) return { rect: null, anchors: null };
-    const photo = { width: loop.pose.imageWidth, height: loop.pose.imageHeight };
-    const toPreview = (pair: [Point, Point]): [Point, Point] => [
-      pointToPreview(pair[0], photo, preview, mirrored),
-      pointToPreview(pair[1], photo, preview, mirrored),
-    ];
-    const placedAnchors: Anchors = { top: toPreview(fit.anchors.top), bottom: toPreview(fit.anchors.bottom) };
-    return { rect: photoToPreview(fit.rect, photo, preview, mirrored), anchors: placedAnchors };
-  }, [fit, loop.pose, preview, mirrored]);
-  const faded = loop.lost;
-
-  const statusKey = liveStatusKey(category, fit, loop);
+  const statusKey = liveStatusKey(
+    category,
+    supported ? fitKind : "unsupported",
+    live.tracker,
+    live.personSeen,
+    cutoutState,
+  );
   const status = statusKey ? t(statusKey) : null;
 
   // Android announces via accessibilityLiveRegion; iOS needs an explicit call.
@@ -88,14 +113,6 @@ export default function LiveTryOnScreen() {
 
   if (!garment) return null;
 
-  // Small 4:3 stills: fast to capture, and aligned with the preview stream.
-  const onCameraReady = () => {
-    cameraRef.current
-      ?.getAvailablePictureSizesAsync()
-      .then((sizes) => setPictureSize(pickLivePictureSize(sizes)))
-      .catch(() => setPictureSize(undefined));
-  };
-
   const onLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
     setPreview({ width, height });
@@ -104,22 +121,28 @@ export default function LiveTryOnScreen() {
   return (
     <View style={styles.screen}>
       <View style={styles.stage} onLayout={onLayout}>
-        {perm?.granted ? (
-          <CameraView
-            ref={cameraRef}
-            style={styles.camera}
-            facing={facing}
-            pictureSize={pictureSize}
-            onCameraReady={onCameraReady}
-            animateShutter={false}
+        {hasPermission ? (
+          <Camera
+            style={StyleSheet.absoluteFill}
+            device={facing}
+            isActive={focused && appActive}
+            outputs={[live.frameOutput]}
+            orientationSource="interface"
           />
         ) : null}
-        {image.uri ? <GarmentOverlay imageUrl={image.uri} rect={rect} faded={faded} /> : null}
-        <ChalkMarks anchors={anchors} faded={faded} />
+        {hasPermission && cutoutState === "ready" ? (
+          <LiveGarmentLayer
+            image={garmentImage}
+            bounds={bounds}
+            category={category}
+            keypoints={live.keypoints}
+            onFitKind={setFitKind}
+          />
+        ) : null}
 
         <View style={[styles.topRow, { top: insets.top + 8 }]}>
           <CameraButton icon="chevron-back" label={t("tryon.live.back_a11y")} onPress={goBack} />
-          {perm?.granted ? (
+          {hasPermission ? (
             <CameraButton
               icon="camera-reverse-outline"
               label={t("tryon.live.flip_a11y")}
@@ -131,8 +154,8 @@ export default function LiveTryOnScreen() {
 
       <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
         <View style={styles.garmentRow}>
-          {image.uri ? (
-            <Image source={{ uri: image.uri }} style={styles.thumb} contentFit="cover" onError={image.retry} />
+          {thumb.uri ? (
+            <Image source={{ uri: thumb.uri }} style={styles.thumb} contentFit="cover" onError={thumb.retry} />
           ) : (
             <View style={styles.thumb} />
           )}
@@ -140,7 +163,7 @@ export default function LiveTryOnScreen() {
             <Text style={styles.name} numberOfLines={1}>
               {garment.name}
             </Text>
-            {perm?.granted ? (
+            {hasPermission ? (
               <Text style={styles.status} accessibilityLiveRegion="polite">
                 {status ?? " "}
               </Text>
@@ -150,8 +173,8 @@ export default function LiveTryOnScreen() {
           </View>
         </View>
 
-        {perm && !perm.granted ? (
-          <Pressable accessibilityRole="button" style={styles.primaryBtn} onPress={() => void requestPerm()}>
+        {!hasPermission ? (
+          <Pressable accessibilityRole="button" style={styles.primaryBtn} onPress={() => void requestPermission()}>
             <Text style={styles.primaryBtnText}>{t("tryon.live.grant")}</Text>
           </Pressable>
         ) : (
@@ -186,7 +209,6 @@ function CameraButton({
 const useStyles = makeStyles((theme: Theme) => ({
   screen: { flex: 1, backgroundColor: CAMERA_BG },
   stage: { flex: 1, overflow: "hidden", backgroundColor: CAMERA_BG },
-  camera: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
   topRow: {
     position: "absolute",
     left: theme.spacing.page,
