@@ -30,9 +30,9 @@ const LEG_EDGE = 0.25; // bottoms: knee/ankle rows extend past the outer points 
 const WAIST_FROM_HIPS = 0.4; // tops: waist row sits this far from the hips toward the shoulders
 
 type Joint = "shoulder" | "hip" | "knee" | "ankle";
-type Kind = "upper" | "dress" | "bottom";
+export type GarmentKind = "upper" | "dress" | "bottom";
 
-const KINDS: Record<string, Kind> = {
+const KINDS: Record<string, GarmentKind> = {
   tops: "upper",
   outerwear: "upper",
   dresses: "dress",
@@ -46,9 +46,17 @@ interface Row {
   half: number;
 }
 
+/** Garment kind for a category (case-insensitive, own keys only), or null when unsupported. */
+export function garmentKind(category: string | null): GarmentKind | null {
+  "worklet";
+  if (category == null) return null;
+  const key = category.toLowerCase();
+  return Object.prototype.hasOwnProperty.call(KINDS, key) ? KINDS[key] : null;
+}
+
 export function isSupportedCategory(category: string | null): boolean {
   "worklet";
-  return category != null && KINDS[category.toLowerCase()] !== undefined;
+  return garmentKind(category) !== null;
 }
 
 function pair(keypoints: Keypoint[], joint: Joint): [Point, Point] | null {
@@ -104,7 +112,7 @@ function legEdgeRow(p: [Point, Point], hipWidth: number): Row {
 }
 
 /** Unadjusted anchor rows for the category, or null when a pair is missing or unusable. */
-function anchorRows(kind: Kind, kps: Keypoint[]): Row[] | null {
+function anchorRows(kind: GarmentKind, kps: Keypoint[]): Row[] | null {
   "worklet";
   const hips = pair(kps, "hip");
   if (!hips) return null;
@@ -157,7 +165,7 @@ function shiftRow(row: Row, dx: number, dy: number): Row {
 
 export function bodyMesh(category: string | null, keypoints: Keypoint[], garment: Bounds): MeshFit {
   "worklet";
-  const kind = category ? KINDS[category.toLowerCase()] : undefined;
+  const kind = garmentKind(category);
   if (!kind) return { kind: "unsupported" };
 
   const rows = anchorRows(kind, keypoints);
