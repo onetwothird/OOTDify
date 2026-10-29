@@ -23,7 +23,6 @@ import {
   ApiError,
   apiRequest,
   getAccessToken,
-  toFriendlyError,
 } from "./apiClient";
 
 export {
@@ -211,52 +210,6 @@ export async function analyzeImage(
     { timeoutMs },
   )) as unknown;
   return { kind: (payload as { kind: string }).kind ?? kind, analysis: (payload as { analysis: AnalyzeResult }).analysis };
-}
-
-// ---------------------------------------------------------------------------
-// Live try-on preview pose (stateless — the snapshot is deleted after inference)
-// ---------------------------------------------------------------------------
-// Called in a loop by the live try-on screen. Keypoints come back normalized
-// to 0..1 of the snapshot, for the nearest person only.
-export const LIVE_POSE_SIDE = 480;
-
-/** One keypoint, x/y normalized to 0..1 (same shape as tryon/ar `Keypoint`). */
-export interface PoseKeypoint {
-  name: string;
-  x: number;
-  y: number;
-  confidence: number;
-}
-
-export interface LivePose {
-  personDetected: boolean;
-  keypoints: PoseKeypoint[];
-  imageWidth: number;
-  imageHeight: number;
-  inferenceMs: number | null;
-}
-
-export async function estimateLivePose(photoUri: string, timeoutMs = 8_000): Promise<LivePose> {
-  const formData = new FormData();
-  formData.append("image", uploadPart(await shrinkForUpload(photoUri, LIVE_POSE_SIDE)));
-
-  const payload = await apiRequest<{
-    personDetected?: boolean;
-    keypoints?: PoseKeypoint[];
-    imageWidth?: number;
-    imageHeight?: number;
-    inference_ms?: number | null;
-  }>("/api/tryon/live/pose", { method: "POST", body: formData }, { timeoutMs });
-  if (!payload || !Array.isArray(payload.keypoints) || !payload.imageWidth || !payload.imageHeight) {
-    throw toFriendlyError("invalid-response", 200, payload);
-  }
-  return {
-    personDetected: !!payload.personDetected,
-    keypoints: payload.keypoints,
-    imageWidth: payload.imageWidth,
-    imageHeight: payload.imageHeight,
-    inferenceMs: payload.inference_ms ?? null,
-  };
 }
 
 // ---------------------------------------------------------------------------
