@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Camera, useCameraPermission } from "react-native-vision-camera";
 
 import { isSupportedCategory, type MeshFit } from "../../features/tryon/ar/bodyMesh";
+import { CAMERA_BG, ON_CAMERA } from "../../features/tryon/ar/cameraChrome";
 import { FramingGuide } from "../../features/tryon/ar/FramingGuide";
 import { LiveGarmentLayer, useGarmentBounds } from "../../features/tryon/ar/LiveGarmentLayer";
 import { useLiveGarment } from "../../features/tryon/ar/liveGarmentStore";
@@ -26,10 +27,6 @@ import type { Theme } from "../../shared/config/theme";
 import { useT } from "../../shared/i18n/useT";
 import { useResolvedImage } from "../../shared/lib/useResolvedImage";
 import { makeStyles } from "../../shared/theme/makeStyles";
-
-// Camera chrome sits on the live feed, which isn't themed.
-const ON_CAMERA = "#FFFFFF";
-const CAMERA_BG = "#000000";
 
 function useAppActive(): boolean {
   const [active, setActive] = useState(AppState.currentState === "active");
@@ -107,9 +104,6 @@ export default function LiveTryOnScreen() {
   // (tracker or cut-out trouble, unsupported garment) outranks the hint text.
   const guideOn = hasPermission && supported && cutoutState === "ready" && statusKey === null;
   const steady = useSteadyHint(guideOn ? live.hint : "no_person");
-  // Consumed by the "Go realistic" button in a later task.
-  const readyToShoot = guideOn && steady.readyToShoot;
-  void readyToShoot;
 
   // Android announces via accessibilityLiveRegion; iOS needs an explicit call.
   useEffect(() => {
