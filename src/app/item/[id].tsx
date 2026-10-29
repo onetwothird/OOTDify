@@ -21,7 +21,7 @@ import {
   fetchMyCloset,
   removeItemFavorite,
 } from "../../features/clothing/service";
-import { garmentFit } from "../../features/tryon/ar/overlayGeometry";
+import { isSupportedCategory } from "../../features/tryon/ar/bodyMesh";
 import { useLiveGarment } from "../../features/tryon/ar/liveGarmentStore";
 import { PHOTO_TRYON_AVAILABLE } from "../../features/tryon/config";
 import { useTryOnSelection } from "../../features/tryon/selectionStore";
@@ -153,7 +153,7 @@ export default function ItemDetailScreen() {
   }
 
   // The live preview needs an image and a category it knows how to place.
-  const canTryLive = !!item.image_url && garmentFit(item.category, []).kind !== "unsupported";
+  const canTryLive = !!item.image_url && isSupportedCategory(item.category);
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
