@@ -25,6 +25,7 @@ from routes.detection import detection_bp
 from routes.outfits import outfits_bp
 from routes.users import users_bp
 from routes.pose import pose_bp
+from routes.realistic import realistic_bp
 from routes.recommend import recommend_bp
 from routes.segmentation import segmentation_bp
 from routes.tryon import tryon_bp
@@ -77,6 +78,7 @@ def create_app(config_object=Config) -> Flask:
     # Register route blueprints
     app.register_blueprint(detection_bp)
     app.register_blueprint(cutout_bp)
+    app.register_blueprint(realistic_bp)
     app.register_blueprint(users_bp)
     app.register_blueprint(community_bp)
     app.register_blueprint(pose_bp)
