@@ -1,41 +1,29 @@
-import type { LivePose } from "../../../../services/aiApi";
-import { INITIAL_LIVE_STATE, LiveLoopState } from "../liveLoop";
+import type { MeshFit } from "../bodyMesh";
 import { liveStatusKey } from "../liveStatus";
-import type { OverlayFit } from "../overlayGeometry";
 
-const pose: LivePose = { personDetected: true, keypoints: [], imageWidth: 3, imageHeight: 4, inferenceMs: 1 };
-const rect: OverlayFit = {
-  kind: "rect",
-  rect: { x: 0, y: 0, width: 1, height: 1 },
-  anchors: { top: [{ x: 0, y: 0 }, { x: 1, y: 0 }], bottom: [{ x: 0, y: 1 }, { x: 1, y: 1 }] },
-};
-const loop = (over: Partial<LiveLoopState> = {}): LiveLoopState => ({ ...INITIAL_LIVE_STATE, pose, ...over });
+const mesh = { kind: "mesh" } as unknown as MeshFit;
+const noPose = { kind: "no_pose" } as MeshFit;
+const unsupported = { kind: "unsupported" } as MeshFit;
 
 describe("liveStatusKey", () => {
   it("is silent when the garment is placed", () => {
-    expect(liveStatusKey("Tops", rect, loop())).toBeNull();
+    expect(liveStatusKey("Tops", mesh.kind, "ready", true)).toBeNull();
   });
 
   it("says unsupported before anything else", () => {
-    expect(liveStatusKey("Shoes", { kind: "unsupported" }, loop({ lost: true, signedOut: true }))).toBe(
-      "tryon.live.unsupported",
-    );
+    expect(liveStatusKey("Shoes", unsupported.kind, "failed", false)).toBe("tryon.live.unsupported");
   });
 
-  it("asks to sign in again when the loop stopped", () => {
-    expect(liveStatusKey("Tops", rect, loop({ signedOut: true, rateLimited: true }))).toBe("tryon.live.signed_out");
+  it("reports a failed tracker over loading and a missing person", () => {
+    expect(liveStatusKey("Tops", noPose.kind, "failed", false)).toBe("tryon.live.tracker_failed");
   });
 
-  it("prefers rate limiting over a lost connection", () => {
-    expect(liveStatusKey("Tops", rect, loop({ rateLimited: true, lost: true }))).toBe("tryon.live.rate_limited");
+  it("says the tracker is loading before looking for a person", () => {
+    expect(liveStatusKey("Tops", noPose.kind, "loading", false)).toBe("tryon.live.loading");
   });
 
-  it("reports a lost connection over a missing pose", () => {
-    expect(liveStatusKey("Tops", { kind: "no_pose" }, loop({ lost: true }))).toBe("tryon.live.lost");
-  });
-
-  it("says it is looking before the first pose arrives", () => {
-    expect(liveStatusKey("Tops", { kind: "no_pose" }, loop({ pose: null }))).toBe("tryon.live.starting");
+  it("says it is looking when the tracker is ready but nobody is in frame", () => {
+    expect(liveStatusKey("Tops", noPose.kind, "ready", false)).toBe("tryon.live.starting");
   });
 
   it.each([
@@ -43,7 +31,7 @@ describe("liveStatusKey", () => {
     ["outerwear", "tryon.live.no_pose.upper"],
     ["Dresses", "tryon.live.no_pose.dress"],
     ["Bottoms", "tryon.live.no_pose.lower"],
-  ])("names the body parts %s needs", (category, key) => {
-    expect(liveStatusKey(category, { kind: "no_pose" }, loop())).toBe(key);
+  ])("names the body parts %s needs once a person is seen", (category, key) => {
+    expect(liveStatusKey(category, noPose.kind, "ready", true)).toBe(key);
   });
 });
