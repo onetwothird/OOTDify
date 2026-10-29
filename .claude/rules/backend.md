@@ -10,8 +10,9 @@ paths:
 - **Python:** always `backend/.venv/Scripts/python` (Windows) or
   `backend/.venv/bin/python`. System Python lacks the packages.
 - **Route decorators, in order:** `@require_auth` → a limiter from
-  `services/ratelimit.py` (`default_limits`, `upload_limits` (15/hour),
-  `live_limits`) → `@require_consent`. Read identity from `g.current_user`.
+  `services/ratelimit.py` (`default_limits`, `upload_limits` (15/hour; the
+  `cutout` and `realistic_token` routes use it)) → `@require_consent`. Read
+  identity from `g.current_user`.
 - **Uploads:** `image_service.ingest_upload(...)`, then
   `image_service.cleanup(path)` in a `finally`. Routes keep nothing they don't
   have to.
