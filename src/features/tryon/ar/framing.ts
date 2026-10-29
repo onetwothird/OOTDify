@@ -16,6 +16,14 @@ const REQUIRED: Record<GarmentKind, string[]> = {
   bottom: ["hip", "knee", "ankle"],
 };
 
+/** Swap move_left / move_right, for a preview that isn't mirrored (back camera). */
+export function mirrorSides(hint: FramingHint): FramingHint {
+  "worklet";
+  if (hint === "move_left") return "move_right";
+  if (hint === "move_right") return "move_left";
+  return hint;
+}
+
 export function framingHint(category: string | null, keypoints: Keypoint[]): FramingHint {
   "worklet";
   let anyConfident = false;
