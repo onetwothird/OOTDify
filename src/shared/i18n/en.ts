@@ -1198,6 +1198,8 @@ export const en = {
   "tryon.live.starting": "Looking for you in the frame…",
   "tryon.live.tracker_failed": "Live tracking isn't available on this device.",
   "tryon.live.loading": "Getting the live tracker ready…",
+  "tryon.live.cutout_loading": "Preparing your garment…",
+  "tryon.live.cutout_failed": "We couldn't cut out this item, so it can't be shown live.",
   "tryon.live.full_tryon": "Create full try-on",
   "tryon.live.back_a11y": "Back to try-on",
   "tryon.live.flip_a11y": "Switch camera",
