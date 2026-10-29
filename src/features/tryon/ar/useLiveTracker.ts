@@ -3,7 +3,7 @@
 // preview-normalized 0..1 coordinates, to a Reanimated shared value that the
 // Skia garment layer reads on the UI thread. Nothing leaves the device and no
 // React state changes per frame: the JS side only hears about the person being
-// seen and tracker failures, at most every 250 ms.
+// seen, the framing hint and tracker failures, at most every 250 ms.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSharedValue, type SharedValue } from "react-native-reanimated";
 import { useTensorflowModel, type TensorflowModelDelegate, type TensorflowPlugin } from "react-native-fast-tflite";
@@ -12,6 +12,7 @@ import { useResizer } from "react-native-vision-camera-resizer";
 import { scheduleOnRN } from "react-native-worklets";
 
 import type { TrackerState } from "./liveStatus";
+import { framingHint, type FramingHint } from "./framing";
 import { MOVENET_INPUT_SIZE, parseMoveNet } from "./moveNet";
 import { MIN_KEYPOINT_CONFIDENCE, pointToPreview, type Keypoint, type Size } from "./overlayGeometry";
 import { createSmoother, smoothKeypoints, type SmootherState } from "./smoothing";
@@ -40,6 +41,7 @@ interface FrameState {
   errors: number;
   failed: boolean;
   sentSeen: boolean;
+  sentHint: FramingHint;
   lastPush: number;
   statsFrames: number;
   statsInferMs: number;
@@ -61,6 +63,7 @@ function frameStateFor(session: string): FrameState {
     errors: 0,
     failed: false,
     sentSeen: false,
+    sentHint: "no_person",
     lastPush: -Infinity,
     statsFrames: 0,
     statsInferMs: 0,
@@ -119,18 +122,23 @@ export interface LiveTracker {
   tracker: TrackerState;
   /** Any keypoint scored at least MIN_KEYPOINT_CONFIDENCE recently. */
   personSeen: boolean;
+  /** What to tell the user to fix about their framing (unsteadied; see useSteadyHint). */
+  hint: FramingHint;
 }
 
 export function useLiveTracker({
   active,
   facing,
   preview,
+  category,
 }: {
   /** False skips inference and clears the track (camera inactive, unsupported garment…). */
   active: boolean;
   facing: "front" | "back";
   /** On-screen preview size, for the cover crop between frame and preview. */
   preview: Size | null;
+  /** The garment category, which decides the joints that must be in view. */
+  category: string | null;
 }): LiveTracker {
   // GPU first; one CPU retry if the GPU delegate fails to load. The GPU error
   // object is remembered so the stale error seen right after switching to the
@@ -160,10 +168,14 @@ export function useLiveTracker({
 
   // Reports carry their session, so one from before a camera flip is ignored.
   const session = `${facing}:${active ? "on" : "off"}`;
-  const [seen, setSeen] = useState({ session: "", value: false });
+  const [seen, setSeen] = useState<{ session: string; value: boolean; hint: FramingHint }>({
+    session: "",
+    value: false,
+    hint: "no_person",
+  });
   const [frameError, setFrameError] = useState<string | null>(null);
-  const report = useCallback((from: string, value: boolean, error: string | null) => {
-    setSeen({ session: from, value });
+  const report = useCallback((from: string, value: boolean, hint: FramingHint, error: string | null) => {
+    setSeen({ session: from, value, hint });
     if (error !== null) setFrameError(error);
   }, []);
 
@@ -219,12 +231,15 @@ export function useLiveTracker({
             placed.push({ name: k.name, x: px.x / size.width, y: px.y / size.height, confidence: k.confidence });
           }
           const now = performance.now();
-          keypoints.value = smoothKeypoints(state.smoother, placed, now);
+          const smoothed = smoothKeypoints(state.smoother, placed, now);
+          keypoints.value = smoothed;
+          const hint = framingHint(category, smoothed);
           state.errors = 0;
-          if (personSeen !== state.sentSeen && now - state.lastPush >= PUSH_INTERVAL_MS) {
+          if ((personSeen !== state.sentSeen || hint !== state.sentHint) && now - state.lastPush >= PUSH_INTERVAL_MS) {
             state.sentSeen = personSeen;
+            state.sentHint = hint;
             state.lastPush = now;
-            scheduleOnRN(report, session, personSeen, null);
+            scheduleOnRN(report, session, personSeen, hint, null);
           }
           if (IS_DEV) {
             state.statsFrames += 1;
@@ -249,7 +264,7 @@ export function useLiveTracker({
           if (state.errors >= MAX_CONSECUTIVE_ERRORS) {
             state.failed = true;
             keypoints.value = null;
-            scheduleOnRN(report, session, false, String(e));
+            scheduleOnRN(report, session, false, "no_person", String(e));
           }
         }
       } finally {
@@ -257,7 +272,7 @@ export function useLiveTracker({
         frame.dispose();
       }
     };
-  }, [running, model, resizer, preview, session, keypoints, report, delegateName]);
+  }, [running, model, resizer, preview, session, category, keypoints, report, delegateName]);
 
   const frameOutput = useFrameOutput({
     targetResolution: CommonResolutions.VGA_16_9,
@@ -273,5 +288,7 @@ export function useLiveTracker({
   const tracker: TrackerState = failed ? "failed" : model != null && resizer != null ? "ready" : "loading";
   const personSeen = tracker === "ready" && seen.session === session && seen.value;
 
-  return { frameOutput, keypoints, tracker, personSeen };
+  const hint: FramingHint = tracker === "ready" && seen.session === session ? seen.hint : "no_person";
+
+  return { frameOutput, keypoints, tracker, personSeen, hint };
 }
