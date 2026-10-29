@@ -1,16 +1,16 @@
-# Try-On Cut-Outs, Smooth Live AR, Framing Guide and AI Photo — Implementation Plan
+# Try-On Cut-Outs, Smooth Live AR, Framing Guide and Realistic Live Mode — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** On `/tryon/live`, three things happen in order:
 - the garment cut-out, with no background, follows the person smoothly on live video;
 - a framing guide tells them where to stand;
-- "Take photo" produces a realistic FASHN try-on.
+- "Go realistic" starts a time-limited Decart live session that redraws the person wearing the garment.
 
 **Architecture:**
 - **Cut-outs.** The backend makes a transparent PNG from each closet item; the app caches it. The on-device tracker (Tasks 1-6 and 8 of the earlier plan, already done) warps the cut-out onto the body with Skia.
 - **Framing.** A pure framing unit turns the keypoints into one hint.
-- **AI photo.** "Take photo" reuses the existing body-photo upload and try-on job pipeline. Its provider boundary gets a FASHN implementation.
+- **Realistic mode.** The backend issues short-lived Decart client tokens. The app streams the camera to Decart Lucy VTON over LiveKit for up to 60 s, then returns to the AR. This replaced the FASHN photo on 2026-10-29.
 
 **Tech Stack:**
 - App: Expo SDK 58 dev build (Android), VisionCamera 5.2.3 plus its resizer, react-native-fast-tflite, @shopify/react-native-skia 2.14, Reanimated 4.7, Jest.
@@ -24,7 +24,7 @@
 1. Cut-out: Tasks 1-2.
 2. Smooth live try-on: the phone gate, then Task 4.
 3. Framing: Tasks 3 and 5.
-4. FASHN: Tasks 6-7.
+4. Realistic live mode (Decart): Tasks 6-7.
 5. Docs: Task 8.
 
 Task 3 is a pure unit with no UI, so it may run before the phone gate.
@@ -38,8 +38,8 @@ Task 3 is a pure unit with no UI, so it may run before the phone gate.
   - they import nothing native;
   - every exported function starts with `'worklet'`;
   - they are tested in `src/features/tryon/ar/__tests__/*.test.ts` (Jest node env).
-- No frame or keypoint data leaves the device. The only uploads are the explicit "Take photo" photo and the backend reading item images by id.
-- `FASHN_API_KEY` exists only in `backend/.env` and is never logged, returned, or put in an `EXPO_PUBLIC_*` variable. `FASHN_MODEL` defaults to `tryon-v1.6`.
+- In the default AR, no frame or keypoint data leaves the device. Video goes to Decart only during a realistic session the user starts after consent. The backend reads item images by id.
+- `DECART_API_KEY` exists only in `backend/.env` and is never logged, returned, or put in an `EXPO_PUBLIC_*` variable. The app only receives 60-second client tokens. `DECART_MODEL` defaults to `lucy-vton-3.6`, and `REALISTIC_SESSION_SECONDS` defaults to `60`.
 - The backend derives the user from the session token. A cut-out or try-on for an item the caller does not own and that isn't in the shared catalog is a 404.
 - Every user-visible string goes in **both** `src/shared/i18n/en.ts` and `fil.ts`, using the exact English from the spec.
 - Camera chrome uses fixed colours: `ON_CAMERA = "#FFFFFF"`, `CAMERA_BG = "#000000"`, and the framing-good green `#3DDC84`. The sheet uses theme tokens.
@@ -55,8 +55,8 @@ Task 3 is a pure unit with no UI, so it may run before the phone gate.
 1. **Cut-out for someone else's item id.** It must 404, not leak their image. Test: Task 1 `test_cutout_other_users_item_is_404`.
 2. **Item photo replaced after it was cached.** The stale cut-out must not show; a new `image_url` means a new fetch. Test: Task 2 `refetches when image_url changes`.
 3. **Front camera mirror.** "Move left" must mean the user's left on the mirrored preview, not the sensor's. Test: Task 3 `move hints use the mirrored preview`.
-4. **A FASHN failure or a bad key.** The job fails honestly, and the key never appears in errors or logs. Test: Task 6 `test_key_never_in_error_or_logs`.
-5. **"Take photo" tapped twice, or tapped while uploading.** Exactly one job is created. Test: Task 7 `ignores a second tap while uploading`.
+4. **Decart rejects the key or is down.** The app shows "couldn't start", and the key never appears in responses or logs. Test: Task 6 `test_key_never_in_response_or_logs`.
+5. **"Go realistic" tapped twice, or the app is backgrounded mid-session.** Only one session opens, and backgrounding ends it, so billing stops. Tests: Task 7 `ignores start while connecting or live` and `stop and background end the session`.
 
 ---
 
@@ -278,78 +278,94 @@ Carry these rulings into Task 4.
 - [ ] **Step 7:** Run `npx tsc --noEmit`, `npm test` and `npm run lint` → clean. Build arm64 → success.
 - [ ] **Step 8:** Commit one file per commit.
 
-### Task 6: FASHN provider on the backend
+### Task 6: Realistic-mode token route on the backend
 
 **Files:**
-- Modify: `backend/services/tryon_service.py` (add `FashnProvider`, provider selection, `garment_categories` in the inputs)
-- Modify: `backend/config.py` (`FASHN_API_KEY`, `FASHN_MODEL`), `backend/.env.example`
-- Test: `backend/tests/test_fashn_provider.py` (new). Update `tests/test_tryon_service.py` if provider selection changes its fixtures.
+- Create: `backend/routes/realistic.py`
+- Modify:
+  - `backend/app.py`: register the blueprint.
+  - `backend/config.py`: add `DECART_API_KEY`, `DECART_MODEL` and `REALISTIC_SESSION_SECONDS`.
+  - `backend/.env.example`.
+- Test: `backend/tests/test_realistic_route.py`
 
 **Interfaces:**
-- Consumes: `VTONProvider`, `TryOnError`, `VtonNotConfiguredError`, `TryOnPipeline.run`.
-- Produces:
-  - `FashnProvider(api_key: str, model: str = "tryon-v1.6", poll_interval: float = 2.0, timeout: float = 90.0)` with `generate(inputs) -> Path`.
-  - `make_provider() -> VTONProvider`: returns a `FashnProvider` when `Config.FASHN_API_KEY` is set, otherwise the existing `VTONProvider(Config.TRYON_MODEL_PATH)`.
-  - `inputs["garment_categories"]: list[str]`, one per clothing image, holding the raw category or `""`.
-  - `FASHN_CATEGORY = {"tops": "tops", "outerwear": "tops", "bottoms": "bottoms", "dresses": "one-pieces"}`. Anything else maps to `"auto"`.
+- Produces: `POST /api/tryon/realistic/token`. It returns one of:
+  - `200 {success: true, token: {apiKey: str, expiresAt: str}, model: str, session_seconds: int}`
+  - `503 {success: false, error: "not_configured"}`
+  - `502 {success: false, error: "provider_error"}`
+  - `401` when the caller isn't signed in.
 
-- [ ] **Step 1: Write the failing tests**, with `requests.post` and `requests.get` mocked:
-  - `test_run_request_shape`: the URL is `https://api.fashn.ai/v1/run`, the header is `Authorization: Bearer <key>`, and the body is
-    `{"model_name": "tryon-v1.6", "inputs": {"model_image": "data:image/…;base64,…", "garment_image": "data:…", "category": "tops", "garment_photo_type": "auto", "mode": "balanced", "output_format": "png", "return_base64": true}}`.
-  - `test_polls_until_completed_and_writes_png`: the status goes `in_queue` → `processing` → `completed`. `output[0]` is a PNG data URI, and the PNG bytes are written to the returned path.
-  - `test_failed_status_raises_tryon_error_with_message`.
-  - `test_timeout_raises_tryon_error`: use a fake clock or `timeout=0`.
-  - `test_chains_two_garments_using_previous_output`.
-  - `test_http_401_and_429_become_user_safe_errors`.
-  - `test_key_never_in_error_or_logs`: use `caplog`, and check `str(exc)`.
-  - `test_make_provider_without_key_is_not_configured`.
-- [ ] **Step 2:** `cd backend && .venv/Scripts/python -m pytest tests/test_fashn_provider.py -q` → FAIL.
-- [ ] **Step 3: Implement** per spec §3.
-  - Poll `GET https://api.fashn.ai/v1/status/<id>`.
-  - Every request has a timeout of 30 s.
-  - `TryOnPipeline.__init__` uses `provider or make_provider()`.
-  - `Pipeline.run` fills `garment_categories` from the same rows `_resolve_clothing_refs` reads. Extend that helper to also return the categories, keeping its ownership filter.
-- [ ] **Step 4:** Same command → PASS. Then the full `pytest -q` → all pass.
+- [ ] **Step 1: Write the failing tests.** Mock `requests.post`, and mount the real blueprint so the real decorators run, as `tests/test_cutout_route.py` does.
+  - `test_token_request_shape`. The call goes to `https://api.decart.ai/v1/client/tokens`. The `x-api-key` header carries the configured key. The JSON body is `{"expiresIn": 60, "allowedModels": ["lucy-vton-3.6"]}`. The timeout is 10.
+  - `test_token_returns_token_model_and_session_seconds`. `session_seconds == 60`.
+  - `test_no_key_is_503_not_configured`. The test also asserts that `requests.post` was not called.
+  - `test_decart_401_429_timeout_become_502`. Parametrise over the three cases.
+  - `test_key_never_in_response_or_logs`. Use `caplog`, and set Decart's error body to include the key.
+  - `test_token_requires_auth`.
+- [ ] **Step 2:** Run `cd backend && .venv/Scripts/python -m pytest tests/test_realistic_route.py -q` → FAIL.
+- [ ] **Step 3: Implement** per spec §3 Backend.
+  - Decorator order: `@require_auth`, `@upload_limits("realistic_token")`, `@require_consent`.
+  - Read only `apiKey` and `expiresAt` from Decart's JSON. Any other shape is a `provider_error`.
+- [ ] **Step 4:** Run the same command → PASS. Then run the full `pytest -q` → all pass.
 - [ ] **Step 5:** Commit one file per commit.
 
-### Task 7: "Take photo" on the live screen
+### Task 7: Realistic live mode in the app
 
 **Files:**
-- Create: `src/features/tryon/ar/usePhotoTryOn.ts`
-- Modify: `src/app/tryon/live.tsx`, `en.ts`, `fil.ts`
-- Test: `src/features/tryon/ar/__tests__/photoTryOn.test.ts`
+- Modify:
+  - `package.json` and `package-lock.json`, via `npx expo install @decartai/sdk` plus the LiveKit React Native packages named in Decart's React Native docs.
+  - `app.json`: add the plugins those packages' READMEs require.
+  - `src/services/aiApi.ts`: add `requestRealisticToken`.
+  - `src/app/tryon/live.tsx`, `en.ts`, `fil.ts`.
+- Create:
+  - `src/features/tryon/realistic/session.ts`: the pure countdown and phase reducer.
+  - `src/features/tryon/realistic/useRealisticSession.ts`
+  - `src/features/tryon/realistic/RealisticView.tsx`
+- Test: `src/features/tryon/realistic/__tests__/session.test.ts`
 
 **Interfaces:**
 - Consumes:
-  - `shrinkForUpload`, `uploadBodyPhoto`, `createTryOnJob` (existing)
-  - the try-on consent key `ootdify.tryon.consent.v1`, the same one `scan.tsx` uses
-  - `readyToShoot` (Task 5)
+  - Task 6's route.
+  - `getGarmentCutout`'s `uri` (Task 2).
+  - `readyToShoot` (Task 5).
 - Produces:
-  - `export async function startPhotoTryOn(deps: { shrink; upload; createJob }, photoUri: string, itemId: string): Promise<{ ok: true; jobId: string } | { ok: false }>`, a pure orchestration so it can be tested.
-  - `usePhotoTryOn(itemId)`:
-    - returns `{ phase: "idle" | "uploading" | "failed"; take(photoUri: string): Promise<void> }`;
-    - `take` is a no-op unless `phase` is `idle` or `failed`;
-    - on success it navigates to `/(tabs)/scan`.
+  - `requestRealisticToken(): Promise<{ apiKey: string; expiresAt: string; model: string; sessionSeconds: number }>`. A 503 `not_configured` throws an `ApiError` whose code the hook maps to `not_configured`.
+  - `type RealisticPhase = "idle" | "consent" | "connecting" | "live" | "ended" | "failed" | "not_configured"`.
+  - `export function realisticReducer(state: { phase: RealisticPhase; secondsLeft: number }, event: { type: "start"; consented: boolean } | { type: "consented" } | { type: "connected"; sessionSeconds: number } | { type: "tick" } | { type: "stop" } | { type: "background" } | { type: "error"; notConfigured: boolean } | { type: "back" }): { phase; secondsLeft }`.
+  - `useRealisticSession(cutoutUri: string | null): { phase; secondsLeft; remoteStream; start(): void; stop(): void; accept(): void; back(): void }`.
 
-- [ ] **Step 1: Write the failing tests:**
-  - `shrinks, uploads, then creates one job for the item`
-  - `returns ok false when upload throws`, with no job created
-  - `ignores a second tap while uploading`: two concurrent `take` calls create exactly one job.
-- [ ] **Step 2:** `npx jest src/features/tryon/ar/__tests__/photoTryOn.test.ts` → FAIL. Implement → PASS.
-- [ ] **Step 3:** Add the copy from spec §3 to en and fil:
-  - `tryon.live.take_photo`
-  - `tryon.live.take_photo_hint`
-  - `tryon.live.photo_uploading`
-  - `tryon.live.photo_failed`
-  - `tryon.live.photo_consent`: "To make a realistic photo, this one picture is uploaded and sent to our try-on partner FASHN. Live video never leaves your phone."
-- [ ] **Step 4:** In `live.tsx`:
-  - add `usePhotoOutput()` to the `<Camera>` outputs;
-  - the "Take photo" button is enabled only while `readyToShoot` and `phase === "idle"`;
-  - if consent isn't stored, show the consent sheet first, and save the flag on accept;
-  - capture with the photo output, then call `take(uri)`;
-  - show `photo_uploading` and `photo_failed` in the status line.
-- [ ] **Step 5:** Run `npx tsc --noEmit`, `npm test` and `npm run lint` → clean. Build arm64 → success.
-- [ ] **Step 6:** Commit one file per commit.
+- [ ] **Step 1: Connect check on the phone (gate).**
+  - Install the packages and add the plugins.
+  - Build arm64 from `C:\o`.
+  - Write a minimal throwaway connect in a scratch route that is never committed: token → `client.realtime.connect` → show the remote stream.
+  - The controller runs it on the user's phone with `DECART_API_KEY` set in `backend/.env`. If it can't connect, report BLOCKED with the error; the controller decides with the user.
+- [ ] **Step 2: Write the failing reducer tests.**
+  - `start without consent goes to consent`
+  - `start with consent goes to connecting`
+  - `connected sets live and secondsLeft`
+  - `tick counts down and ends at 0`
+  - `stop and background end the session`
+  - `error goes to failed, or not_configured`
+  - `back returns to idle`
+  - `ignores start while connecting or live`: a double tap must open only one session.
+- [ ] **Step 3:** Run `npx jest src/features/tryon/realistic/__tests__/session.test.ts` → FAIL. Implement `session.ts` → PASS.
+- [ ] **Step 4: Write `useRealisticSession`.**
+  - The consent flag is `ootdify.tryon.realistic.consent.v1`, kept in the same storage `scan.tsx` uses for its consent key.
+  - On `connecting`, the screen sets the VisionCamera inactive first. Then it opens the local camera stream with LiveKit and calls `connect` with `apiKeyProvider: () => requestRealisticToken().then(t => t.apiKey)` and `initialState: { image: <cut-out file> }`.
+  - A 1 s interval dispatches `tick`.
+  - An `AppState` change to background dispatches `background`.
+  - Every exit path disconnects and stops the local tracks.
+- [ ] **Step 5: Write `RealisticView.tsx` and wire `live.tsx`.**
+  - The "Go realistic" button is enabled only while `readyToShoot` is true and the cut-out is ready.
+  - The consent sheet uses the theme tokens.
+  - While `live`:
+    - show the remote video, mirrored for the front camera;
+    - show the countdown pill and "Stop";
+    - hide the framing guide and the garment layer.
+  - On `ended`, `failed` or `not_configured`, show the message and "Back to live preview".
+  - Add the spec §3 copy to `en.ts` and `fil.ts`.
+- [ ] **Step 6:** Run `npx tsc --noEmit`, `npm test` and `npm run lint` → clean. Build arm64 → success.
+- [ ] **Step 7:** Commit one file per commit. `package.json` and `package-lock.json` go together in one commit.
 
 ### Task 8: Docs and phone checklist
 
@@ -359,16 +375,16 @@ Carry these rulings into Task 4.
 - [ ] **Step 1:** Rewrite `REMAINING_TASKS.md` §3:
   - link both specs and both plans;
   - record the phone-gate numbers and rulings;
-  - add the setup steps: `FASHN_API_KEY` in `backend/.env` and on Railway, and the arm64 build from `C:\o`;
+  - add the setup steps: `DECART_API_KEY` in `backend/.env` and on Railway, and the arm64 build from `C:\o`;
   - add the phone checklist:
     - the cut-out shows with no box;
     - the garment follows on shoulders→hips with no visible lag;
     - the framing hints change correctly as the user moves;
-    - "Take photo" gives a FASHN result in Scan history.
+    - "Go realistic" redraws the garment live, counts down from 60 and returns to the AR.
   - Remove the old `RATE_LIMIT_LIVE_*` / `LIVE_POSE_IMAGE_SIZE` lines.
 - [ ] **Step 2:** In `README.md`, replace any Expo Go instructions with the dev build instructions.
 - [ ] **Step 3:** In `.claude/rules`:
   - remove `test_live_pose_route.py` and `live_limits`;
-  - mention `cutout` and `FashnProvider` where the neighbouring entries list routes and limits.
+  - mention the `cutout` and `realistic_token` routes where the neighbouring entries list routes and limits.
 - [ ] **Step 4:** Run the full verification (the last Global Constraints line) and report each result.
 - [ ] **Step 5:** Commit one file per commit (`docs(tryon): …`, `docs(readme): …`, `docs(rules): …`).
