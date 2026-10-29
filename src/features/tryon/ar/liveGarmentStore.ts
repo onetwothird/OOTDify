@@ -3,6 +3,8 @@
 import { create } from "zustand";
 
 export interface LiveGarment {
+  /** Closet item id, for the cut-out route. */
+  id: string;
   /** Storage ref or URL, resolved on the live screen (signed URLs expire). */
   imageRef: string;
   category: string | null;
