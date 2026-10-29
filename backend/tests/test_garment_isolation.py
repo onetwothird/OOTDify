@@ -134,3 +134,35 @@ def test_a_body_with_no_clothes_is_not_faked(tmp_path):
     assert not result.ok
     assert result.reason == "no_object"
     assert result.jpeg is None
+
+
+def test_compose_transparent_is_rgba_png_with_clear_corners():
+    from services.garment_isolation import _compose
+
+    rgb = np.full((200, 200, 3), 120, np.uint8)
+    mask = np.zeros((200, 200), np.uint8)
+    mask[60:140, 60:140] = 1
+    data, width, height = _compose(rgb, mask, transparent=True)
+
+    assert data.startswith(b"\x89PNG\r\n\x1a\n")
+    img = Image.open(BytesIO(data))
+    assert img.mode == "RGBA"
+    assert (width, height) == img.size
+    assert img.getpixel((0, 0))[3] == 0
+    assert img.getpixel((img.width // 2, img.height // 2))[3] == 255
+
+
+def test_isolate_transparent_keeps_default_jpeg_path():
+    img = Image.new("RGB", (480, 640), (215, 210, 205))
+    ImageDraw.Draw(img).rectangle([150, 190, 330, 510], fill=(25, 35, 110))
+    import tempfile, os
+    fd, path = tempfile.mkstemp(suffix=".jpg")
+    os.close(fd)
+    try:
+        img.save(path)
+        default = isolate_garment(path, parser=None)
+        cut = isolate_garment(path, parser=None, transparent=True)
+    finally:
+        os.remove(path)
+    assert default.ok and default.jpeg is not None and default.png is None
+    assert cut.ok and cut.png is not None and cut.jpeg is None
