@@ -147,3 +147,29 @@ class TestPipelineRun:
         assert fields["status"] == "failed"
         assert fields["error"] == GENERIC_ERROR
         assert "SECRET" not in fields["error"]
+
+
+class TestResolveClothingItem:
+    def test_catalog_item(self, fake_client):
+        fake_client.responses = [[{"id": "c1", "image_url": "https://x/c1.jpg", "category": "tops"}]]
+        got = tryon_service.resolve_clothing_item("user-1", "c1")
+        assert got == {"image_url": "https://x/c1.jpg", "category": "tops"}
+        assert len(fake_client.executed) == 1
+        assert fake_client.executed[0].table == "clothing"
+
+    def test_own_item_is_filtered_by_user(self, fake_client):
+        fake_client.responses = [[], [{"id": "i1", "image_url": "wardrobe/i1.jpg", "category": None}]]
+        got = tryon_service.resolve_clothing_item("user-1", "i1")
+        assert got == {"image_url": "wardrobe/i1.jpg", "category": None}
+        own = fake_client.executed[1]
+        assert own.table == "clothing_items"
+        assert ("eq", ("user_id", "user-1")) in own.ops
+
+    def test_other_users_item_is_none(self, fake_client):
+        # The user_id filter makes the database return no row for someone else's item.
+        fake_client.responses = [[], []]
+        assert tryon_service.resolve_clothing_item("user-1", "theirs") is None
+
+    def test_row_without_image_is_none(self, fake_client):
+        fake_client.responses = [[{"id": "c1", "image_url": None, "category": "tops"}], []]
+        assert tryon_service.resolve_clothing_item("user-1", "c1") is None
