@@ -57,7 +57,7 @@ function pair(keypoints: Keypoint[], joint: Joint): [Point, Point] | null {
   let right: Keypoint | undefined;
   for (let i = 0; i < keypoints.length; i++) {
     const k = keypoints[i];
-    if (k.confidence < MIN_KEYPOINT_CONFIDENCE) continue;
+    if (!(k.confidence >= MIN_KEYPOINT_CONFIDENCE)) continue;
     if (k.name === `left_${joint}`) left = k;
     else if (k.name === `right_${joint}`) right = k;
   }
@@ -109,13 +109,13 @@ function anchorRows(kind: Kind, kps: Keypoint[]): Row[] | null {
   const hips = pair(kps, "hip");
   if (!hips) return null;
   const hipWidth = dist(hips[0], hips[1]);
-  if (hipWidth <= 0) return null;
+  if (!(hipWidth >= MIN_PAIR_WIDTH)) return null;
 
   if (kind === "bottom") {
     const knees = pair(kps, "knee");
     const ankles = pair(kps, "ankle");
-    if (!knees || !ankles || hipWidth < MIN_PAIR_WIDTH) return null;
-    if (dist(knees[0], knees[1]) <= 0 || dist(ankles[0], ankles[1]) <= 0) return null;
+    if (!knees || !ankles) return null;
+    if (!(dist(knees[0], knees[1]) >= MIN_PAIR_WIDTH) || !(dist(ankles[0], ankles[1]) >= MIN_PAIR_WIDTH)) return null;
     return [
       rowAt(hips[0], hips[1], (hipWidth * BOTTOM_WIDTH_SCALE) / 2),
       legEdgeRow(knees, hipWidth),
@@ -126,7 +126,7 @@ function anchorRows(kind: Kind, kps: Keypoint[]): Row[] | null {
   const shoulders = pair(kps, "shoulder");
   if (!shoulders) return null;
   const shoulderWidth = dist(shoulders[0], shoulders[1]);
-  if (shoulderWidth < MIN_PAIR_WIDTH) return null;
+  if (!(shoulderWidth >= MIN_PAIR_WIDTH)) return null;
   const topHalf = (shoulderWidth * TOP_WIDTH_SCALE) / 2;
   const hipHalf = Math.max((hipWidth * HIP_WIDTH_SCALE) / 2, topHalf * HIP_MIN_RATIO);
   const top = rowAt(shoulders[0], shoulders[1], topHalf);
@@ -137,12 +137,12 @@ function anchorRows(kind: Kind, kps: Keypoint[]): Row[] | null {
     const wr = lerp(hips[1], shoulders[1], WAIST_FROM_HIPS);
     // Waist width eases from the hip row toward the top row by the same fraction.
     const waistHalf = hipHalf + (topHalf - hipHalf) * WAIST_FROM_HIPS;
-    if (dist(wl, wr) <= 0) return null;
+    if (!(dist(wl, wr) >= MIN_PAIR_WIDTH)) return null;
     return [top, rowAt(wl, wr, waistHalf), hipRow];
   }
 
   const knees = pair(kps, "knee");
-  if (!knees || dist(knees[0], knees[1]) <= 0) return null;
+  if (!knees || !(dist(knees[0], knees[1]) >= MIN_PAIR_WIDTH)) return null;
   return [top, hipRow, rowAt(knees[0], knees[1], hipHalf * KNEE_WIDTH_SCALE)];
 }
 
@@ -166,28 +166,46 @@ export function bodyMesh(category: string | null, keypoints: Keypoint[], garment
   const first = center(rows[0]);
   const last = center(rows[rows.length - 1]);
   const span = dist(first, last);
-  if (span <= 0) return { kind: "no_pose" };
+  if (!(span > 0)) return { kind: "no_pose" };
   // Body axis: unit vector from the top-row centre to the bottom-row centre.
   const ax = (last.x - first.x) / span;
   const ay = (last.y - first.y) / span;
   // The body must run down the frame (hips below shoulders); an inverted pose is noise.
-  if (ay <= 0) return { kind: "no_pose" };
+  if (!(ay > 0)) return { kind: "no_pose" };
 
   // Rows must run top to bottom along the body axis, each with a positive width.
   for (let i = 0; i < rows.length; i++) {
-    if (rows[i].half <= 0) return { kind: "no_pose" };
+    if (!(rows[i].half > 0)) return { kind: "no_pose" };
     if (i < rows.length - 1) {
       const a = center(rows[i]);
       const b = center(rows[i + 1]);
-      if ((b.x - a.x) * ax + (b.y - a.y) * ay <= 0) return { kind: "no_pose" };
+      if (!((b.x - a.x) * ax + (b.y - a.y) * ay > 0)) return { kind: "no_pose" };
     }
+  }
+
+  // Every row must run the same way as the top row, or the mesh twists (swapped joints, side-on pose).
+  const topDir = { x: rows[0].right.x - rows[0].left.x, y: rows[0].right.y - rows[0].left.y };
+  for (let i = 1; i < rows.length; i++) {
+    const d = { x: rows[i].right.x - rows[i].left.x, y: rows[i].right.y - rows[i].left.y };
+    if (!(d.x * topDir.x + d.y * topDir.y > 0)) return { kind: "no_pose" };
   }
 
   // Raise the top row (tops/dresses only: bottoms start at the hips) and drop the bottom one.
   const anchors = rows.slice();
   if (kind !== "bottom") {
-    const torso = dist(first, center(rows[kind === "upper" ? 2 : 1]));
-    anchors[0] = shiftRow(rows[0], -ax * TOP_RAISE * torso, -ay * TOP_RAISE * torso);
+    const hipCenter = center(rows[kind === "upper" ? 2 : 1]);
+    const torso = dist(first, hipCenter);
+    // Up = perpendicular to the shoulder line, pointing away from the hips.
+    const dl = Math.hypot(topDir.x, topDir.y);
+    let ux = -topDir.y / dl;
+    let uy = topDir.x / dl;
+    const toward = ux * (hipCenter.x - first.x) + uy * (hipCenter.y - first.y);
+    if (!(Math.abs(toward) > 0)) return { kind: "no_pose" };
+    if (toward > 0) {
+      ux = -ux;
+      uy = -uy;
+    }
+    anchors[0] = shiftRow(rows[0], ux * TOP_RAISE * torso, uy * TOP_RAISE * torso);
   }
   const lastIdx = anchors.length - 1;
   anchors[lastIdx] = shiftRow(rows[lastIdx], ax * BOTTOM_DROP * span, ay * BOTTOM_DROP * span);
@@ -216,6 +234,10 @@ export function bodyMesh(category: string | null, keypoints: Keypoint[], garment
       const d = a + stride;
       indices.push(a, a + 1, d, a + 1, d + 1, d);
     }
+  }
+  // NaN or infinite input must never reach the renderer.
+  for (let i = 0; i < vertices.length; i++) {
+    if (!Number.isFinite(vertices[i].x) || !Number.isFinite(vertices[i].y)) return { kind: "no_pose" };
   }
   return { kind: "mesh", vertices, texCoords, indices };
 }
