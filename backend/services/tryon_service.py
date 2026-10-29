@@ -211,12 +211,24 @@ class TryOnJobStore:
 # --------------------------------------------------------------------------
 # Pipeline
 # --------------------------------------------------------------------------
+def _is_own_wardrobe_ref(user_id: str, ref: str) -> bool:
+    """True for `wardrobe/<user_id>/<file>`, the only shape the app writes.
+
+    Rejects other users' paths, other buckets, `..` segments and external URLs,
+    so a doctored row cannot make the server read someone else's image or an
+    arbitrary URL.
+    """
+    parts = ref.split("/")
+    return len(parts) >= 3 and parts[0] == "wardrobe" and parts[1] == user_id and all(parts[2:]) and ".." not in parts
+
+
 def resolve_clothing_item(user_id: str, item_id: str) -> Optional[dict]:
     """Image and category for a clothing id the caller may use, else None.
 
     Checks the shared `clothing` catalog first, then the caller's own
     `clothing_items` (filtered by user_id, so another user's item is never
-    returned). Same queries and ownership filter as
+    returned), and its image_url must be in the caller's own wardrobe folder.
+    Same queries and ownership filter as
     `TryOnPipeline._resolve_clothing_refs`.
     """
     for table, owned in (("clothing", False), ("clothing_items", True)):
@@ -225,7 +237,8 @@ def resolve_clothing_item(user_id: str, item_id: str) -> Optional[dict]:
             query = query.eq("user_id", user_id)
         rows = query.execute().data or []
         for row in rows:
-            if row.get("image_url"):
+            ref = row.get("image_url")
+            if ref and (not owned or _is_own_wardrobe_ref(user_id, ref)):
                 return {"image_url": row["image_url"], "category": row.get("category")}
     return None
 
