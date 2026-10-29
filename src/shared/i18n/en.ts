@@ -1206,5 +1206,15 @@ export const en = {
   "tryon.live.back_a11y": "Back to try-on",
   "tryon.live.flip_a11y": "Switch camera",
   "tryon.live.permission": "Allow camera access to see this on you.",
-  "tryon.live.grant": "Allow camera"
+  "tryon.live.grant": "Allow camera",
+  "tryon.live.go_realistic": "Go realistic",
+  "tryon.live.realistic_hint": "See a realistic live preview (up to 1 minute)",
+  "tryon.live.realistic_consent": "Realistic mode streams your camera video to our partner Decart, which redraws you wearing this item. Decart may use the video to improve its AI. It runs for up to 1 minute. The normal preview never leaves your phone.",
+  "tryon.live.realistic_connecting": "Starting realistic mode…",
+  "tryon.live.realistic_seconds": "{seconds}s left",
+  "tryon.live.realistic_stop": "Stop",
+  "tryon.live.realistic_ended": "Realistic preview ended",
+  "tryon.live.realistic_back": "Back to live preview",
+  "tryon.live.realistic_failed": "Realistic mode couldn't start. Check your connection and try again.",
+  "tryon.live.realistic_not_configured": "Realistic mode isn't set up yet."
 } as const;
