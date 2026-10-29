@@ -2,7 +2,8 @@
 // preview. Runs on the UI thread from shared values: keypoints (preview
 // coordinates, from useLiveTracker) → bodyMesh → Skia <Vertices> textured with
 // the cut-out. When the pose is lost the last mesh holds for 300 ms, then
-// fades over 200 ms (no fade with reduce motion).
+// fades over 200 ms (no fade with reduce motion). On the back camera the
+// texture is flipped so logos read the right way; the front camera is a mirror.
 import {
   AlphaType,
   Canvas,
@@ -75,12 +76,14 @@ export function LiveGarmentLayer({
   bounds,
   category,
   keypoints,
+  facing,
   onFitKind,
 }: {
   image: SkImage | null;
   bounds: Bounds;
   category: string | null;
   keypoints: SharedValue<Keypoint[] | null>;
+  facing: "front" | "back";
   /** The current fit kind, pushed at most every 250 ms (drives the status line). */
   onFitKind?: (kind: MeshFit["kind"]) => void;
 }) {
@@ -135,7 +138,13 @@ export function LiveGarmentLayer({
   const textures = useDerivedValue<SkPoint[]>(() => {
     const mesh = held.value;
     if (!mesh || canvasSize.value.width <= 0) return EMPTY_POINTS;
-    return mesh.texCoords.map((p) => ({ x: p.x * imageW, y: p.y * imageH }));
+    // bodyMesh puts image-left on the person's left joints; seen from the back
+    // camera that reverses the garment, so mirror x within the opaque bounds.
+    const flip = facing === "back";
+    return mesh.texCoords.map((p) => ({
+      x: (flip ? bounds.x + bounds.width - (p.x - bounds.x) : p.x) * imageW,
+      y: p.y * imageH,
+    }));
   });
   const indices = useDerivedValue<number[]>(() => {
     const mesh = held.value;
