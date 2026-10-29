@@ -240,6 +240,7 @@ export default function ItemDetailScreen() {
               variant={PHOTO_TRYON_AVAILABLE ? "secondary" : undefined}
               onPress={() => {
                 useLiveGarment.getState().set({
+                  id: item.id,
                   imageRef: item.image_url ?? "",
                   category: item.category,
                   name: item.name || t("scan.item_fallback"),
