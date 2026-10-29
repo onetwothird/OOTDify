@@ -31,6 +31,12 @@ cutout_bp = Blueprint("cutout", __name__)
 @upload_limits("cutout")
 @require_consent
 def clothing_cutout(item_id: str):
+    try:
+        uuid.UUID(item_id)
+    except ValueError:
+        # The id columns are uuid; anything else cannot exist.
+        return jsonify(success=False, error="Clothing item not found."), 404
+
     temp_path = None
     try:
         item = tryon_service.resolve_clothing_item(g.current_user["id"], item_id)
