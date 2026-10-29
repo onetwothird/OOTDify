@@ -114,4 +114,39 @@ describe("bodyMesh", () => {
     const kps = standing({ left_hip: [0.43, 0.2], right_hip: [0.57, 0.2] });
     expect(bodyMesh("Tops", kps, FULL).kind).toBe("no_pose");
   });
+
+  it("no_pose when a row's left/right order flips (swapped hips)", () => {
+    const kps = standing({ left_hip: [0.57, 0.6], right_hip: [0.43, 0.6] });
+    expect(bodyMesh("Tops", kps, FULL).kind).toBe("no_pose");
+  });
+
+  it("no_pose for bottoms with crossed ankles", () => {
+    const kps = standing({ left_ankle: [0.55, 0.95], right_ankle: [0.45, 0.95] });
+    expect(bodyMesh("Bottoms", kps, FULL).kind).toBe("no_pose");
+  });
+
+  it("no_pose when a pair that sets a row direction is nearly coincident", () => {
+    const kps = standing({ left_knee: [0.499, 0.78], right_knee: [0.501, 0.78] });
+    expect(bodyMesh("Dresses", kps, FULL).kind).toBe("no_pose");
+  });
+
+  it("raises the top row along the shoulder perpendicular, not the torso axis", () => {
+    const kps = standing({ left_hip: [0.53, 0.6], right_hip: [0.67, 0.6] });
+    const m = meshOf("Tops", kps);
+    const torso = Math.hypot(0.6 - 0.5, 0.6 - 0.3);
+    const cx = (m.vertices[0].x + m.vertices[COLS - 1].x) / 2;
+    const cy = (m.vertices[0].y + m.vertices[COLS - 1].y) / 2;
+    expect(cx).toBeCloseTo(0.5, 6);
+    expect(cy).toBeCloseTo(0.3 - 0.12 * torso, 6);
+  });
+
+  it("no_pose when a coordinate is NaN", () => {
+    const kps = standing({ left_shoulder: [NaN, 0.3] });
+    expect(bodyMesh("Tops", kps, FULL).kind).toBe("no_pose");
+  });
+
+  it("no_pose when a confidence is NaN", () => {
+    const kps = standing({ left_hip: [0.43, 0.6, NaN] });
+    expect(bodyMesh("Tops", kps, FULL).kind).toBe("no_pose");
+  });
 });
