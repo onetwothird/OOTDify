@@ -61,6 +61,7 @@ class IsolationResult:
     coverage: Optional[float] = None
     dominance: Optional[float] = None
     jpeg: Optional[bytes] = None
+    png: Optional[bytes] = None
     width: Optional[int] = None
     height: Optional[int] = None
 
@@ -120,8 +121,12 @@ def _largest_component(mask: np.ndarray) -> tuple[np.ndarray, float]:
     return filled, dominance
 
 
-def _compose(rgb: np.ndarray, mask: np.ndarray) -> tuple[bytes, int, int]:
-    """Garment on a white background, cropped to the mask with padding, as JPEG."""
+def _compose(rgb: np.ndarray, mask: np.ndarray, transparent: bool = False) -> tuple[bytes, int, int]:
+    """Garment cropped to the mask with padding.
+
+    Default: on a white background, as JPEG. `transparent`: an RGBA PNG whose
+    alpha is the soft mask, so nothing but the garment is drawn.
+    """
     ys, xs = np.nonzero(mask)
     h, w = mask.shape
     pad = int(max(h, w) * OUTPUT_PADDING)
@@ -129,18 +134,27 @@ def _compose(rgb: np.ndarray, mask: np.ndarray) -> tuple[bytes, int, int]:
     x0, x1 = max(0, xs.min() - pad), min(w, xs.max() + pad + 1)
 
     # Soft edge so the cut-out does not look jagged.
-    alpha = cv2.GaussianBlur(mask.astype(np.float32), (5, 5), 0)[..., None]
+    soft = cv2.GaussianBlur(mask.astype(np.float32), (5, 5), 0)
+    buf = BytesIO()
+    if transparent:
+        alpha8 = np.clip(soft * 255, 0, 255).astype(np.uint8)
+        rgba = np.dstack([rgb, alpha8])[y0:y1, x0:x1]
+        img = Image.fromarray(rgba, "RGBA")
+        img.thumbnail((OUTPUT_MAX_SIDE, OUTPUT_MAX_SIDE))
+        img.save(buf, format="PNG")
+        return buf.getvalue(), img.width, img.height
+
+    alpha = soft[..., None]
     white = np.full_like(rgb, 255)
     out = (rgb * alpha + white * (1 - alpha)).astype(np.uint8)[y0:y1, x0:x1]
 
     img = Image.fromarray(out)
     img.thumbnail((OUTPUT_MAX_SIDE, OUTPUT_MAX_SIDE))
-    buf = BytesIO()
     img.save(buf, format="JPEG", quality=90)
     return buf.getvalue(), img.width, img.height
 
 
-def _clothing_only(rgb: np.ndarray, parser: Parser) -> Optional[IsolationResult]:
+def _clothing_only(rgb: np.ndarray, parser: Parser, transparent: bool = False) -> Optional[IsolationResult]:
     """Result for a worn garment, or None when the photo shows no body.
 
     A flat-lay has no face, hair, arms or legs, and the parser is less reliable on
@@ -159,16 +173,26 @@ def _clothing_only(rgb: np.ndarray, parser: Parser) -> Optional[IsolationResult]
     if coverage < MIN_COVERAGE:
         return IsolationResult(ok=False, reason="no_object", coverage=coverage)
 
-    jpeg, width, height = _compose(rgb, clothes)
-    return IsolationResult(ok=True, coverage=coverage, dominance=1.0, jpeg=jpeg, width=width, height=height)
+    data, width, height = _compose(rgb, clothes, transparent)
+    return IsolationResult(
+        ok=True,
+        coverage=coverage,
+        dominance=1.0,
+        jpeg=None if transparent else data,
+        png=data if transparent else None,
+        width=width,
+        height=height,
+    )
 
 
-def isolate_garment(image_path: str | Path, parser: Optional[Parser] = None) -> IsolationResult:
+def isolate_garment(
+    image_path: str | Path, parser: Optional[Parser] = None, *, transparent: bool = False
+) -> IsolationResult:
     try:
         rgb = _load_rgb(image_path)
         parser = parser or get_clothes_parser()
         if parser is not None:
-            worn = _clothing_only(rgb, parser)
+            worn = _clothing_only(rgb, parser, transparent)
             if worn is not None:
                 return worn
         raw = _foreground_mask(rgb)
@@ -188,12 +212,13 @@ def isolate_garment(image_path: str | Path, parser: Optional[Parser] = None) -> 
     if dominance < MIN_DOMINANCE:
         return IsolationResult(ok=False, reason="multiple_objects", coverage=coverage, dominance=dominance)
 
-    jpeg, width, height = _compose(rgb, mask)
+    data, width, height = _compose(rgb, mask, transparent)
     return IsolationResult(
         ok=True,
         coverage=round(float(mask.sum()) / total, 4),
         dominance=dominance,
-        jpeg=jpeg,
+        jpeg=None if transparent else data,
+        png=data if transparent else None,
         width=width,
         height=height,
     )
