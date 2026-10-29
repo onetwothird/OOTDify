@@ -32,6 +32,14 @@ says otherwise.
 - The body-outline (silhouette) fit is **not** in scope. The AI photo gives the
   realistic body shape, and a second on-device model would add lag.
 
+**Build order (user, 2026-10-29):** "fix the background first before the
+fashn … smoothen them all". The order is:
+1. Garment cut-out (§1).
+2. The smooth live try-on: the existing plan's Task 7, the lag work (§Lag),
+   soft cut-out edges, and steady garment motion.
+3. Framing guide (§2).
+4. AI photo with FASHN (§3), last.
+
 ## Success criteria
 
 1. The live overlay never shows a garment's photo background:
