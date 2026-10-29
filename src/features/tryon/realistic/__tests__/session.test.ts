@@ -1,4 +1,5 @@
 import {
+  createDialGate,
   INITIAL_REALISTIC,
   isNotConfiguredError,
   realisticReducer,
@@ -95,5 +96,69 @@ describe("isNotConfiguredError", () => {
     expect(isNotConfiguredError({ status: 503, payload: null })).toBe(false);
     expect(isNotConfiguredError(new Error("boom"))).toBe(false);
     expect(isNotConfiguredError(null)).toBe(false);
+  });
+});
+
+describe("createDialGate", () => {
+  const flush = () => new Promise((r) => setTimeout(r, 0));
+  function deferred<T>() {
+    let resolve!: (v: T) => void;
+    let reject!: (e: unknown) => void;
+    const promise = new Promise<T>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, resolve, reject };
+  }
+
+  it("is idle when nothing was dialled", async () => {
+    let done = false;
+    void createDialGate()
+      .idle()
+      .then(() => (done = true));
+    await flush();
+    expect(done).toBe(true);
+  });
+
+  it("waits for a pending dial before the next session may dial", async () => {
+    const gate = createDialGate();
+    const dial = deferred<string>();
+    void gate.track(dial.promise, () => {}, () => false);
+    let done = false;
+    void gate.idle().then(() => (done = true));
+    await flush();
+    expect(done).toBe(false);
+    dial.resolve("client");
+    await flush();
+    expect(done).toBe(true);
+  });
+
+  it("releases a dial that resolves after its session was abandoned", async () => {
+    const gate = createDialGate();
+    const dial = deferred<string>();
+    const released: string[] = [];
+    let abandoned = false;
+    void gate.track(dial.promise, (c) => released.push(c), () => abandoned);
+    abandoned = true; // user tapped Stop while dialling
+    dial.resolve("late-client");
+    await gate.idle();
+    expect(released).toEqual(["late-client"]);
+  });
+
+  it("leaves a dial that is still wanted alone", async () => {
+    const gate = createDialGate();
+    const released: string[] = [];
+    await gate.track(Promise.resolve("client"), (c) => released.push(c), () => false);
+    await gate.idle();
+    expect(released).toEqual([]);
+  });
+
+  it("a failed dial still frees the gate, and track passes the rejection on", async () => {
+    const gate = createDialGate();
+    const dial = deferred<string>();
+    const tracked = gate.track(dial.promise, () => {}, () => true);
+    dial.reject(new Error("refused"));
+    await expect(tracked).rejects.toThrow("refused");
+    await expect(gate.idle()).resolves.toBeUndefined();
   });
 });
