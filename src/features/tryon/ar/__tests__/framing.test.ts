@@ -1,5 +1,5 @@
 import { garmentKind } from "../bodyMesh";
-import { framingHint } from "../framing";
+import { framingHint, mirrorSides } from "../framing";
 import type { Keypoint } from "../overlayGeometry";
 
 type Pt = [number, number, number?];
@@ -78,5 +78,14 @@ describe("garmentKind", () => {
     expect(garmentKind("shoes")).toBeNull();
     expect(garmentKind("constructor")).toBeNull();
     expect(garmentKind(null)).toBeNull();
+  });
+});
+
+describe("mirrorSides", () => {
+  it("swaps left and right and leaves the other hints alone", () => {
+    expect(mirrorSides("move_left")).toBe("move_right");
+    expect(mirrorSides("move_right")).toBe("move_left");
+    expect(mirrorSides("step_back")).toBe("step_back");
+    expect(mirrorSides("good")).toBe("good");
   });
 });
