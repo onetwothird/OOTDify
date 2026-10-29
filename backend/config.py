@@ -158,6 +158,13 @@ class Config:
     ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
     GARMENT_VISION_MODEL = os.getenv("GARMENT_VISION_MODEL", "claude-opus-5-5")
 
+    # ------------------------------ Decart ---------------------------------
+    # "Go realistic" live try-on. The key stays server-side; the app only ever
+    # receives a short-lived client token. Leave empty to disable (503).
+    DECART_API_KEY = os.getenv("DECART_API_KEY", "")
+    DECART_MODEL = os.getenv("DECART_MODEL", "lucy-vton-3.6")
+    REALISTIC_SESSION_SECONDS = int(os.getenv("REALISTIC_SESSION_SECONDS", "60"))
+
     # ----------------------------- Rate limiting ---------------------------
     # Simple in-memory limits (per authenticated user, per rule name).
     RATE_LIMIT_DEFAULT_MAX = int(os.getenv("RATE_LIMIT_DEFAULT_MAX", "120"))
