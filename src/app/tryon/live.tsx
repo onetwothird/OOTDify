@@ -14,11 +14,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Camera, useCameraPermission } from "react-native-vision-camera";
 
 import { isSupportedCategory, type MeshFit } from "../../features/tryon/ar/bodyMesh";
+import { FramingGuide } from "../../features/tryon/ar/FramingGuide";
 import { LiveGarmentLayer, useGarmentBounds } from "../../features/tryon/ar/LiveGarmentLayer";
 import { useLiveGarment } from "../../features/tryon/ar/liveGarmentStore";
 import { liveStatusKey, type CutoutState } from "../../features/tryon/ar/liveStatus";
 import type { Size } from "../../features/tryon/ar/overlayGeometry";
 import { useLiveTracker } from "../../features/tryon/ar/useLiveTracker";
+import { useSteadyHint } from "../../features/tryon/ar/useSteadyHint";
 import { getGarmentCutout, type CutoutOutcome } from "../../features/tryon/cutout";
 import type { Theme } from "../../shared/config/theme";
 import { useT } from "../../shared/i18n/useT";
@@ -95,16 +97,19 @@ export default function LiveTryOnScreen() {
     active: focused && appActive && !!garment && hasPermission && supported && cutoutState === "ready",
     facing,
     preview,
+    category,
   });
 
-  const statusKey = liveStatusKey(
-    category,
-    supported ? fitKind : "unsupported",
-    live.tracker,
-    live.personSeen,
-    cutoutState,
-  );
+  const statusKey = liveStatusKey(supported ? fitKind : "unsupported", live.tracker, cutoutState);
   const status = statusKey ? t(statusKey) : null;
+
+  // The framing guide takes over once nothing else needs saying. A status line
+  // (tracker or cut-out trouble, unsupported garment) outranks the hint text.
+  const guideOn = hasPermission && supported && cutoutState === "ready" && statusKey === null;
+  const steady = useSteadyHint(guideOn ? live.hint : "no_person");
+  // Consumed by the "Go realistic" button in a later task.
+  const readyToShoot = guideOn && steady.readyToShoot;
+  void readyToShoot;
 
   // Android announces via accessibilityLiveRegion; iOS needs an explicit call.
   useEffect(() => {
@@ -140,6 +145,7 @@ export default function LiveTryOnScreen() {
             onFitKind={setFitKind}
           />
         ) : null}
+        {guideOn ? <FramingGuide hint={steady.shown} topOffset={insets.top + 64} /> : null}
 
         <View style={[styles.topRow, { top: insets.top + 8 }]}>
           <CameraButton icon="chevron-back" label={t("tryon.live.back_a11y")} onPress={goBack} />
