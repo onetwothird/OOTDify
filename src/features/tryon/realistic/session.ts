@@ -81,3 +81,40 @@ export function isNotConfiguredError(err: unknown): boolean {
     (payload as { error?: unknown }).error === "not_configured"
   );
 }
+
+/**
+ * Serialises Decart dials across sessions (and screen remounts). A connect()
+ * that is still dialling when its session ends can't be aborted; the gate
+ *   - releases it (disconnect) as soon as it resolves, if its session was
+ *     abandoned meanwhile, and
+ *   - makes the next session wait until it has settled before dialling, so
+ *     two sessions never overlap (Decart refuses that with 1013).
+ */
+export function createDialGate() {
+  let pending: Promise<void> | null = null;
+  return {
+    /** Resolves once no earlier dial is in flight. Never rejects. */
+    idle(): Promise<void> {
+      return pending ?? Promise.resolve();
+    },
+    /** Track a dial. Returns it unchanged (rejections pass through to the caller). */
+    track<T>(dial: Promise<T>, release: (value: T) => void, abandoned: () => boolean): Promise<T> {
+      const settled: Promise<void> = dial.then(
+        (value) => {
+          if (!abandoned()) return;
+          try {
+            release(value);
+          } catch {
+            // Releasing is best effort; the gate must still open.
+          }
+        },
+        () => undefined,
+      );
+      pending = settled;
+      void settled.then(() => {
+        if (pending === settled) pending = null;
+      });
+      return dial;
+    },
+  };
+}
