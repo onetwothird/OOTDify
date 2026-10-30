@@ -24,6 +24,9 @@ import { StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { BiometricGate } from "../features/settings/BiometricGate";
 import { FlyingPreloader } from "../shared/components/FlyingPreloader";
+import { PenggiMomentHost, penggi } from "../shared/components/PenggiMoment";
+import { translateNow } from "../shared/i18n/useT";
+import { nextWelcome } from "../shared/lib/welcome";
 import { ToastHost } from "../shared/components/ToastHost";
 import { TERMS_VERSION } from "../shared/config/legal";
 import { lightColors } from "../shared/config/theme";
@@ -51,6 +54,11 @@ function hasCurrentConsent(session: Session | null): boolean {
   const version = (metadata as { terms_version?: unknown }).terms_version;
   return typeof version === "string" && version === TERMS_VERSION;
 }
+
+// Lets the first screen settle before Penggi celebrates.
+const WELCOME_DELAY_MS = 700;
+// Module scope so a remount of the root never celebrates twice in one launch.
+let welcomedThisLaunch = false;
 
 export default function RootLayout() {
   // ThemeProvider must be the outermost themed element so every screen below —
@@ -91,8 +99,18 @@ function RootLayoutInner() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
+      // Happy Penggi celebrates a sign-in, and once per launch when the app
+      // opens already signed in (see nextWelcome).
+      const next = nextWelcome(event, !!session, welcomedThisLaunch);
+      welcomedThisLaunch = next.welcomed;
+      if (next.show) {
+        setTimeout(
+          () => penggi.show("welcome", translateNow("penggi.welcome.title"), translateNow("penggi.welcome.message")),
+          WELCOME_DELAY_MS,
+        );
+      }
     });
 
     return () => {
@@ -169,6 +187,7 @@ function RootLayoutInner() {
         <Stack.Screen name="privacy/terms" options={{ contentStyle: { backgroundColor: lightColors.background } }} />
         <Stack.Screen name="+not-found" />
       </Stack>
+      <PenggiMomentHost />
       <ToastHost />
       {/* Last, so the lock covers every screen and toast. */}
       <BiometricGate signedIn={Boolean(session)} />
