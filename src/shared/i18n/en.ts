@@ -1216,5 +1216,6 @@ export const en = {
   "tryon.live.realistic_ended": "Realistic preview ended",
   "tryon.live.realistic_back": "Back to live preview",
   "tryon.live.realistic_failed": "Realistic mode couldn't start. Check your connection and try again.",
-  "tryon.live.realistic_not_configured": "Realistic mode isn't set up yet."
+  "tryon.live.realistic_not_configured": "Realistic mode isn't set up yet.",
+  "tryon.live.realistic_unsupported": "Realistic mode needs the OOTDify development build. Install the latest build on this phone and try again."
 } as const;
