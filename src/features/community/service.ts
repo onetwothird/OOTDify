@@ -19,6 +19,7 @@
 import { formFile } from "../../shared/lib/formFile";
 import { shrinkForUpload } from "../../shared/lib/shrinkImage";
 import { supabase } from "../../shared/lib/supabase";
+import { realtimeTopic } from "../../shared/lib/realtimeTopic";
 import { resolveMediaUrl } from "../../shared/lib/storageUrl";
 import { uuid } from "../../shared/lib/uuid";
 import { chatPhotoPath, chatPhotoRef, photoMessageBody } from "./chatMedia";
@@ -1004,7 +1005,7 @@ export async function setReaction(messageId: string, emoji: string | null): Prom
 /** Live reaction changes in one conversation. Returns an unsubscribe function. */
 export function subscribeToReactions(conversationId: string, onChange: (row: ReactionRow) => void): () => void {
   const channel = supabase
-    .channel(`community-reactions:${conversationId}`)
+    .channel(realtimeTopic(`community-reactions:${conversationId}`))
     .on(
       "postgres_changes",
       { event: "*", schema: "public", table: "message_reactions", filter: `conversation_id=eq.${conversationId}` },
@@ -1086,8 +1087,14 @@ export async function fetchChatTheme(conversationId: string): Promise<string | n
 
 /** The conversation's shared theme (communities: admins only, enforced by a trigger). */
 export async function setChatTheme(conversationId: string, theme: string | null): Promise<void> {
-  const { error } = await supabase.from("conversations").update({ chat_theme: theme }).eq("id", conversationId);
+  const { data, error } = await supabase
+    .from("conversations")
+    .update({ chat_theme: theme })
+    .eq("id", conversationId)
+    .select("id");
   if (error) throw error;
+  // RLS silently filters an update it doesn't allow, so check it landed.
+  if (!data || data.length === 0) throw new Error("You can't change this chat's theme.");
 }
 
 /** Mute message notifications until a time, or unmute with null. */
@@ -1184,7 +1191,7 @@ export function subscribeToMessages(
   onUpdate?: (message: MessageRow) => void,
 ): () => void {
   const channel = supabase
-    .channel(`community-messages:${conversationId}`)
+    .channel(realtimeTopic(`community-messages:${conversationId}`))
     .on(
       "postgres_changes",
       {
@@ -1223,7 +1230,7 @@ export function subscribeToFeed(
   onChange: (type: "INSERT" | "UPDATE" | "DELETE", post: CommunityPost) => void,
 ): () => void {
   const channel = supabase
-    .channel("community-feed")
+    .channel(realtimeTopic("community-feed"))
     .on(
       "postgres_changes",
       { event: "*", schema: "public", table: "community_posts" },
