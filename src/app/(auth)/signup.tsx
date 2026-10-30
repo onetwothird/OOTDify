@@ -35,7 +35,6 @@ import { markOnboardingPending } from "../../features/profile/onboarding";
 import { ProfileAvatar } from "../../features/profile/ProfileAvatar";
 import { AppButton } from "../../shared/components/AppButton";
 import { AuthCard, AuthHero } from "../../shared/components/AuthShell";
-import { Pinstripes } from "../../shared/components/ClothesRail";
 import { FormField } from "../../shared/components/FormField";
 import { OAuthButtons } from "../../shared/components/OAuthButtons";
 import { PRIVACY_ROUTE, TERMS_ROUTE, TERMS_VERSION } from "../../shared/config/legal";
@@ -246,7 +245,6 @@ export default function SignupScreen() {
 
   return (
     <View style={styles.screen}>
-      <Pinstripes />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.flex}
@@ -256,7 +254,8 @@ export default function SignupScreen() {
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
         >
-          <AuthHero title={copy.title} subtitle={copy.subtitle} onBack={goBack} />
+          {/* Penggi (with his new-member card) hops at each new step. */}
+          <AuthHero title={copy.title} subtitle={copy.subtitle} onBack={goBack} mascot="signup" nudge={step} />
 
           <AuthCard>
             {/* Progress rail — where you are in the process */}
@@ -567,7 +566,8 @@ function PhotoFacts({ photo }: { photo: { uri: string } & Record<string, unknown
 }
 
 const useStyles = makeStyles((theme: Theme) => ({
-  screen: { flex: 1, backgroundColor: theme.colors.background },
+  // White, so the shell's sheet runs on down to the footer.
+  screen: { flex: 1, backgroundColor: theme.colors.surface },
   flex: { flex: 1 },
   scroll: {
     width: "100%",
