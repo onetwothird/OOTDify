@@ -4,13 +4,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import EditClothingModal from "../../features/capture/EditClothingModal";
@@ -24,7 +18,7 @@ import {
 import { liveOutfit, useLiveGarment } from "../../features/tryon/ar/liveGarmentStore";
 import { PHOTO_TRYON_AVAILABLE } from "../../features/tryon/config";
 import { useTryOnSelection } from "../../features/tryon/selectionStore";
-import { useWardrobeStore } from "../../features/wardrobe/store";
+import { WardrobeStore, useWardrobeStore } from "../../features/wardrobe/store";
 import { AppButton } from "../../shared/components/AppButton";
 import { ConfirmSheet } from "../../shared/components/ConfirmSheet";
 import { EmptyState, ErrorState } from "../../shared/components/StateViews";
@@ -53,6 +47,20 @@ export default function ItemDetailScreen() {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [savingPublic, setSavingPublic] = useState(false);
+
+  const setPublic = async (next: boolean) => {
+    if (!item) return;
+    setSavingPublic(true);
+    try {
+      await WardrobeStore.updateItem(item.id, { is_public: next });
+      setItem((i) => (i ? { ...i, is_public: next } : i));
+    } catch {
+      toast.error(t("item.discover.error"));
+    } finally {
+      setSavingPublic(false);
+    }
+  };
 
   // Reset to the loading state during render when the route param changes —
   // React's documented alternative to a synchronous setState inside an effect.
@@ -255,9 +263,27 @@ export default function ItemDetailScreen() {
           </Pressable>
         </View>
 
-        <Text style={styles.privacyNote}>
-          {t("item.privacy_note")}
-        </Text>
+        {/* Whether this piece shows in Discover; the owner can change it any time. */}
+        <View style={styles.discoverRow}>
+          <Ionicons
+            name={item.is_public ? "compass-outline" : "lock-closed-outline"}
+            size={18}
+            color={item.is_public ? theme.colors.brand : theme.colors.textMuted}
+          />
+          <View style={styles.discoverTexts}>
+            <Text style={styles.discoverTitle}>{t("capture.discover.title")}</Text>
+            <Text style={styles.privacyNote}>
+              {item.is_public ? t("item.discover.on") : t("item.discover.off")}
+            </Text>
+          </View>
+          <Switch
+            value={Boolean(item.is_public)}
+            disabled={savingPublic}
+            onValueChange={(v) => void setPublic(v)}
+            accessibilityLabel={t("capture.discover.title")}
+            trackColor={{ true: theme.colors.brand, false: theme.colors.border }}
+          />
+        </View>
       </ScrollView>
 
       {/* Mounted only while open: the modal's `visible` is true on mount, and
@@ -369,6 +395,17 @@ const useStyles = makeStyles((theme: Theme) => ({
     paddingVertical: 12,
   },
   deleteText: { color: theme.colors.danger, fontWeight: "600", fontSize: 14 },
+  discoverRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 12,
+    marginTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: theme.colors.border,
+  },
+  discoverTexts: { flex: 1, minWidth: 0 },
+  discoverTitle: { fontSize: 14, fontWeight: "600", color: theme.colors.text },
   privacyNote: {
     fontSize: 11.5,
     color: theme.colors.textMuted,
