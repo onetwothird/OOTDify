@@ -103,7 +103,10 @@ function RootLayoutInner() {
     } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       // Happy Penggi celebrates a sign-in, and once per launch when the app
-      // opens already signed in (see nextWelcome).
+      // opens already signed in (see nextWelcome). Not while a screen holds
+      // the redirects: sign-up's momentary session is not a sign-in, and
+      // sign-up shows its own celebration.
+      if (isAuthRedirectHeld()) return;
       const next = nextWelcome(event, !!session, welcomedThisLaunch);
       welcomedThisLaunch = next.welcomed;
       if (next.show) {
