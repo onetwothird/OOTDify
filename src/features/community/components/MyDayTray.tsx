@@ -22,8 +22,8 @@ const MIN_CIRCLE = 54;
 const MAX_CIRCLE = 72;
 const GUTTER = 20;
 const GAP = 14;
-/** Height reserved above every circle for its note. */
-const NOTE_SLOT = 26;
+/** Height reserved above every circle for its note: room for two short lines. */
+const NOTE_SLOT = 40;
 
 export function MyDayTray() {
   const styles = useStyles();
@@ -43,6 +43,10 @@ export function MyDayTray() {
   const { width } = useWindowDimensions();
   const CIRCLE = Math.min(MAX_CIRCLE, Math.max(MIN_CIRCLE, Math.round(width * 0.155)));
   const itemWidth = CIRCLE + 8;
+  // A note may spread into the gap on both sides, like a thought bubble, so
+  // short phrases like "Add a note" fit without cutting off.
+  const noteWidth = itemWidth + GAP - 4;
+  const noteFont = CIRCLE < 62 ? 10 : 11;
 
   const load = useCallback(async () => {
     try {
@@ -87,11 +91,22 @@ export function MyDayTray() {
         <View style={[styles.item, { width: itemWidth }]}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={t("note.title")}
+            accessibilityLabel={myNote ? t("note.title") : t("note.add")}
+            hitSlop={{ top: 6, bottom: 2, left: 4, right: 4 }}
             onPress={() => setNoting(true)}
-            style={[styles.note, !myNote && styles.noteEmpty, { maxWidth: itemWidth }]}
+            style={({ pressed }) => [
+              styles.note,
+              !myNote && styles.noteEmpty,
+              { width: noteWidth },
+              pressed && styles.notePressed,
+            ]}
           >
-            <Text style={[styles.noteText, !myNote && styles.noteTextEmpty]} numberOfLines={1}>
+            <Text
+              style={[styles.noteText, { fontSize: noteFont }, !myNote && styles.noteTextEmpty]}
+              numberOfLines={2}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
+            >
               {myNote ?? t("note.add")}
             </Text>
           </Pressable>
@@ -129,8 +144,8 @@ export function MyDayTray() {
               onPress={() => open(g.userId)}
               style={[styles.item, { width: itemWidth }]}
             >
-              <View style={[styles.note, !note && styles.noteHidden, { maxWidth: itemWidth }]}>
-                <Text style={styles.noteText} numberOfLines={1}>
+              <View style={[styles.note, !note && styles.noteHidden, { maxWidth: noteWidth }]}>
+                <Text style={[styles.noteText, { fontSize: noteFont }]} numberOfLines={2}>
                   {note ?? " "}
                 </Text>
               </View>
@@ -173,13 +188,16 @@ export function MyDayTray() {
 
 const useStyles = makeStyles((theme) => ({
   wrap: { marginBottom: 14 },
-  row: { gap: GAP, paddingVertical: 4, paddingRight: 8 },
+  // Room on the left for the first note bubble, which is wider than its circle.
+  row: { gap: GAP, paddingVertical: 4, paddingLeft: GAP / 2 - 2, paddingRight: 8 },
   item: { alignItems: "center" },
-  // A note sits above the circle: one line, ellipsized, like Messenger's.
+  // A note sits above the circle: up to two lines, wider than the circle,
+  // like Messenger's thought bubbles.
   note: {
     height: NOTE_SLOT - 4,
     marginBottom: 4,
-    paddingHorizontal: 9,
+    paddingHorizontal: 7,
+    alignItems: "center",
     justifyContent: "center",
     borderRadius: 12,
     backgroundColor: theme.colors.surface,
@@ -188,7 +206,8 @@ const useStyles = makeStyles((theme) => ({
   },
   noteEmpty: { borderStyle: "dashed", backgroundColor: "transparent" },
   noteHidden: { opacity: 0 },
-  noteText: { fontSize: 11, fontWeight: "500", color: theme.colors.text },
+  notePressed: { opacity: 0.7 },
+  noteText: { fontWeight: "500", lineHeight: 14, textAlign: "center", color: theme.colors.text },
   noteTextEmpty: { color: theme.colors.textMuted },
   ring: {
     alignItems: "center",
