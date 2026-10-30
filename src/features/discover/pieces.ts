@@ -10,6 +10,7 @@ export interface PublicPiece {
   image_url: string | null;
   is_public: boolean;
   like_count: number;
+  comment_count: number;
   created_at: string;
 }
 
