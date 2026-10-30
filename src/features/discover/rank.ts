@@ -6,6 +6,8 @@
 export interface Look {
   id: string;
   user_id: string;
+  /** Set when the post was shared from a saved outfit: only those are Discover looks. */
+  saved_outfit_id: string | null;
   image_urls: string[];
   like_count: number;
   comment_count: number;
@@ -25,6 +27,15 @@ const GRID_HEIGHT = 1;
 const age = (look: Look, now: number) => now - Date.parse(look.created_at);
 const newestFirst = (a: Look, b: Look) => Date.parse(b.created_at) - Date.parse(a.created_at);
 const hasImages = (look: Look) => look.image_urls.length > 0;
+
+/**
+ * Discover is the outfit lookbook, not a second Community feed: only posts
+ * shared from a saved outfit, with at least one image. Captions, photo dumps
+ * and text posts stay in Community.
+ */
+export function outfitLooks<T extends Look>(posts: T[]): T[] {
+  return posts.filter((p) => p.saved_outfit_id !== null && hasImages(p));
+}
 
 /** Trending score: engagement over age, so a new look with a few likes beats an old one. */
 export function hotScore(look: Look, now: number): number {
