@@ -455,6 +455,11 @@ export default function ChatThreadScreen() {
       quoteMine: { borderLeftColor: c.onMine },
       quoteTheirs: { borderLeftColor: c.accent, backgroundColor: c.background },
       chip: { backgroundColor: c.theirs, borderColor: c.theirs },
+      // Header, reply bar, emoji tray and composer use the theirs pair, so the
+      // whole screen changes with the theme, not just the thread.
+      bar: { backgroundColor: c.theirs, borderTopColor: c.theirs, borderBottomColor: c.theirs },
+      onBar: { color: c.onTheirs },
+      input: { backgroundColor: c.background, color: c.onTheirs },
     };
   }, [chatColors]);
 
@@ -667,7 +672,7 @@ export default function ChatThreadScreen() {
       {/* ---------------------------------------------------------- Header
           Outside the KeyboardAvoidingView: the keyboard must never shove the
           identity row around. */}
-      <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
+      <View style={[styles.header, themed?.bar, { paddingTop: insets.top + 6 }]}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t("community.chat.back_a11y")}
@@ -675,7 +680,7 @@ export default function ChatThreadScreen() {
           onPress={() => router.back()}
           style={({ pressed }) => [styles.headerBtn, pressed && { opacity: 0.6 }]}
         >
-          <Ionicons name="arrow-back" size={22} color={theme.colors.text} />
+          <Ionicons name="arrow-back" size={22} color={chatColors?.onTheirs ?? theme.colors.text} />
         </Pressable>
         <View style={styles.headerIdentity}>
           {groupMeta ? (
@@ -707,22 +712,18 @@ export default function ChatThreadScreen() {
             />
           )}
           <View style={styles.headerTexts}>
-            <Text style={styles.headerTitle} numberOfLines={1}>
+            <Text style={[styles.headerTitle, themed?.onBar]} numberOfLines={1}>
               {title}
             </Text>
-            <Text style={styles.headerSubtitle} numberOfLines={1}>
+            <Text style={[styles.headerSubtitle, themed?.onBar]} numberOfLines={1}>
               {subtitle}
             </Text>
           </View>
         </View>
-        <HeaderIconButton
-          icon="refresh"
-          accessibilityLabel={t("community.chat.reload_a11y")}
-          onPress={() => void load()}
-        />
         {conversationId ? (
           <HeaderIconButton
             icon="information-circle-outline"
+            color={chatColors?.onTheirs}
             accessibilityLabel={t("community.chat.settings_a11y")}
             onPress={() => router.push({ pathname: "/community/chat-settings/[id]", params: { id: conversationId } })}
           />
@@ -1024,19 +1025,19 @@ export default function ChatThreadScreen() {
 
         {/* ---------------------------------------------------------- Composer */}
         {replyTo || editing ? (
-          <View style={styles.contextBar}>
+          <View style={[styles.contextBar, themed?.bar]}>
             <Ionicons
               name={editing ? "create-outline" : "arrow-undo-outline"}
               size={18}
               color={chatColors?.accent ?? theme.colors.brand}
             />
             <View style={styles.contextTexts}>
-              <Text style={styles.contextTitle} numberOfLines={1}>
+              <Text style={[styles.contextTitle, themed?.onBar]} numberOfLines={1}>
                 {editing
                   ? t("community.chat.editing")
                   : t("community.chat.replying_to", { name: replyTo ? nameOf(replyTo) : "" })}
               </Text>
-              <Text style={styles.contextPreview} numberOfLines={1}>
+              <Text style={[styles.contextPreview, themed?.onBar]} numberOfLines={1}>
                 {(() => {
                   const target = editing ?? replyTo;
                   if (!target) return "";
@@ -1052,12 +1053,12 @@ export default function ChatThreadScreen() {
               onPress={cancelContext}
               style={({ pressed }) => [styles.composerBtn, pressed && { opacity: 0.6 }]}
             >
-              <Ionicons name="close" size={20} color={theme.colors.textMuted} />
+              <Ionicons name="close" size={20} color={chatColors?.onTheirs ?? theme.colors.textMuted} />
             </Pressable>
           </View>
         ) : null}
         {emojiOpen ? (
-          <View style={styles.emojiTray}>
+          <View style={[styles.emojiTray, themed?.bar]}>
             {CHAT_EMOJI.map((emoji) => (
               <Pressable
                 key={emoji}
@@ -1071,7 +1072,7 @@ export default function ChatThreadScreen() {
             ))}
           </View>
         ) : null}
-        <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+        <View style={[styles.composer, themed?.bar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t("community.chat.photo.title")}
@@ -1079,7 +1080,7 @@ export default function ChatThreadScreen() {
             onPress={() => setPhotoOpen(true)}
             style={({ pressed }) => [styles.composerBtn, editing && styles.sendBtnDisabled, pressed && { opacity: 0.6 }]}
           >
-            <Ionicons name="image-outline" size={23} color={theme.colors.textMuted} />
+            <Ionicons name="image-outline" size={23} color={chatColors?.onTheirs ?? theme.colors.textMuted} />
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -1091,15 +1092,15 @@ export default function ChatThreadScreen() {
             <Ionicons
               name={emojiOpen ? "happy" : "happy-outline"}
               size={23}
-              color={emojiOpen ? theme.colors.brand : theme.colors.textMuted}
+              color={chatColors?.onTheirs ?? (emojiOpen ? theme.colors.brand : theme.colors.textMuted)}
             />
           </Pressable>
           <TextInput
-            style={styles.composerInput}
+            style={[styles.composerInput, themed?.input]}
             value={draft}
             onChangeText={setDraft}
             placeholder={editing ? t("community.chat.edit_placeholder") : t("community.chat.composer_placeholder")}
-            placeholderTextColor={theme.colors.textMuted}
+            placeholderTextColor={chatColors?.muted ?? theme.colors.textMuted}
             multiline
             maxLength={2000}
           />
