@@ -2,9 +2,9 @@
 // hearts and saves on them, and saving someone's look into your own Saved
 // looks. RLS decides what is visible; nothing here trusts a client user_id.
 import { insertSavedOutfit, type SavedOutfit } from "../clothing/service";
-import { fetchDirectory } from "../community/service";
+import { authorDisplayName, fetchDirectory } from "../community/service";
 import { fetchFriends } from "../community/socialService";
-import type { DirectoryProfile, FeedPost } from "../community/types";
+import type { DirectoryProfile, FeedComment, FeedPost } from "../community/types";
 import { supabase } from "../../shared/lib/supabase";
 import { morePieces, pageOf } from "./paging";
 import type { FriendIds, PublicPiece } from "./pieces";
@@ -15,7 +15,7 @@ export interface DiscoverPiece extends PublicPiece {
   savedByMe: boolean;
 }
 
-const PIECE_COLUMNS = "id, user_id, name, category, image_url, is_public, like_count, created_at";
+const PIECE_COLUMNS = "id, user_id, name, category, image_url, is_public, like_count, comment_count, created_at";
 
 async function me(): Promise<string> {
   const { data } = await supabase.auth.getSession();
@@ -102,6 +102,42 @@ export async function savePiece(itemId: string): Promise<void> {
 export async function unsavePiece(itemId: string): Promise<void> {
   const { error } = await supabase.from("saved_pieces").delete().eq("item_id", itemId).eq("user_id", await me());
   if (error) throw error;
+}
+
+/** A comment on a public piece, shaped like a post comment so one thread view shows both. */
+export type PieceComment = Omit<FeedComment, "post_id"> & { item_id: string };
+
+/** The oldest-first conversation on one piece (RLS hides it once the piece goes private). */
+export async function fetchPieceComments(itemId: string): Promise<PieceComment[]> {
+  const { data, error } = await supabase
+    .from("piece_comments")
+    .select("id, item_id, user_id, body, created_at")
+    .eq("item_id", itemId)
+    .order("created_at", { ascending: true })
+    .limit(100);
+  if (error) throw error;
+  const rows = (data ?? []) as Omit<PieceComment, "authorName" | "authorAvatar">[];
+  if (!rows.length) return [];
+  const directory = await fetchDirectory(rows.map((c) => c.user_id));
+  return rows.map((c) => ({
+    ...c,
+    authorName: authorDisplayName(directory.get(c.user_id)),
+    authorAvatar: directory.get(c.user_id)?.avatar_url ?? null,
+  }));
+}
+
+export async function addPieceComment(itemId: string, body: string): Promise<void> {
+  const trimmed = body.trim();
+  if (!trimmed) throw new Error("Comment cannot be empty");
+  const { error } = await supabase.from("piece_comments").insert({ item_id: itemId, user_id: await me(), body: trimmed });
+  if (error) throw error;
+}
+
+/** Deletes a piece comment: my own, or anyone's on my piece (RLS decides). */
+export async function deletePieceComment(commentId: string): Promise<void> {
+  const { data, error } = await supabase.from("piece_comments").delete().eq("id", commentId).select("id");
+  if (error) throw error;
+  if (!data?.length) throw new Error("Comment not deleted");
 }
 
 /** Saves someone's look into my Saved looks, remembering whose it was. */
