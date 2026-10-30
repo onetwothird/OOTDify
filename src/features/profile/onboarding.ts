@@ -1,3 +1,4 @@
+
 // C:\OOTDify\src\features\profile\onboarding.ts
 // Post-signup onboarding prompt: a fresh account is asked once for its
 // preferred nickname and style preferences. The prompt state is a LOCAL flag
