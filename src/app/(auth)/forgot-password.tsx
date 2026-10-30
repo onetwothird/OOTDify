@@ -60,7 +60,7 @@ export default function ForgotPasswordScreen() {
             title={t("auth.forgot_password.title")}
             subtitle={t("auth.forgot_password.subtitle")}
             onBack={() => router.back()}
-            mascot="signin"
+            mascot="forgot"
           />
 
           <AuthCard>
