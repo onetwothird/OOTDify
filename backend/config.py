@@ -176,6 +176,8 @@ class Config:
     # instead of Claude (services/gemini_client.py).
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
     GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
+    # Used when GEMINI_MODEL is overloaded (503); empty to disable.
+    GEMINI_FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-flash-lite-latest")
 
     # ------------------------------ Decart ---------------------------------
     # "Go realistic" live try-on. The key stays server-side; the app only ever
