@@ -3,11 +3,17 @@
 // a panel that rises from the bottom, a header carrying the same hang tag as
 // ScreenHeader (section icon on a punched tag), and an optional pinned footer
 // for the sheet's actions so the primary button never scrolls out of reach.
+//
+// Keyboard: on iOS KeyboardAvoidingView lifts the sheet. On Android a
+// translucent Modal is not resized for the keyboard, so the sheet pads
+// itself by the keyboard's height. A field at the end of the body (a comment
+// composer) calls useSheet().revealEnd() on focus to stay above the keyboard.
 import { Ionicons } from "@expo/vector-icons";
-import { ReactNode, useEffect, useState } from "react";
+import { type ComponentRef, createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Easing,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -23,6 +29,13 @@ import { useReduceMotion } from "../hooks/useReduceMotion";
 import { useT } from "../i18n/useT";
 import { makeStyles } from "../theme/makeStyles";
 import { useAppTheme } from "../theme/ThemeProvider";
+
+const SheetContext = createContext<{ revealEnd: () => void }>({ revealEnd: () => {} });
+
+/** For content inside a Sheet: scroll the body to its end once the keyboard is up. */
+export function useSheet() {
+  return useContext(SheetContext);
+}
 
 interface Props {
   visible: boolean;
@@ -60,6 +73,39 @@ export function Sheet({
   const { t } = useT();
   const reduceMotion = useReduceMotion();
   const [rise] = useState(() => new Animated.Value(0));
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
+  // Set by revealEnd; consumed when the keyboard has finished opening.
+  const revealPending = useRef(false);
+
+  useEffect(() => {
+    if (!visible) return;
+    const scrollToEnd = () => {
+      if (!revealPending.current) return;
+      revealPending.current = false;
+      requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+    };
+    const show = Keyboard.addListener("keyboardDidShow", (e) => {
+      if (Platform.OS === "android") setKeyboardHeight(e.endCoordinates.height);
+      scrollToEnd();
+    });
+    const hide = Keyboard.addListener("keyboardDidHide", () => setKeyboardHeight(0));
+    return () => {
+      show.remove();
+      hide.remove();
+      setKeyboardHeight(0);
+    };
+  }, [visible]);
+
+  const revealEnd = useCallback(() => {
+    revealPending.current = true;
+    // Already open (focus moved between fields): scroll now.
+    if (Keyboard.isVisible()) {
+      revealPending.current = false;
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
+    }
+  }, []);
+  const sheetContext = useMemo(() => ({ revealEnd }), [revealEnd]);
 
   useEffect(() => {
     if (!visible) {
@@ -87,6 +133,8 @@ export function Sheet({
   // safe area alone leaves the last button's outline grazing the curved corner
   // and the indicator, so add breathing room above it.
   const bottomPad = insets.bottom > 0 ? insets.bottom + 14 : 16;
+  // With the keyboard up the sheet sits on it, not on the home indicator.
+  const keyboardUp = keyboardHeight > 0;
 
   return (
     <Modal
@@ -98,7 +146,7 @@ export function Sheet({
       onRequestClose={close}
     >
       <KeyboardAvoidingView
-        style={styles.root}
+        style={[styles.root, keyboardUp && { paddingBottom: keyboardHeight }]}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <Pressable
@@ -111,7 +159,7 @@ export function Sheet({
           style={[
             styles.sheet,
             {
-              paddingBottom: footer ? 0 : bottomPad,
+              paddingBottom: footer ? 0 : keyboardUp ? 12 : bottomPad,
               transform: [{ translateY: rise.interpolate({ inputRange: [0, 1], outputRange: [48, 0] }) }],
             },
           ]}
@@ -149,18 +197,21 @@ export function Sheet({
 
           {scroll ? (
             <ScrollView
+              ref={scrollRef}
               style={styles.flexBody}
               contentContainerStyle={styles.body}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
-              {children}
+              <SheetContext.Provider value={sheetContext}>{children}</SheetContext.Provider>
             </ScrollView>
           ) : (
-            <View style={[styles.flexBody, styles.body]}>{children}</View>
+            <View style={[styles.flexBody, styles.body]}>
+              <SheetContext.Provider value={sheetContext}>{children}</SheetContext.Provider>
+            </View>
           )}
 
-          {footer ? <View style={[styles.footer, { paddingBottom: bottomPad }]}>{footer}</View> : null}
+          {footer ? <View style={[styles.footer, { paddingBottom: keyboardUp ? 12 : bottomPad }]}>{footer}</View> : null}
         </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
