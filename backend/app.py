@@ -28,6 +28,7 @@ from routes.pose import pose_bp
 from routes.realistic import realistic_bp
 from routes.recommend import recommend_bp
 from routes.segmentation import segmentation_bp
+from routes.stylist import stylist_bp
 from routes.tryon import tryon_bp
 from services import pose_service, segmentation_service, tryon_service, yolo_service
 
@@ -86,6 +87,7 @@ def create_app(config_object=Config) -> Flask:
     app.register_blueprint(outfits_bp)
     app.register_blueprint(tryon_bp)
     app.register_blueprint(segmentation_bp)
+    app.register_blueprint(stylist_bp)
 
     # ----------------------------------------------------------------------
     # AI body-model wiring (detection + pose + segmentation)
