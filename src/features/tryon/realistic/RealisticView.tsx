@@ -5,7 +5,6 @@
 //     and "Stop", then the ended / failed / not-set-up message with "Back to
 //     live preview". Camera chrome uses the fixed on-camera colours.
 //   - RealisticConsentSheet is the one-time consent, on the themed Sheet.
-import { RTCView } from "@livekit/react-native-webrtc";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Sheet } from "../../../shared/components/Sheet";
@@ -15,6 +14,7 @@ import { makeStyles } from "../../../shared/theme/makeStyles";
 import { CAMERA_BG, ON_CAMERA } from "../ar/cameraChrome";
 import { releasesCamera } from "./session";
 import type { RealisticSession } from "./useRealisticSession";
+import { realtimeDeps } from "./webrtc";
 
 export function RealisticStage({
   session,
@@ -38,11 +38,15 @@ export function RealisticStage({
         ? t("tryon.live.realistic_failed")
         : phase === "not_configured"
           ? t("tryon.live.realistic_not_configured")
-          : null;
+          : phase === "unsupported"
+            ? t("tryon.live.realistic_unsupported")
+            : null;
+  // A remote stream only exists when the WebRTC module loaded.
+  const RTCView = realtimeDeps()?.webrtc.RTCView;
 
   return (
     <View style={styles.stage}>
-      {phase === "live" && remoteStream ? (
+      {phase === "live" && remoteStream && RTCView ? (
         <RTCView
           style={StyleSheet.absoluteFill}
           streamURL={remoteStream.toURL()}
