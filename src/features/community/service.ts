@@ -24,6 +24,7 @@ import { uuid } from "../../shared/lib/uuid";
 import { chatPhotoPath, chatPhotoRef, photoMessageBody } from "./chatMedia";
 import { isMuted } from "./chatSettings";
 import type { ReactionRow } from "./chatThread";
+import { reshareTarget, sharedPostBody, visiblePosts } from "./postShare";
 import { cleanRoomTitle } from "./roomIcons";
 import type {
   ChatMessageEntry,
@@ -122,31 +123,135 @@ export async function fetchUserProfile(userId: string): Promise<DirectoryProfile
 // Feed (community_posts + likes)
 // ---------------------------------------------------------------------------
 
-/** Latest posts with author info and the viewer's like state, newest first. */
-export async function fetchFeed(limit = 50): Promise<FeedPost[]> {
-  const uid = await currentUserId();
-  const { data: posts, error } = await supabase
-    .from("community_posts")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (error) throw error;
-  const rows = (posts ?? []) as CommunityPost[];
-  if (!rows.length) return [];
+/** A community_posts row with the columns added after launch defaulted. */
+function postRow(p: CommunityPost): CommunityPost {
+  return { ...p, reshared_from: p.reshared_from ?? null, reshare_count: p.reshare_count ?? 0 };
+}
 
+/**
+ * Add authors and my like/save state to post rows. Reshares also get the
+ * post they reshare (one level: an original never carries another).
+ */
+async function enrichPosts(rows: CommunityPost[], withOriginals = true): Promise<FeedPost[]> {
+  if (!rows.length) return [];
+  const uid = await currentUserId();
   const postIds = rows.map((p) => p.id);
-  const [directory, likes] = await Promise.all([
+  const originalIds = withOriginals
+    ? [...new Set(rows.map((p) => p.reshared_from).filter((id): id is string => id !== null))]
+    : [];
+  const [directory, likes, saves, originals] = await Promise.all([
     fetchDirectory(rows.map((p) => p.user_id)),
     supabase.from("community_likes").select("post_id").eq("user_id", uid ?? "").in("post_id", postIds),
+    supabase.from("saved_posts").select("post_id").eq("user_id", uid ?? "").in("post_id", postIds),
+    originalIds.length ? fetchPostsByIds(originalIds, false) : Promise.resolve(new Map<string, FeedPost>()),
   ]);
   if (likes.error) throw likes.error;
+  if (saves.error) throw saves.error;
   const liked = new Set((likes.data ?? []).map((l) => l.post_id as string));
+  const saved = new Set((saves.data ?? []).map((s) => s.post_id as string));
 
   return rows.map((p) => ({
     ...p,
     author: directory.get(p.user_id) ?? null,
     likedByMe: liked.has(p.id),
+    savedByMe: saved.has(p.id),
+    original: p.reshared_from ? originals.get(p.reshared_from) ?? null : null,
   }));
+}
+
+/** Posts by id, enriched (for chat cards, a single post, saved posts). Missing ids are absent. */
+export async function fetchPostsByIds(ids: string[], withOriginals = true): Promise<Map<string, FeedPost>> {
+  if (!ids.length) return new Map();
+  const { data, error } = await supabase.from("community_posts").select("*").in("id", ids);
+  if (error) throw error;
+  const posts = await enrichPosts(((data ?? []) as CommunityPost[]).map(postRow), withOriginals);
+  return new Map(posts.map((p) => [p.id, p]));
+}
+
+/** Latest posts with author info and my like/save state, newest first, minus posts I hid. */
+export async function fetchFeed(limit = 50): Promise<FeedPost[]> {
+  const uid = await currentUserId();
+  const [{ data: posts, error }, hidden] = await Promise.all([
+    supabase.from("community_posts").select("*").order("created_at", { ascending: false }).limit(limit),
+    supabase.from("hidden_posts").select("post_id").eq("user_id", uid ?? ""),
+  ]);
+  if (error) throw error;
+  if (hidden.error) throw hidden.error;
+  const hiddenIds = new Set((hidden.data ?? []).map((h) => h.post_id as string));
+  const rows = visiblePosts(((posts ?? []) as CommunityPost[]).map(postRow), hiddenIds);
+  return enrichPosts(rows);
+}
+
+/** One post, or null when it was deleted. */
+export async function fetchPost(postId: string): Promise<FeedPost | null> {
+  return (await fetchPostsByIds([postId])).get(postId) ?? null;
+}
+
+/** Posts I saved, most recently saved first. */
+export async function fetchSavedPosts(): Promise<FeedPost[]> {
+  const uid = await currentUserId();
+  if (!uid) return [];
+  const { data, error } = await supabase
+    .from("saved_posts")
+    .select("post_id")
+    .eq("user_id", uid)
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (error) throw error;
+  const ids = (data ?? []).map((s) => s.post_id as string);
+  const byId = await fetchPostsByIds(ids);
+  return ids.map((id) => byId.get(id)).filter((p): p is FeedPost => p !== undefined);
+}
+
+/** Reshare a post to the feed with my own caption. The database points it at the original. */
+export async function resharePost(post: { id: string; reshared_from: string | null }, caption: string): Promise<void> {
+  const uid = await currentUserId();
+  if (!uid) throw new Error("Not signed in");
+  const { error } = await supabase.from("community_posts").insert({
+    user_id: uid,
+    caption: caption.trim() || null,
+    image_urls: [],
+    reshared_from: reshareTarget(post),
+  });
+  if (error) throw error;
+}
+
+export async function savePost(postId: string): Promise<void> {
+  const uid = await currentUserId();
+  if (!uid) throw new Error("Not signed in");
+  const { error } = await supabase.from("saved_posts").insert({ user_id: uid, post_id: postId });
+  if (error && error.code !== "23505") throw error;
+}
+
+export async function unsavePost(postId: string): Promise<void> {
+  const uid = await currentUserId();
+  if (!uid) throw new Error("Not signed in");
+  const { error } = await supabase.from("saved_posts").delete().eq("user_id", uid).eq("post_id", postId);
+  if (error) throw error;
+}
+
+/** Hide a post from my feed only. */
+export async function hidePost(postId: string): Promise<void> {
+  const uid = await currentUserId();
+  if (!uid) throw new Error("Not signed in");
+  const { error } = await supabase.from("hidden_posts").insert({ user_id: uid, post_id: postId });
+  if (error && error.code !== "23505") throw error;
+}
+
+/** Send a post to friends: into each one's DM, as a card, with an optional note. */
+export async function sendPostToFriends(postId: string, friendIds: string[], note: string): Promise<void> {
+  const uid = await currentUserId();
+  if (!uid) throw new Error("Not signed in");
+  for (const friendId of friendIds) {
+    const conversationId = await startDirectConversation(friendId);
+    const { error } = await supabase.from("messages").insert({
+      conversation_id: conversationId,
+      sender_id: uid,
+      body: sharedPostBody(note),
+      shared_post_id: postId,
+    });
+    if (error) throw error;
+  }
 }
 
 /** The signed-in user's own posts, newest first (for their profile page). */
@@ -762,6 +867,7 @@ function messageRow(m: MessageRow): MessageRow {
     reply_to: m.reply_to ?? null,
     edited_at: m.edited_at ?? null,
     unsent_at: m.unsent_at ?? null,
+    shared_post_id: m.shared_post_id ?? null,
   };
 }
 
