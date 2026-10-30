@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { create } from "zustand";
 
 import { useReduceMotion } from "../hooks/useReduceMotion";
+import { holdPermissions, releasePermissions } from "../lib/permissionGate";
 import { useT } from "../i18n/useT";
 import { makeStyles } from "../theme/makeStyles";
 import { useAppTheme } from "../theme/ThemeProvider";
@@ -36,13 +37,30 @@ interface Moment {
 const useMomentStore = create<{ moment: Moment | null; show: (m: Omit<Moment, "id">) => void; clear: () => void }>(
   (set) => ({
     moment: null,
-    show: (m) => set({ moment: { ...m, id: Date.now() } }),
-    clear: () => set({ moment: null }),
+    show: (m) => {
+      // A screen moment covers the app: system permission prompts wait for it.
+      if (isScreen(m.kind)) holdPermissions(PERMISSION_HOLD, PERMISSION_HOLD_MAX_MS);
+      set({ moment: { ...m, id: Date.now() } });
+    },
+    clear: () => {
+      set({ moment: null });
+      releasePermissions(PERMISSION_HOLD);
+    },
   }),
 );
 
+function isScreen(kind: Kind): boolean {
+  return kind === "welcome" || kind === "farewell";
+}
+
+const PERMISSION_HOLD = "penggi";
+/** Longer than any screen moment runs, so a lost clear can't block prompts. */
+const PERMISSION_HOLD_MAX_MS = 8000;
+
 export const penggi = {
   show: (kind: Kind, title: string, message?: string) => useMomentStore.getState().show({ kind, title, message }),
+  /** A screen moment is about to show: hold permission prompts until it is done. */
+  expect: () => holdPermissions(PERMISSION_HOLD, PERMISSION_HOLD_MAX_MS),
 };
 
 const HOLD_MS = 1700;
@@ -64,7 +82,7 @@ export function PenggiMomentHost() {
   const moment = useMomentStore((s) => s.moment);
   if (!moment) return null;
   // Keyed by id so a new moment restarts the animation from the top.
-  return moment.kind === "welcome" || moment.kind === "farewell" ? (
+  return isScreen(moment.kind) ? (
     <PenggiScreen key={moment.id} moment={moment} />
   ) : (
     <PenggiMomentCard key={moment.id} moment={moment} />
