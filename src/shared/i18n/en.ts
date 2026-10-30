@@ -20,6 +20,7 @@ export const en = {
   "season.All-season": "All-season",
 
   // Auth — shared
+  "auth.common.back": "Go back",
   "auth.common.continue_with": "or continue with",
   "auth.common.try_again": "Please try again.",
   "auth.common.email_label": "Email address",
