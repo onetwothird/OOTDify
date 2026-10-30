@@ -168,6 +168,8 @@ class Config:
     # empty to disable: capture then falls back to the plain cut-out only.
     ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
     GARMENT_VISION_MODEL = os.getenv("GARMENT_VISION_MODEL", "claude-opus-5-5")
+    # Ask Penggi, the stylist chat (routes/stylist.py). Uses the same key.
+    STYLIST_CHAT_MODEL = os.getenv("STYLIST_CHAT_MODEL", "claude-opus-5-5")
 
     # ------------------------------ Decart ---------------------------------
     # "Go realistic" live try-on. The key stays server-side; the app only ever
@@ -184,6 +186,9 @@ class Config:
     RATE_LIMIT_UPLOAD_WINDOW = int(os.getenv("RATE_LIMIT_UPLOAD_WINDOW", "3600"))
     RATE_LIMIT_ACCOUNT_MAX = int(os.getenv("RATE_LIMIT_ACCOUNT_MAX", "10"))
     RATE_LIMIT_ACCOUNT_WINDOW = int(os.getenv("RATE_LIMIT_ACCOUNT_WINDOW", "3600"))
+    # Ask Penggi messages per user per window (each one is a paid model call).
+    RATE_LIMIT_STYLIST_MAX = int(os.getenv("RATE_LIMIT_STYLIST_MAX", "40"))
+    RATE_LIMIT_STYLIST_WINDOW = int(os.getenv("RATE_LIMIT_STYLIST_WINDOW", "3600"))
 
     # ------------------------------ Helpers -------------------------------
     @classmethod
