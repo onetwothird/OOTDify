@@ -171,6 +171,12 @@ class Config:
     # Ask Penggi, the stylist chat (routes/stylist.py). Uses the same key.
     STYLIST_CHAT_MODEL = os.getenv("STYLIST_CHAT_MODEL", "claude-haiku-5-5")
 
+    # ------------------------------ Gemini ---------------------------------
+    # A Google AI Studio key. When set, Ask Penggi and garment vision use Gemini
+    # instead of Claude (services/gemini_client.py).
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+    GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
+
     # ------------------------------ Decart ---------------------------------
     # "Go realistic" live try-on. The key stays server-side; the app only ever
     # receives a short-lived client token. Leave empty to disable (503).
