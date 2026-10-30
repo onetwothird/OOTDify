@@ -483,7 +483,9 @@ function Hero({ pieceCount, lookCount, loading }: { pieceCount: number; lookCoun
 
   const cardW = Math.max(240, width - theme.spacing.page * 2);
   const mascot = Math.round(Math.min(Math.max(cardW * 0.5, 128), 300));
-  const mascotLane = Math.round(mascot * 0.72);
+  // Penggi's lane: wide enough that happy Penggi's raised hand (his widest
+  // pose, reaching ~76% of his box from the left edge below) clears the bubble.
+  const mascotLane = Math.round(mascot * 0.8);
 
   // Penggi's lines: a hello first, then small talk alternating with styling
   // tips, looping (the hello is only said once).
@@ -574,7 +576,7 @@ function Hero({ pieceCount, lookCount, loading }: { pieceCount: number; lookCoun
           {
             width: mascot,
             height: mascot,
-            left: -Math.round(mascot * 0.06),
+            left: -Math.round(mascot * 0.1),
             bottom: -Math.round(mascot * 0.04),
             opacity: appear,
             transform: [
