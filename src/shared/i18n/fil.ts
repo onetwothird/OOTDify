@@ -536,6 +536,8 @@ export const fil: Record<keyof typeof en, string> = {
   "outfits.action.ai_picker": "AI Picker",
   "outfits.action.build_hint": "Piliin ang okasyon at panahon",
   "outfits.action.ai_hint": "Hayaang pumili ang AI sa closet mo",
+  "outfits.view.list_a11y": "Ipakita bilang listahan",
+  "outfits.view.grid_a11y": "Ipakita bilang grid",
   "outfits.tab.looks": "Na-save na looks",
   "outfits.tab.calendar": "Kalendaryo",
   "outfits.saved.title": "Na-save na looks",
