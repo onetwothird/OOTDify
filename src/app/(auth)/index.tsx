@@ -1,6 +1,7 @@
 // C:\OOTDify\src\app\(auth)\index.tsx
-// Get Started / landing screen. The one visual idea is a clothes rail: a rod
-// across a pinstriped page with three hang-tags on strings, each naming a
+// Get Started / landing screen, set as a boutique window (BoutiqueBackdrop:
+// a striped shop awning, a pinstriped wall, light over the rail). The one
+// visual idea is a clothes rail: a rod with three hang-tags on strings, each naming a
 // feature that actually exists. The tags swing in, then sway gently (all of it
 // skipped under Reduce Motion). Penggi's round face stands in for the
 // wordmark: it drops in, tilts now and then, and spins when tapped.
@@ -11,10 +12,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppButton } from "../../shared/components/AppButton";
-import { Pinstripes, Rail, useSwing } from "../../shared/components/ClothesRail";
+import { awningBottom, BoutiqueBackdrop } from "../../shared/components/BoutiqueBackdrop";
+import { Rail, useSwing } from "../../shared/components/ClothesRail";
 import { PRIVACY_ROUTE, TERMS_ROUTE } from "../../shared/config/legal";
 import { useReduceMotion } from "../../shared/hooks/useReduceMotion";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
@@ -60,14 +62,15 @@ export default function LandingScreen() {
   const theme = useAppTheme();
   const styles = useStyles();
   const { t } = useT();
+  const { width } = useWindowDimensions();
 
   return (
     <View style={styles.screen}>
-      <Pinstripes />
+      <BoutiqueBackdrop />
       <ScrollView
         contentContainerStyle={[
           styles.content,
-          { paddingTop: insets.top + 18, paddingBottom: insets.bottom + theme.spacing.lg },
+          { paddingTop: awningBottom(width, insets.top) + 14, paddingBottom: insets.bottom + theme.spacing.lg },
         ]}
         showsVerticalScrollIndicator={false}
         bounces={false}
