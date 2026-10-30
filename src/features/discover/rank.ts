@@ -14,7 +14,19 @@ export interface Look {
   created_at: string;
 }
 
-export type LookSort = "trending" | "new" | "friends";
+export type LookSort = "for_you" | "trending" | "new" | "friends";
+
+/** What "For you" knows about the viewer: only their own friends and likes, nothing private of anyone else. */
+export interface Taste {
+  friendIds: ReadonlySet<string>;
+  likedCreatorIds: ReadonlySet<string>;
+  me: string | null;
+}
+
+const FRIEND_BOOST = 3;
+const LIKED_CREATOR_BOOST = 2;
+/** My own looks still show, just behind everyone else's. */
+const OWN_FACTOR = 0.1;
 
 const HOUR_MS = 3_600_000;
 const DAY_MS = 24 * HOUR_MS;
@@ -43,9 +55,35 @@ export function hotScore(look: Look, now: number): number {
   return (look.like_count + 2 * look.comment_count + 1) / Math.pow(ageHours + 2, 1.5);
 }
 
+/** Authors of looks I liked (not me): the creators "For you" leans towards. */
+export function likedCreators(looks: (Look & { likedByMe: boolean })[], me: string | null): Set<string> {
+  return new Set(looks.filter((l) => l.likedByMe && l.user_id !== me).map((l) => l.user_id));
+}
+
+/** Trending, boosted for friends and creators I liked, with my own looks pushed back. */
+export function forYouScore(look: Look, now: number, taste: Taste): number {
+  let factor = 1;
+  if (look.user_id === taste.me) factor = OWN_FACTOR;
+  else {
+    if (taste.friendIds.has(look.user_id)) factor *= FRIEND_BOOST;
+    if (taste.likedCreatorIds.has(look.user_id)) factor *= LIKED_CREATOR_BOOST;
+  }
+  return hotScore(look, now) * factor;
+}
+
 /** The wall for a sort: looks with at least one image, in that sort's order. */
-export function sortLooks<T extends Look>(looks: T[], sort: LookSort, now: number, friendIds: ReadonlySet<string>): T[] {
+export function sortLooks<T extends Look>(
+  looks: T[],
+  sort: LookSort,
+  now: number,
+  friendIds: ReadonlySet<string>,
+  taste?: Taste,
+): T[] {
   const shown = looks.filter(hasImages);
+  if (sort === "for_you") {
+    const t = taste ?? { friendIds, likedCreatorIds: new Set<string>(), me: null };
+    return [...shown].sort((a, b) => forYouScore(b, now, t) - forYouScore(a, now, t));
+  }
   if (sort === "trending") return [...shown].sort((a, b) => hotScore(b, now) - hotScore(a, now));
   if (sort === "friends") return shown.filter((l) => friendIds.has(l.user_id)).sort(newestFirst);
   return [...shown].sort(newestFirst);
