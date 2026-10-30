@@ -1212,6 +1212,8 @@ export const en = {
   "tryon.live.grant": "Allow camera",
   "tryon.live.go_realistic": "Go realistic",
   "tryon.live.realistic_hint": "See a realistic live preview (up to 1 minute)",
+  "tryon.live.realistic_pick_title": "Pick one item",
+  "tryon.live.realistic_pick_note": "Realistic mode redraws your video with AI. It isn't 3D and may change details.",
   "tryon.live.realistic_consent": "Realistic mode streams your camera video to our partner Decart, which redraws you wearing this item. Decart may use the video to improve its AI. It runs for up to 1 minute. The normal preview never leaves your phone.",
   "tryon.live.realistic_connecting": "Starting realistic mode…",
   "tryon.live.realistic_seconds": "{seconds}s left",
