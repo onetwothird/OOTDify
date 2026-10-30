@@ -295,9 +295,12 @@ export default function CommunityScreen() {
         isOwn={item.user_id === meId}
         onLikeChanged={handleLikeChanged}
         onDelete={(p) => void handleDelete(p)}
+        onPostChanged={(next) => setPosts((prev) => prev?.map((p) => (p.id === next.id ? next : p)) ?? prev)}
+        onHidden={(id) => setPosts((prev) => prev?.filter((p) => p.id !== id) ?? prev)}
+        onReshared={() => void loadFeed()}
       />
     ),
-    [meId, handleLikeChanged, handleDelete],
+    [meId, handleLikeChanged, handleDelete, loadFeed],
   );
 
   // Direct messages only. Group rooms are rendered under Communities, and the
