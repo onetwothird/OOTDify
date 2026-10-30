@@ -48,7 +48,7 @@ export const en = {
   "auth.login.title": "Welcome back",
   "auth.login.subtitle": "Log in to pick up right where you left off.",
   "auth.exit.title": "Log out?",
-  "auth.exit.message": "You'll go back to the sign-in screen. Your closet, looks and settings stay saved.",
+  "auth.exit.message": "You'll go back to the start screen. Your closet, looks and settings stay saved.",
   "auth.exit.stay": "Stay signed in",
   "auth.exit.confirm": "Log out",
   "auth.exit.signed_in_as": "Signed in as",
