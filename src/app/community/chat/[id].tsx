@@ -37,6 +37,7 @@ import {
   communityErrorMessage,
   editMessage,
   fetchChatTheme,
+  subscribeToChatTheme,
   fetchMessages,
   fetchPostsByIds,
   fetchReactions,
@@ -355,6 +356,23 @@ export default function ChatThreadScreen() {
     const unsubscribe = subscribeToReactions(conversationId, (row) =>
       setReactions((prev) => applyReaction(prev, row)),
     );
+    return () => {
+      alive = false;
+      unsubscribe();
+    };
+  }, [conversationId]);
+
+  // Someone else changing the theme repaints this thread while it's open.
+  useEffect(() => {
+    if (!conversationId) return;
+    let alive = true;
+    const unsubscribe = subscribeToChatTheme(conversationId, () => {
+      void fetchChatTheme(conversationId)
+        .then((key) => {
+          if (alive) setThemeKey(key);
+        })
+        .catch(() => {});
+    });
     return () => {
       alive = false;
       unsubscribe();
