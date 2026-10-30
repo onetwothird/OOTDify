@@ -26,6 +26,7 @@ import { useMemo } from "react";
 import { StyleSheet } from "react-native";
 import type * as ReactNative from "react-native";
 
+import { adjustTextStyles } from "./accessibility";
 import { useAppTheme } from "./ThemeProvider";
 import type { Theme } from "../config/theme";
 
@@ -54,7 +55,8 @@ export function makeStyles<S extends NamedStyles<S> | NamedStyles<any>>(
       }
       const existing = perTheme.get(factory);
       if (existing) return existing as S;
-      const created = StyleSheet.create<S>(factory(theme));
+      // Text size and bold text (Settings > Accessibility) apply here, once.
+      const created = StyleSheet.create<S>(adjustTextStyles(factory(theme) as S, theme.text));
       perTheme.set(factory, created);
       return created;
     }, [theme]);
