@@ -16,6 +16,8 @@ import { makeStyles } from "../../shared/theme/makeStyles";
 import type { Theme } from "../../shared/config/theme";
 import { useT } from "../../shared/i18n/useT";
 import type { TranslationKey } from "../../shared/i18n/translate";
+import { buzz } from "../../shared/lib/haptics";
+import type { TextSize } from "../../shared/theme/accessibility";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -30,6 +32,8 @@ const APPEARANCE_OPTIONS: { mode: AppearanceMode; icon: IconName }[] = [
   { mode: "light", icon: "sunny-outline" },
   { mode: "dark", icon: "moon-outline" },
 ];
+
+const TEXT_SIZE_OPTIONS: TextSize[] = ["small", "default", "large", "xlarge"];
 
 function appVersionLabel(t: any): string {
   const version = Application.nativeApplicationVersion;
@@ -51,6 +55,16 @@ export function SettingsSection() {
   const setAppearance = useSettingsStore((s) => s.setAppearance);
   const biometricLock = useSettingsStore((s) => s.biometricLock);
   const setBiometricLock = useSettingsStore((s) => s.setBiometricLock);
+  const vibration = useSettingsStore((s) => s.vibration);
+  const setVibration = useSettingsStore((s) => s.setVibration);
+  const textSize = useSettingsStore((s) => s.textSize);
+  const setTextSize = useSettingsStore((s) => s.setTextSize);
+  const boldText = useSettingsStore((s) => s.boldText);
+  const setBoldText = useSettingsStore((s) => s.setBoldText);
+  const highContrast = useSettingsStore((s) => s.highContrast);
+  const setHighContrast = useSettingsStore((s) => s.setHighContrast);
+  const reduceMotion = useSettingsStore((s) => s.reduceMotion);
+  const setReduceMotion = useSettingsStore((s) => s.setReduceMotion);
 
   const [bioAvailable, setBioAvailable] = useState<boolean | null>(null);
   useEffect(() => {
@@ -173,6 +187,73 @@ export function SettingsSection() {
           />
         </View>
 
+        <View style={styles.cardDivider} />
+
+        <SwitchRow
+          icon="phone-portrait-outline"
+          label={t("settings.vibration.title")}
+          hint={t("settings.vibration.hint")}
+          value={vibration}
+          onChange={(next) => {
+            setVibration(next);
+            // A sample buzz, so turning it on shows what it feels like.
+            if (next) buzz("success");
+          }}
+        />
+      </View>
+
+      <SectionLabel text={t("settings.section.accessibility")} />
+      <View style={styles.card}>
+        <Text style={styles.groupLabel}>{t("settings.text_size")}</Text>
+        <View style={styles.pickerRow}>
+          {TEXT_SIZE_OPTIONS.map((size) => {
+            const active = size === textSize;
+            const label = t(`settings.text_size.${size}` as TranslationKey);
+            return (
+              <Pressable
+                key={size}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={label}
+                onPress={() => setTextSize(size)}
+                style={[styles.pill, active && styles.pillActive]}
+              >
+                <Text style={[styles.pillText, active && styles.pillTextActive]}>{label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        <Text style={styles.preview}>{t("settings.text_size.preview")}</Text>
+
+        <View style={styles.cardDivider} />
+
+        <SwitchRow
+          icon="text-outline"
+          label={t("settings.bold_text.title")}
+          hint={t("settings.bold_text.hint")}
+          value={boldText}
+          onChange={setBoldText}
+        />
+
+        <View style={styles.cardDivider} />
+
+        <SwitchRow
+          icon="contrast-outline"
+          label={t("settings.high_contrast.title")}
+          hint={t("settings.high_contrast.hint")}
+          value={highContrast}
+          onChange={setHighContrast}
+        />
+
+        <View style={styles.cardDivider} />
+
+        <SwitchRow
+          icon="pause-circle-outline"
+          label={t("settings.reduce_motion.title")}
+          hint={t("settings.reduce_motion.hint")}
+          value={reduceMotion}
+          onChange={setReduceMotion}
+        />
       </View>
 
       {/* Help */}
@@ -263,6 +344,39 @@ function SectionLabel({ text }: { text: string }) {
   );
 }
 
+function SwitchRow({
+  icon,
+  label,
+  hint,
+  value,
+  onChange,
+}: {
+  icon: IconName;
+  label: string;
+  hint: string;
+  value: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  const theme = useAppTheme();
+  const styles = useStyles();
+  return (
+    <View style={styles.switchRow}>
+      <Ionicons name={icon} size={20} color={theme.colors.brand} />
+      <View style={styles.switchBody}>
+        <Text style={styles.rowLabel}>{label}</Text>
+        <Text style={styles.rowHint}>{hint}</Text>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        accessibilityLabel={label}
+        trackColor={{ true: theme.colors.brand, false: theme.colors.border }}
+        thumbColor={theme.colors.surface}
+      />
+    </View>
+  );
+}
+
 function Row({
   icon,
   label,
@@ -327,6 +441,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   pillActive: { backgroundColor: theme.colors.primary },
   pillText: { fontSize: 13, fontWeight: "600", color: theme.colors.textMuted },
   pillTextActive: { color: theme.colors.onPrimary },
+  preview: { ...theme.typography.body, color: theme.colors.text },
   switchRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   switchBody: { flex: 1, minWidth: 0 },
   row: { flexDirection: "row", alignItems: "center", gap: 12 },
