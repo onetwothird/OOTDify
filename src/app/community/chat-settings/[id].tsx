@@ -21,6 +21,7 @@ import {
   type MemberAction,
   type MemberRole,
   type MuteOption,
+  themeGrid,
 } from "../../../features/community/chatSettings";
 import { EditRoomIconSheet } from "../../../features/community/components/EditRoomIconSheet";
 import { RoomIcon } from "../../../features/community/components/RoomIcon";
@@ -68,6 +69,7 @@ export default function ChatSettingsScreen() {
 
   const [meId, setMeId] = useState<string | null>(null);
   const [settings, setSettings] = useState<ConversationSettings | null>(null);
+  const [swatchWidth, setSwatchWidth] = useState(0);
   const [photos, setPhotos] = useState<{ id: string; image_ref: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -137,9 +139,8 @@ export default function ChatSettingsScreen() {
   const sharedRoom = conversationId === COMMUNITY_ROOM_ID;
   const mute = muteState(settings.mutedUntil, now);
   const tile = (width - 40 - PHOTO_GAP * (PHOTO_COLUMNS - 1)) / PHOTO_COLUMNS;
-  // Theme previews: four across on most phones, three on narrow ones (card padding 16 each side).
-  const previewCols = width < 360 ? 3 : 4;
-  const previewW = (width - 40 - 32 - PREVIEW_GAP * (previewCols - 1)) / previewCols;
+  // Theme previews size from the grid's measured width, so they never wrap unevenly.
+  const { size: previewW } = themeGrid(swatchWidth, PREVIEW_GAP);
 
   const run = async (work: () => Promise<void>, failMessage: string) => {
     setBusy(true);
@@ -261,7 +262,7 @@ export default function ChatSettingsScreen() {
           <Text style={styles.label}>{t("community.settings.theme")}</Text>
           {/* Each theme is a tiny chat: its background with one bubble from
               each side, so you see what you pick. */}
-          <View style={styles.swatches}>
+          <View style={styles.swatches} onLayout={(e) => setSwatchWidth(e.nativeEvent.layout.width)}>
             {[null, ...CHAT_THEMES].map((preset) => {
               const key = preset?.key ?? null;
               const active = settings.chatTheme === key || (key === null && !CHAT_THEMES.some((p) => p.key === settings.chatTheme));
@@ -276,7 +277,7 @@ export default function ChatSettingsScreen() {
                   accessibilityLabel={name}
                   disabled={!themeEditable || busy}
                   onPress={() => pickTheme(key)}
-                  style={({ pressed }) => [styles.preview, { width: previewW }, pressed && styles.pressed]}
+                  style={({ pressed }) => [styles.preview, { width: previewW }, !previewW && styles.hidden, pressed && styles.pressed]}
                 >
                   <View
                     style={[
@@ -545,6 +546,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   hint: { ...theme.typography.caption, color: theme.colors.textMuted, marginTop: theme.spacing.sm },
   swatches: { flexDirection: "row", flexWrap: "wrap", gap: PREVIEW_GAP, marginTop: theme.spacing.sm },
   preview: { alignItems: "center", gap: 4 },
+  hidden: { opacity: 0 },
   previewChat: {
     width: "100%",
     aspectRatio: 0.82,
