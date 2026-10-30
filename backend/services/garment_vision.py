@@ -1,11 +1,14 @@
 """Garment vision: name and locate the clothing item in a capture photo.
 
 A photo of a person wearing a t-shirt should add *the t-shirt*, not the person.
-GrabCut (see garment_isolation.py) cannot do that, so this asks Claude to point
+GrabCut (see garment_isolation.py) cannot do that, so this asks a vision model to point
 at the main garment and describe it; the caller crops to the returned box.
 
-Privacy: the photo is sent to Anthropic for this one request and nothing is
-stored here. Callers must already have passed auth + consent. When no API key is
+Provider: Gemini when GEMINI_API_KEY is set (services/gemini_client.py),
+otherwise Claude.
+
+Privacy: the photo is sent to Google or Anthropic for this one request and
+nothing is stored here. Callers must already have passed auth + consent. When no API key is
 configured we raise `GarmentVisionNotConfiguredError` and the capture flow falls
 back to the plain cut-out, never to invented output.
 """
@@ -22,6 +25,7 @@ from typing import Optional
 from PIL import Image, ImageOps
 
 from config import Config
+from services import gemini_client
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +52,7 @@ PROMPT = (
 
 
 class GarmentVisionNotConfiguredError(RuntimeError):
-    """Raised when ANTHROPIC_API_KEY is not set."""
+    """Raised when neither GEMINI_API_KEY nor ANTHROPIC_API_KEY is set."""
 
 
 class GarmentVisionError(RuntimeError):
@@ -79,7 +83,7 @@ class GarmentDescription:
 
 
 def is_configured() -> bool:
-    return bool(Config.ANTHROPIC_API_KEY)
+    return gemini_client.use_gemini() or bool(Config.ANTHROPIC_API_KEY)
 
 
 def _encode(image_path: str | Path) -> str:
@@ -144,8 +148,20 @@ def parse_reply(text: str) -> GarmentDescription:
 def describe_garment(image_path: str | Path) -> GarmentDescription:
     if not is_configured():
         raise GarmentVisionNotConfiguredError(
-            "Garment description is not configured. Set ANTHROPIC_API_KEY in backend/.env."
+            "Garment description is not configured. Set GEMINI_API_KEY or ANTHROPIC_API_KEY in backend/.env."
         )
+    if gemini_client.use_gemini():
+        try:
+            text = gemini_client.generate_json(
+                turns=[("user", [("image/jpeg", base64.b64decode(_encode(image_path))), PROMPT])],
+                timeout_s=20.0,
+                max_tokens=1024,
+            )
+        except gemini_client.GeminiBlocked as exc:
+            raise GarmentVisionError("The vision model declined this photo.") from exc
+        except (gemini_client.GeminiRateLimited, gemini_client.GeminiFailed) as exc:
+            raise GarmentVisionError(f"Vision request failed: {exc}") from exc
+        return parse_reply(text)
     import anthropic  # imported lazily: only needed when the feature is on
 
     client = anthropic.Anthropic(api_key=Config.ANTHROPIC_API_KEY, timeout=45.0)

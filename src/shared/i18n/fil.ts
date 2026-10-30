@@ -436,7 +436,7 @@ export const fil: Record<keyof typeof en, string> = {
   "stylist.starter.date": "Bumuo ng look para sa dinner date.",
   "stylist.starter.rain": "Ano ang puwede kong isuot kapag maulan?",
   "stylist.starter.missing": "Anong piraso ang pinakamakakadagdag sa closet ko?",
-  "stylist.privacy": "Para makasagot, ipinapadala sa Claude AI ng Anthropic ang mensahe mo at isang text na listahan ng closet at style preferences mo (walang litrato). Hindi sine-save ang chat mo.",
+  "stylist.privacy": "Para makasagot, ipinapadala sa AI provider namin (Google Gemini o Anthropic Claude) ang mensahe mo at isang text na listahan ng closet at style preferences mo (walang litrato). Hindi sine-save ang chat mo.",
   "stylist.placeholder": "Magtanong tungkol sa outfit",
   "stylist.send": "Ipadala",
   "stylist.piece": "Piraso",

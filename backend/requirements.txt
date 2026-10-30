@@ -21,6 +21,9 @@ cloudinary>=1.40,<2
 # ---- Claude vision (garment description on capture) ----
 anthropic>=0.60
 
+# ---- Gemini (Ask Penggi + garment vision when GEMINI_API_KEY is set) ----
+google-genai>=2.34
+
 # ---- Testing the API from a script (backend/scripts/test_api.py) ----
 requests>=2.31.0
 

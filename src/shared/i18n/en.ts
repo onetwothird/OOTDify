@@ -433,7 +433,7 @@ export const en = {
   "stylist.starter.date": "Put together a look for a dinner date.",
   "stylist.starter.rain": "What can I wear on a rainy day?",
   "stylist.starter.missing": "What piece would add the most to my closet?",
-  "stylist.privacy": "To answer, your message and a text list of your closet and style preferences (no photos) are sent to Anthropic's Claude AI. Your chat isn't saved.",
+  "stylist.privacy": "To answer, your message and a text list of your closet and style preferences (no photos) are sent to our AI provider (Google Gemini or Anthropic Claude). Your chat isn't saved.",
   "stylist.placeholder": "Ask about an outfit",
   "stylist.send": "Send",
   "stylist.piece": "Piece",

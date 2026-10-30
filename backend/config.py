@@ -167,9 +167,17 @@ class Config:
     # photo of someone wearing a t-shirt yields just the t-shirt. Leave the key
     # empty to disable: capture then falls back to the plain cut-out only.
     ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-    GARMENT_VISION_MODEL = os.getenv("GARMENT_VISION_MODEL", "claude-opus-5-5")
+    GARMENT_VISION_MODEL = os.getenv("GARMENT_VISION_MODEL", "claude-haiku-5-5")
     # Ask Penggi, the stylist chat (routes/stylist.py). Uses the same key.
-    STYLIST_CHAT_MODEL = os.getenv("STYLIST_CHAT_MODEL", "claude-opus-5-5")
+    STYLIST_CHAT_MODEL = os.getenv("STYLIST_CHAT_MODEL", "claude-haiku-5-5")
+
+    # ------------------------------ Gemini ---------------------------------
+    # A Google AI Studio key. When set, Ask Penggi and garment vision use Gemini
+    # instead of Claude (services/gemini_client.py).
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+    GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
+    # Used when GEMINI_MODEL is overloaded (503); empty to disable.
+    GEMINI_FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-flash-lite-latest")
 
     # ------------------------------ Decart ---------------------------------
     # "Go realistic" live try-on. The key stays server-side; the app only ever
