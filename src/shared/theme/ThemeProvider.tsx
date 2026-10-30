@@ -19,6 +19,7 @@ import { useColorScheme } from "react-native";
 
 import { useSettingsStore, type AppearanceMode } from "../../features/settings/settingsStore";
 import { type Theme, lightTheme } from "../config/theme";
+import { accessibleTheme } from "./accessibility";
 import {
   resolveScheme,
   themeForScheme,
@@ -47,16 +48,19 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const systemScheme = useColorScheme();
   const preference = useSettingsStore((s) => s.appearance);
   const hydrated = useSettingsStore((s) => s.hydrated);
+  const textSize = useSettingsStore((s) => s.textSize);
+  const boldText = useSettingsStore((s) => s.boldText);
+  const highContrast = useSettingsStore((s) => s.highContrast);
 
   const value = useMemo<ThemeContextValue>(() => {
     const resolved = resolveScheme(preference, systemScheme);
     return {
-      theme: themeForScheme(resolved),
+      theme: accessibleTheme(themeForScheme(resolved), { textSize, boldText, highContrast }),
       scheme: resolved,
       preference,
       ready: hydrated,
     };
-  }, [preference, systemScheme, hydrated]);
+  }, [preference, systemScheme, hydrated, textSize, boldText, highContrast]);
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
@@ -73,14 +77,18 @@ export function ForcedSchemeProvider({
   children: ReactNode;
 }) {
   const parent = useContext(ThemeContext);
+  // Keeps the reader's text size, bold text and contrast choices.
+  const textSize = useSettingsStore((s) => s.textSize);
+  const boldText = useSettingsStore((s) => s.boldText);
+  const highContrast = useSettingsStore((s) => s.highContrast);
   const value = useMemo<ThemeContextValue>(
     () => ({
-      theme: themeForScheme(scheme),
+      theme: accessibleTheme(themeForScheme(scheme), { textSize, boldText, highContrast }),
       scheme,
       preference: parent?.preference ?? "light",
       ready: parent?.ready ?? true,
     }),
-    [scheme, parent?.preference, parent?.ready],
+    [scheme, parent?.preference, parent?.ready, textSize, boldText, highContrast],
   );
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
