@@ -54,7 +54,7 @@ export default function LiveTryOnScreen() {
   const insets = useSafeAreaInsets();
   const focused = useIsFocused();
   const appActive = useAppActive();
-  const garment = useLiveGarment((s) => s.garment);
+  const garment = useLiveGarment((s) => s.garments[0] ?? null);
   const thumb = useResolvedImage(garment?.imageRef);
   const { hasPermission, requestPermission } = useCameraPermission();
   const [facing, setFacing] = useState<"front" | "back">("front");
