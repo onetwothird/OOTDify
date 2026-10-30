@@ -4,6 +4,14 @@
 // realtime client reads. Decart's and LiveKit's React Native docs require this
 // to run before the router or root component is imported, so the app entry
 // (index.ts) imports this file first.
-import { registerGlobals } from "@livekit/react-native";
+//
+// Builds without the WebRTC native module (Expo Go, an older dev build) skip
+// it: importing LiveKit there throws and would crash the app at launch.
+import { NativeModules } from "react-native";
 
-registerGlobals();
+import { webRTCLinked } from "./session";
+
+if (webRTCLinked(NativeModules)) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  (require("@livekit/react-native") as typeof import("@livekit/react-native")).registerGlobals();
+}
