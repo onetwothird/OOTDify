@@ -105,10 +105,13 @@ export function HeaderIconButton({
   icon,
   onPress,
   accessibilityLabel,
+  color,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   onPress: () => void;
   accessibilityLabel: string;
+  /** Icon colour; defaults to the theme's text colour. */
+  color?: string;
 }) {
   const styles = useStyles();
   const theme = useAppTheme();
@@ -120,7 +123,7 @@ export function HeaderIconButton({
       onPress={onPress}
       style={({ pressed }) => [styles.iconButton, pressed && { opacity: 0.7 }]}
     >
-      <Ionicons name={icon} size={22} color={theme.colors.text} />
+      <Ionicons name={icon} size={22} color={color ?? theme.colors.text} />
     </Pressable>
   );
 }
