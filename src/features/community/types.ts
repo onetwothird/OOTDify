@@ -51,6 +51,8 @@ export interface CommunityComment {
   id: string;
   post_id: string;
   user_id: string;
+  /** The top-level comment this replies to; null for a top-level comment. */
+  parent_id?: string | null;
   body: string;
   created_at: string;
 }
