@@ -1,4 +1,4 @@
-import { hotScore, lookOfTheWeek, outfitLooks, sortLooks, splitColumns, topCreators, type Look } from "../rank";
+import { forYouScore, hotScore, likedCreators, lookOfTheWeek, outfitLooks, sortLooks, splitColumns, topCreators, type Look } from "../rank";
 
 const NOW = Date.parse("2026-10-30T12:00:00Z");
 const HOUR = 3_600_000;
@@ -112,5 +112,35 @@ describe("outfitLooks", () => {
       look("outfit-no-image", { image_urls: [] }),
     ];
     expect(outfitLooks(posts).map((p) => p.id)).toEqual(["outfit"]);
+  });
+});
+
+describe("for you", () => {
+  const taste = { friendIds: new Set(["fr"]), likedCreatorIds: new Set(["fav"]), me: "me" };
+
+  it("collects the creators of looks I liked, never myself", () => {
+    const looks = [
+      { ...look("a", { user_id: "fav" }), likedByMe: true },
+      { ...look("b", { user_id: "me" }), likedByMe: true },
+      { ...look("c", { user_id: "x" }), likedByMe: false },
+    ];
+    expect([...likedCreators(looks, "me")]).toEqual(["fav"]);
+  });
+
+  it("boosts friends and creators I liked over a stranger with the same engagement", () => {
+    const stranger = forYouScore(look("s", { user_id: "x" }), NOW, taste);
+    expect(forYouScore(look("f", { user_id: "fr" }), NOW, taste)).toBeGreaterThan(stranger);
+    expect(forYouScore(look("l", { user_id: "fav" }), NOW, taste)).toBeGreaterThan(stranger);
+  });
+
+  it("puts my own looks behind everyone else's", () => {
+    expect(forYouScore(look("m", { user_id: "me" }), NOW, taste)).toBeLessThan(
+      forYouScore(look("s", { user_id: "x" }), NOW, taste),
+    );
+  });
+
+  it("sorts the wall with the for-you score", () => {
+    const posts = [look("s", { user_id: "x" }), look("f", { user_id: "fr" }), look("m", { user_id: "me" })];
+    expect(sortLooks(posts, "for_you", NOW, new Set(["fr"]), taste).map((p) => p.id)).toEqual(["f", "s", "m"]);
   });
 });
