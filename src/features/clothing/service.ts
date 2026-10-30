@@ -7,6 +7,7 @@
 import { formFile } from "../../shared/lib/formFile";
 import { shrinkForUpload } from "../../shared/lib/shrinkImage";
 import { supabase } from "../../shared/lib/supabase";
+import { notePenggi } from "../home/penggiNotes";
 import { OutfitPiece, orderPieces } from "./pieces";
 import { wardrobeObjectPath } from "./wardrobePath";
 import { CatalogItem, ClothingItem } from "./types";
@@ -204,6 +205,7 @@ export async function insertClothingItem(item: {
     .select("*")
     .single();
   if (error) throw error;
+  notePenggi("piece_added", item.name?.trim() || undefined);
   return data as ClothingItem;
 }
 
@@ -363,6 +365,7 @@ export async function insertSavedOutfit(outfit: {
     .select("*")
     .single();
   if (error) throw error;
+  notePenggi("look_saved");
   return data as SavedOutfit;
 }
 
