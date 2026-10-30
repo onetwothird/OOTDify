@@ -112,3 +112,25 @@ export function mergeMessage<T extends ThreadMessage>(list: T[], row: ThreadMess
   };
   return next;
 }
+
+/**
+ * The first message I hadn't read when I opened the thread: from someone
+ * else, not unsent, after my last read. Null when everything was read.
+ */
+export function firstUnreadId(messages: ThreadMessage[], lastReadAt: string | null, meId: string | null): string | null {
+  const since = lastReadAt ? Date.parse(lastReadAt) : -Infinity;
+  const first = messages.find(
+    (m) => m.sender_id !== meId && !m.unsent_at && Date.parse(m.created_at) > since,
+  );
+  return first?.id ?? null;
+}
+
+/** "Sent" or "Seen" under my last message in a DM; null when the last message isn't mine. */
+export function seenState(
+  last: ThreadMessage | undefined,
+  peerLastReadAt: string | null,
+  meId: string | null,
+): "sent" | "seen" | null {
+  if (!last || last.sender_id !== meId || last.unsent_at) return null;
+  return peerLastReadAt && Date.parse(peerLastReadAt) >= Date.parse(last.created_at) ? "seen" : "sent";
+}
