@@ -153,6 +153,9 @@ export const theme = {
     caption: { fontSize: 12.5, lineHeight: 17, fontWeight: "500" },
     micro: { fontSize: 10.5, lineHeight: 14, fontWeight: "600", letterSpacing: 1 },
   },
+  // Text size and bold text from Settings > Accessibility (see
+  // theme/accessibility.ts); makeStyles applies them to every style.
+  text: { scale: 1 as number, bold: false as boolean },
 } as const;
 
 export type Theme = typeof theme;
