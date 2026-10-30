@@ -46,7 +46,11 @@ import { resolveMediaUrl } from "../../shared/lib/storageUrl";
 import { useCaptureModalStore } from "../../features/capture/captureModalStore";
 import { pieceHref } from "../../features/clothing/pieces";
 import { ApiError, getProfile, recommendCatalog } from "../../services/aiApi";
+import { fetchFriendLooks } from "../../features/home/friendLooks";
+import { penggiLines, type FriendLook, type PenggiLine } from "../../features/home/penggiLines";
+import { usePenggiNotes } from "../../features/home/penggiNotes";
 import { useT } from "../../shared/i18n/useT";
+import { holdPermissions } from "../../shared/lib/permissionGate";
 import { useHideOnScroll, useTabBarSpace } from "../../shared/navigation/useTabChrome";
 
 
@@ -84,6 +88,9 @@ export default function HomeScreen() {
   const [photoSheetOpen, setPhotoSheetOpen] = useState(false);
   const [logOutOpen, setLogOutOpen] = useState(false);
   const onboardingChecked = useRef(false);
+  // Friends' new looks for Penggi to announce. Optional: when it can't load,
+  // Penggi just doesn't mention any.
+  const [friendLooks, setFriendLooks] = useState<FriendLook[]>([]);
 
   const fetchRecommendations = useCallback(async (occ: string) => {
     try {
@@ -149,6 +156,9 @@ export default function HomeScreen() {
       if (!onboardingChecked.current) {
         onboardingChecked.current = true;
         if (await isOnboardingPending(email)) {
+          // Held before leaving, so Home's location prompt can't land on top
+          // of onboarding (which releases it when it closes).
+          holdPermissions("onboarding");
           router.replace("/onboarding");
           return;
         }
@@ -177,6 +187,9 @@ export default function HomeScreen() {
       void loadStatic();
       void loadTodayPlan();
       void loadGreeting();
+      void fetchFriendLooks()
+        .then(setFriendLooks)
+        .catch(() => setFriendLooks([]));
     }, [loadStatic, loadTodayPlan, loadGreeting]),
   );
 
@@ -201,7 +214,12 @@ export default function HomeScreen() {
           onOpenProfile={() => setPhotoSheetOpen(true)}
         />
 
-        <Hero pieceCount={closet.length} lookCount={saved.length} loading={closetLoading || savedLoading} />
+        <Hero
+          pieceCount={closet.length}
+          lookCount={saved.length}
+          loading={closetLoading || savedLoading}
+          friendLooks={friendLooks}
+        />
 
         <TodayLookCard
           plan={todayPlan}
@@ -474,8 +492,19 @@ function HomeTopBar({
   );
 }
 
-function Hero({ pieceCount, lookCount, loading }: { pieceCount: number; lookCount: number; loading: boolean }) {
+function Hero({
+  pieceCount,
+  lookCount,
+  loading,
+  friendLooks,
+}: {
+  pieceCount: number;
+  lookCount: number;
+  loading: boolean;
+  friendLooks: FriendLook[];
+}) {
   const router = useRouter();
+  const openCapture = useCaptureModalStore((s) => s.open);
   const { t } = useT();
   const theme = useAppTheme();
   const styles = useStyles();
@@ -487,25 +516,40 @@ function Hero({ pieceCount, lookCount, loading }: { pieceCount: number; lookCoun
   // pose, reaching ~76% of his box from the left edge below) clears the bubble.
   const mascotLane = Math.round(mascot * 0.8);
 
-  // Penggi's lines: a hello first, then small talk alternating with styling
-  // tips, looping (the hello is only said once).
-  const DIALOGUE: { text: string; tip: boolean }[] = [
-    { text: t("home.hero.dialogue.welcome"), tip: false },
-    { text: t("home.hero.dialogue.chat1"), tip: false },
-    { text: t("home.hero.dialogue.tip1"), tip: true },
-    { text: t("home.hero.dialogue.chat2"), tip: false },
-    { text: t("home.hero.dialogue.tip2"), tip: true },
-    { text: t("home.hero.dialogue.chat3"), tip: false },
-    { text: t("home.hero.dialogue.tip3"), tip: true },
-    { text: t("home.hero.dialogue.chat4"), tip: false },
-    { text: t("home.hero.dialogue.tip4"), tip: true },
-    { text: t("home.hero.dialogue.chat5"), tip: false },
-  ];
+  // Penggi's lines (features/home/penggiLines): news first (the change you
+  // just made, friends' new looks), else a hello said once, then lines from
+  // your real closet, looks and time of day, looping.
+  const note = usePenggiNotes((s) => s.latest);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  const { news, intro, loop } = penggiLines({
+    pieceCount,
+    lookCount,
+    note,
+    friendLooks,
+    now,
+    hour: new Date(now).getHours(),
+  });
+  const DIALOGUE: PenggiLine[] = [...news, ...(intro ? [intro] : []), ...loop];
+  // The hello is only said once; news comes round again with the loop.
+  const wrapTo = intro ? 1 : 0;
 
   const [tipIndex, setTipIndex] = useState(0);
   const [typed, setTyped] = useState(0);
-  const line = DIALOGUE[tipIndex];
-  const tip = line.text;
+  // Fresh news jumps to the front (adjusting state while rendering).
+  const newsKey = news.map((l) => l.id).join("|");
+  const [seenNews, setSeenNews] = useState(newsKey);
+  if (newsKey !== seenNews) {
+    setSeenNews(newsKey);
+    setTipIndex(0);
+    setTyped(0);
+  }
+  const line = DIALOGUE[Math.min(tipIndex, DIALOGUE.length - 1)];
+  const tip = t(line.key, line.params);
+  const mood = line === intro || news.includes(line) ? "happy" : "default";
 
   useEffect(() => {
     const done = typed >= tip.length;
@@ -513,7 +557,7 @@ function Hero({ pieceCount, lookCount, loading }: { pieceCount: number; lookCoun
       () => {
         if (done) {
           setTyped(0);
-          setTipIndex((i) => (i + 1 >= DIALOGUE.length ? 1 : i + 1));
+          setTipIndex((i) => (i + 1 >= DIALOGUE.length ? wrapTo : i + 1));
         } else {
           setTyped((n) => n + 1);
         }
@@ -521,7 +565,27 @@ function Hero({ pieceCount, lookCount, loading }: { pieceCount: number; lookCoun
       done ? 3000 : 38,
     );
     return () => clearTimeout(id);
-  }, [tip, typed, DIALOGUE.length]);
+  }, [tip, typed, DIALOGUE.length, wrapTo]);
+
+  const goTo = (route: NonNullable<PenggiLine["route"]>) => {
+    if (route === "capture") openCapture();
+    else if (route === "discover") router.push("/(tabs)/discover");
+    else router.push({ pathname: "/(tabs)/wardrobe", params: { section: "outfits" } });
+  };
+
+  // The typed part of the line, with a friend's name drawn bold.
+  const shown = tip.slice(0, typed);
+  const at = line.highlight ? tip.indexOf(line.highlight) : -1;
+  const typedText =
+    at < 0 ? (
+      shown
+    ) : (
+      <>
+        {shown.slice(0, at)}
+        <Text style={styles.bubbleHighlight}>{shown.slice(at, at + line.highlight!.length)}</Text>
+        {shown.slice(at + line.highlight!.length)}
+      </>
+    );
 
   const [appear] = useState(() => new Animated.Value(0));
   const [bob] = useState(() => new Animated.Value(0));
@@ -567,6 +631,15 @@ function Hero({ pieceCount, lookCount, loading }: { pieceCount: number; lookCoun
         <AppButton label={t("home.hero.btn.try")} icon="sparkles-outline" variant="secondary" onPress={() => router.push("/(tabs)/scan")} style={styles.heroBtn} />
       </View>
 
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.push("/stylist")}
+        style={({ pressed }) => [styles.askBtn, pressed && { opacity: 0.85 }]}
+      >
+        <Ionicons name="chatbubble-ellipses-outline" size={17} color={theme.colors.brand} />
+        <Text style={styles.askText}>{t("home.hero.btn.ask")}</Text>
+      </Pressable>
+
       <View style={[styles.heroStageBlob, { width: Math.round(mascot * 1.1), height: Math.round(mascot * 0.2), left: -Math.round(mascot * 0.16) }]} pointerEvents="none" />
 
       <Animated.View
@@ -590,11 +663,12 @@ function Hero({ pieceCount, lookCount, loading }: { pieceCount: number; lookCoun
             Tapping Penggi says hello again (or moves on from the hello). */}
         <SwappingMascot
           size={mascot}
-          mood={tipIndex === 0 ? "happy" : "default"}
+          mood={mood}
           accessibilityLabel={t("home.hero.mascot.a11y")}
           onPress={() => {
+            // Back to the first line (news or the hello), or on from it.
             setTyped(0);
-            setTipIndex((i) => (i === 0 ? 1 : 0));
+            setTipIndex((i) => (i === 0 ? 1 % DIALOGUE.length : 0));
           }}
         />
       </Animated.View>
@@ -606,7 +680,7 @@ function Hero({ pieceCount, lookCount, loading }: { pieceCount: number; lookCoun
           accessibilityLabel={t("home.hero.dialogue.a11y", { text: tip })}
           onPress={() => {
             setTyped(0);
-            setTipIndex((i) => (i + 1 >= DIALOGUE.length ? 1 : i + 1));
+            setTipIndex((i) => (i + 1 >= DIALOGUE.length ? wrapTo : i + 1));
           }}
           style={({ pressed }) => [styles.bubbleWrap, pressed && { opacity: 0.85 }]}
         >
@@ -621,10 +695,23 @@ function Hero({ pieceCount, lookCount, loading }: { pieceCount: number; lookCoun
                 </View>
               ) : null}
               <View style={styles.bubbleSpacer} />
-              <Ionicons name="refresh" size={13} color={theme.colors.textMuted} />
+              {line.route ? (
+                <Pressable
+                  accessibilityRole="link"
+                  accessibilityLabel={t("home.penggi.go")}
+                  hitSlop={8}
+                  onPress={() => goTo(line.route!)}
+                  style={styles.bubbleGo}
+                >
+                  <Text style={styles.bubbleGoText}>{t("home.penggi.go")}</Text>
+                  <Ionicons name="arrow-forward" size={12} color={theme.colors.brand} />
+                </Pressable>
+              ) : (
+                <Ionicons name="refresh" size={13} color={theme.colors.textMuted} />
+              )}
             </View>
             <Text style={styles.bubbleText} numberOfLines={3}>
-              {tip.slice(0, typed)}
+              {typedText}
               <Animated.Text style={[styles.bubbleCaret, { opacity: caret }]}>▍</Animated.Text>
             </Text>
           </View>
@@ -762,6 +849,21 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
   bubbleTipText: { fontSize: 11, fontWeight: "600", color: theme.colors.onPrimary },
   bubbleSpacer: { flex: 1 },
+  askBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 10,
+    paddingVertical: 12,
+    borderRadius: theme.borderRadius.pill,
+    borderWidth: 1.5,
+    borderColor: theme.colors.brand,
+  },
+  askText: { fontSize: 14.5, fontWeight: "700", color: theme.colors.brand },
+  bubbleHighlight: { fontWeight: "800", color: theme.colors.brand },
+  bubbleGo: { flexDirection: "row", alignItems: "center", gap: 3 },
+  bubbleGoText: { fontSize: 12, fontWeight: "700", color: theme.colors.brand },
   bubbleText: { fontSize: 12.5, lineHeight: 18, fontWeight: "600", color: theme.colors.text, minHeight: 54 },
   bubbleCaret: { color: theme.colors.text, fontWeight: "600" },
   hero: { backgroundColor: theme.colors.surface, borderRadius: 28, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.border, padding: 20, marginTop: theme.spacing.sm, overflow: "hidden", shadowColor: "#000", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.07, shadowRadius: 22, elevation: 4 },
