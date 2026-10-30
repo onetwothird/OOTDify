@@ -31,7 +31,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCaptureModalStore } from "../../features/capture/captureModalStore";
 import { insertSavedOutfit } from "../../features/clothing/service";
-import { liveGarmentCandidate, useLiveGarment } from "../../features/tryon/ar/liveGarmentStore";
+import { itemKind } from "../../features/tryon/ar/itemKind";
+import { liveOutfit, useLiveGarment } from "../../features/tryon/ar/liveGarmentStore";
+import { toggleOutfitItem } from "../../features/tryon/ar/outfit";
 import { PHOTO_TRYON_AVAILABLE } from "../../features/tryon/config";
 import { useTryOnSelection } from "../../features/tryon/selectionStore";
 import { TryOnEmptyState } from "../../features/tryon/TryOnEmptyState";
@@ -341,24 +343,27 @@ export default function ScanScreen() {
     );
   };
 
-  // Live preview takes exactly one garment from the closet.
-  const liveItem = liveGarmentCandidate(selectedClothing, closetItems);
+  // Live preview takes an outfit of up to MAX_LIVE_ITEMS closet items.
+  const liveItem = liveOutfit(selectedClothing, closetItems, t("scan.item_fallback"));
   const startLiveTryOn = () => {
-    const item = liveItem;
-    if (!item) return;
-    useLiveGarment.getState().set({
-      id: item.id,
-      imageRef: item.image_url,
-      category: item.category ?? null,
-      name: item.name || t("scan.item_fallback"),
-    });
+    if (!liveItem) return;
+    useLiveGarment.getState().set(liveItem);
     router.push("/tryon/live");
   };
 
   const toggleClothing = (id: string) => {
+    if (!PHOTO_TRYON_AVAILABLE) {
+      // One item per body slot (a new hat replaces the old one), capped.
+      const kindOf = (itemId: string) => {
+        const item = closetItems.find((i) => i.id === itemId);
+        return item ? itemKind(item) : null;
+      };
+      const result = toggleOutfitItem(Array.from(selectedClothing), id, kindOf);
+      if (result.refused) toast.info(t("scan.tryon.outfit_full"));
+      else setSelectedClothing(new Set(result.selected));
+      return;
+    }
     setSelectedClothing((prev) => {
-      // The live preview shows one piece at a time.
-      if (!PHOTO_TRYON_AVAILABLE) return prev.has(id) ? new Set() : new Set([id]);
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
