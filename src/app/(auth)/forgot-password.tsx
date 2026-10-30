@@ -13,7 +13,6 @@ import {
 } from "react-native";
 import { AppButton } from "../../shared/components/AppButton";
 import { AuthCard, AuthHero } from "../../shared/components/AuthShell";
-import { Pinstripes } from "../../shared/components/ClothesRail";
 import { FormField } from "../../shared/components/FormField";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import type { Theme } from "../../shared/config/theme";
@@ -48,7 +47,6 @@ export default function ForgotPasswordScreen() {
 
   return (
     <View style={styles.screen}>
-      <Pinstripes />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.flex}
@@ -62,6 +60,7 @@ export default function ForgotPasswordScreen() {
             title={t("auth.forgot_password.title")}
             subtitle={t("auth.forgot_password.subtitle")}
             onBack={() => router.back()}
+            mascot="signin"
           />
 
           <AuthCard>
@@ -100,7 +99,8 @@ export default function ForgotPasswordScreen() {
 }
 
 const useStyles = makeStyles((theme: Theme) => ({
-  screen: { flex: 1, backgroundColor: theme.colors.background },
+  // White, so the shell's sheet runs on down to the footer.
+  screen: { flex: 1, backgroundColor: theme.colors.surface },
   flex: { flex: 1 },
   scroll: {
     width: "100%",
