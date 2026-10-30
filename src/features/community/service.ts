@@ -348,14 +348,15 @@ export async function fetchComments(postId: string): Promise<FeedComment[]> {
   }));
 }
 
-export async function addComment(postId: string, body: string): Promise<void> {
+/** Posts a comment, or a reply when `parentId` names a top-level comment. */
+export async function addComment(postId: string, body: string, parentId?: string | null): Promise<void> {
   const uid = await currentUserId();
   if (!uid) throw new Error("Not signed in");
   const trimmed = body.trim();
   if (!trimmed) throw new Error("Comment cannot be empty");
   const { error } = await supabase
     .from("community_comments")
-    .insert({ post_id: postId, user_id: uid, body: trimmed });
+    .insert({ post_id: postId, user_id: uid, body: trimmed, ...(parentId ? { parent_id: parentId } : {}) });
   if (error) throw error;
 }
 
