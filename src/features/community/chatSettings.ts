@@ -30,27 +30,60 @@ export function muteState(mutedUntil: string | null, now: number): MuteState {
 }
 
 /** A chat theme: the sender's bubble colour and the text drawn on it. */
+/**
+ * A whole-chat theme: the thread's background, both sides' bubbles, the
+ * accent (send button, reply bars, your reaction) and the muted text drawn
+ * straight on the background (names, day separators, "unsent" marks).
+ */
 export interface ChatTheme {
   key: string;
-  bubble: string;
-  onBubble: string;
+  /** True when the background is dark, so the screen can pick matching chrome. */
+  dark: boolean;
+  background: string;
+  mine: string;
+  onMine: string;
+  theirs: string;
+  onTheirs: string;
+  accent: string;
+  onAccent: string;
+  muted: string;
 }
 
 /**
  * The themes a conversation can use (conversations.chat_theme). The default
- * (null) keeps the app theme's own colours. Each bubble passes 4.5:1 against
- * its text colour.
+ * (null) keeps the app theme's own colours. Every text colour passes 4.5:1 on
+ * what it sits on (chatSettings.test.ts checks this). The first eight keys
+ * predate full themes and must stay.
  */
 export const CHAT_THEMES: readonly ChatTheme[] = [
-  { key: "denim", bubble: "#2F4A7A", onBubble: "#FFFFFF" },
-  { key: "copper", bubble: "#9A4E1E", onBubble: "#FFFFFF" },
-  { key: "olive", bubble: "#4F5D2F", onBubble: "#FFFFFF" },
-  { key: "plum", bubble: "#6B2D5C", onBubble: "#FFFFFF" },
-  { key: "teal", bubble: "#0F6466", onBubble: "#FFFFFF" },
-  { key: "rose", bubble: "#B03A5B", onBubble: "#FFFFFF" },
-  { key: "charcoal", bubble: "#33363B", onBubble: "#FFFFFF" },
-  { key: "butter", bubble: "#F2D27A", onBubble: "#2B2410" },
+  { key: "denim", dark: false, background: "#E6ECF5", mine: "#2F4A7A", onMine: "#FFFFFF", theirs: "#FFFFFF", onTheirs: "#1B2433", accent: "#2F4A7A", onAccent: "#FFFFFF", muted: "#4A586E" },
+  { key: "copper", dark: false, background: "#F6EBE2", mine: "#9A4E1E", onMine: "#FFFFFF", theirs: "#FFFFFF", onTheirs: "#2E1D12", accent: "#9A4E1E", onAccent: "#FFFFFF", muted: "#6E5140" },
+  { key: "olive", dark: false, background: "#ECEEDF", mine: "#4F5D2F", onMine: "#FFFFFF", theirs: "#FFFFFF", onTheirs: "#23281A", accent: "#4F5D2F", onAccent: "#FFFFFF", muted: "#565E42" },
+  { key: "plum", dark: false, background: "#F2E6EF", mine: "#6B2D5C", onMine: "#FFFFFF", theirs: "#FFFFFF", onTheirs: "#2B1426", accent: "#6B2D5C", onAccent: "#FFFFFF", muted: "#6A4D61" },
+  { key: "teal", dark: false, background: "#E1F0EF", mine: "#0F6466", onMine: "#FFFFFF", theirs: "#FFFFFF", onTheirs: "#0F2A2B", accent: "#0F6466", onAccent: "#FFFFFF", muted: "#43615F" },
+  { key: "rose", dark: false, background: "#FBE8ED", mine: "#B03A5B", onMine: "#FFFFFF", theirs: "#FFFFFF", onTheirs: "#3A1520", accent: "#B03A5B", onAccent: "#FFFFFF", muted: "#77505A" },
+  { key: "charcoal", dark: true, background: "#1C1E22", mine: "#E9E6DF", onMine: "#1C1E22", theirs: "#2E3137", onTheirs: "#F2F2F2", accent: "#E9E6DF", onAccent: "#1C1E22", muted: "#A3A8B0" },
+  { key: "butter", dark: false, background: "#FBF4DF", mine: "#F2D27A", onMine: "#2B2410", theirs: "#FFFFFF", onTheirs: "#2B2410", accent: "#7A5C0E", onAccent: "#FFFFFF", muted: "#6B5C34" },
+  { key: "midnight", dark: true, background: "#0E1630", mine: "#3D5BD9", onMine: "#FFFFFF", theirs: "#1E2747", onTheirs: "#E8ECFF", accent: "#8FA6FF", onAccent: "#0E1630", muted: "#9AA6CC" },
+  { key: "forest", dark: true, background: "#12201A", mine: "#2F7A55", onMine: "#FFFFFF", theirs: "#1F3329", onTheirs: "#E6F2EA", accent: "#7CC9A0", onAccent: "#12201A", muted: "#8FB3A0" },
+  { key: "sakura", dark: false, background: "#FFF0F5", mine: "#C2185B", onMine: "#FFFFFF", theirs: "#FFFFFF", onTheirs: "#3B0D1F", accent: "#C2185B", onAccent: "#FFFFFF", muted: "#835466" },
+  { key: "runway", dark: false, background: "#FFFFFF", mine: "#000000", onMine: "#FFFFFF", theirs: "#EFEFEF", onTheirs: "#000000", accent: "#000000", onAccent: "#FFFFFF", muted: "#5C5C5C" },
+  { key: "sunset", dark: false, background: "#FFF0E4", mine: "#B83A0B", onMine: "#FFFFFF", theirs: "#FFFFFF", onTheirs: "#3A1A0A", accent: "#B83A0B", onAccent: "#FFFFFF", muted: "#7E5747" },
+  { key: "lavender", dark: false, background: "#EFECFA", mine: "#5B4BB7", onMine: "#FFFFFF", theirs: "#FFFFFF", onTheirs: "#221B45", accent: "#5B4BB7", onAccent: "#FFFFFF", muted: "#5F5985" },
 ];
+
+/** WCAG contrast ratio between two 6-digit hex colours (1 to 21). */
+export function contrastRatio(a: string, b: string): number {
+  const luminance = (hex: string) => {
+    const [r, g, bl] = [1, 3, 5].map((i) => {
+      const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+  };
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
 
 export function chatTheme(key: string | null | undefined): ChatTheme | null {
   return CHAT_THEMES.find((t) => t.key === key) ?? null;
