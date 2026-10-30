@@ -99,8 +99,12 @@ export function communityErrorMessage(e: unknown): string {
   // security policy. The app only ever writes rows it owns, so this means the
   // project's policies are missing or out of date rather than the user doing
   // anything wrong — say that instead of leaking the raw Postgres text.
+  // A guard trigger also uses 42501, with a sentence written for the user
+  // ("Only a community admin can change its theme"); show that one as is.
   const policyDenied =
-    err?.code === "42501" || msg.includes("row-level security policy");
+    msg.includes("row-level security policy") ||
+    msg.includes("permission denied") ||
+    (err?.code === "42501" && !msg);
   if (policyDenied) {
     return "This project's community permissions are out of date. Apply supabase/schema.sql to your Supabase project, then try again.";
   }
