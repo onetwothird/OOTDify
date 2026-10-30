@@ -13,7 +13,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-  Alert,
   Animated,
   Easing,
   KeyboardAvoidingView,
@@ -37,6 +36,7 @@ import { AppButton } from "../../shared/components/AppButton";
 import { AuthCard, AuthHero } from "../../shared/components/AuthShell";
 import { FormField } from "../../shared/components/FormField";
 import { OAuthButtons } from "../../shared/components/OAuthButtons";
+import { penggi } from "../../shared/components/PenggiMoment";
 import { PRIVACY_ROUTE, TERMS_ROUTE, TERMS_VERSION } from "../../shared/config/legal";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import { makeStyles } from "../../shared/theme/makeStyles";
@@ -53,6 +53,9 @@ function formatBytes(bytes: number | null): string | null {
   const kb = bytes / 1024;
   return kb < 1024 ? `${Math.round(kb)} KB` : `${(kb / 1024).toFixed(1)} MB`;
 }
+
+/** Long enough for the celebration's white to cover the screen first. */
+const CELEBRATION_COVERED_MS = 300;
 
 export default function SignupScreen() {
   const theme = useAppTheme();
@@ -187,11 +190,10 @@ export default function SignupScreen() {
 
     // Only now can these belong to an account.
     await rememberChoice(email.trim());
-    Alert.alert(
-      t("auth.signup.success.title"),
-      t("auth.signup.success.message"),
-      [{ text: t("auth.signup.success.login"), onPress: () => router.replace("/login") }],
-    );
+    // Happy Penggi celebrates the new account on a white screen; sign-in is
+    // put underneath while it covers the app, so lifting it reveals the login.
+    penggi.show("welcome", t("auth.signup.success.title"), t("auth.signup.success.message"));
+    setTimeout(() => router.replace("/login"), CELEBRATION_COVERED_MS);
   };
 
   const handleGoogleAuth = async () => {
