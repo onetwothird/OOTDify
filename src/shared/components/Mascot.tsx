@@ -53,12 +53,18 @@ export function SwappingMascot({
 
   useEffect(() => {
     // With reduce motion the new mood is drawn directly (see below).
-    if (mood === shown || reduceMotion) return;
+    if (reduceMotion) return;
+    if (mood === shown) {
+      // A swap interrupted half-way (mood flipped straight back) must not
+      // leave Penggi squashed: always settle back to full width.
+      const settle = Animated.spring(turn, { toValue: 0, friction: 4, tension: 120, useNativeDriver: true });
+      settle.start();
+      return () => settle.stop();
+    }
     const away = Animated.timing(turn, { toValue: 1, duration: 150, easing: Easing.in(Easing.quad), useNativeDriver: true });
     away.start(({ finished }) => {
-      if (!finished) return;
-      setShown(mood);
-      Animated.spring(turn, { toValue: 0, friction: 4, tension: 120, useNativeDriver: true }).start();
+      // The new mood shows at the narrowest point; the settle above springs it back.
+      if (finished) setShown(mood);
     });
     return () => away.stop();
   }, [mood, shown, turn, reduceMotion]);
