@@ -54,6 +54,7 @@ type Member = ConversationMember & { role: MemberRole };
 const MUTE_OPTIONS: MuteOption[] = ["1h", "8h", "24h", "forever"];
 const PHOTO_COLUMNS = 3;
 const PHOTO_GAP = 4;
+const PREVIEW_GAP = 10;
 
 export default function ChatSettingsScreen() {
   const styles = useStyles();
@@ -136,6 +137,9 @@ export default function ChatSettingsScreen() {
   const sharedRoom = conversationId === COMMUNITY_ROOM_ID;
   const mute = muteState(settings.mutedUntil, now);
   const tile = (width - 40 - PHOTO_GAP * (PHOTO_COLUMNS - 1)) / PHOTO_COLUMNS;
+  // Theme previews: four across on most phones, three on narrow ones (card padding 16 each side).
+  const previewCols = width < 360 ? 3 : 4;
+  const previewW = (width - 40 - 32 - PREVIEW_GAP * (previewCols - 1)) / previewCols;
 
   const run = async (work: () => Promise<void>, failMessage: string) => {
     setBusy(true);
@@ -255,25 +259,49 @@ export default function ChatSettingsScreen() {
         <Text style={styles.section}>{t("community.settings.appearance")}</Text>
         <View style={styles.card}>
           <Text style={styles.label}>{t("community.settings.theme")}</Text>
+          {/* Each theme is a tiny chat: its background with one bubble from
+              each side, so you see what you pick. */}
           <View style={styles.swatches}>
             {[null, ...CHAT_THEMES].map((preset) => {
               const key = preset?.key ?? null;
               const active = settings.chatTheme === key || (key === null && !CHAT_THEMES.some((p) => p.key === settings.chatTheme));
+              const name = key
+                ? t(`community.settings.theme_name.${key}` as "community.settings.theme_name.denim")
+                : t("community.settings.theme_default");
               return (
                 <Pressable
                   key={key ?? "default"}
                   accessibilityRole="radio"
                   accessibilityState={{ selected: active, disabled: !themeEditable || busy }}
-                  accessibilityLabel={key ? t(`community.settings.theme_name.${key}` as "community.settings.theme_name.denim") : t("community.settings.theme_default")}
+                  accessibilityLabel={name}
                   disabled={!themeEditable || busy}
                   onPress={() => pickTheme(key)}
-                  style={[styles.swatchRing, active && styles.swatchRingOn]}
+                  style={({ pressed }) => [styles.preview, { width: previewW }, pressed && styles.pressed]}
                 >
-                  <View style={[styles.swatch, { backgroundColor: preset?.bubble ?? theme.colors.primary }]}>
+                  <View
+                    style={[
+                      styles.previewChat,
+                      { backgroundColor: preset?.background ?? theme.colors.background },
+                      active && { borderColor: preset?.accent ?? theme.colors.brand, borderWidth: 2.5 },
+                    ]}
+                  >
+                    <View style={[styles.previewBubble, { backgroundColor: preset?.theirs ?? theme.colors.surface }]} />
+                    <View
+                      style={[
+                        styles.previewBubble,
+                        styles.previewMine,
+                        { backgroundColor: preset?.mine ?? theme.colors.primary },
+                      ]}
+                    />
                     {active ? (
-                      <Ionicons name="checkmark" size={18} color={preset?.onBubble ?? theme.colors.onPrimary} />
+                      <View style={[styles.previewCheck, { backgroundColor: preset?.accent ?? theme.colors.brand }]}>
+                        <Ionicons name="checkmark" size={12} color={preset?.onAccent ?? theme.colors.onBrand} />
+                      </View>
                     ) : null}
                   </View>
+                  <Text style={[styles.previewName, active && styles.previewNameOn]} numberOfLines={1}>
+                    {name}
+                  </Text>
                 </Pressable>
               );
             })}
@@ -515,10 +543,33 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
   label: { ...theme.typography.body, color: theme.colors.text, fontWeight: "600" },
   hint: { ...theme.typography.caption, color: theme.colors.textMuted, marginTop: theme.spacing.sm },
-  swatches: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: theme.spacing.sm },
-  swatchRing: { padding: 3, borderRadius: 24, borderWidth: 2, borderColor: "transparent" },
-  swatchRingOn: { borderColor: theme.colors.text },
-  swatch: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  swatches: { flexDirection: "row", flexWrap: "wrap", gap: PREVIEW_GAP, marginTop: theme.spacing.sm },
+  preview: { alignItems: "center", gap: 4 },
+  previewChat: {
+    width: "100%",
+    aspectRatio: 0.82,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+    padding: 7,
+    gap: 5,
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  previewBubble: { height: 13, width: "68%", borderRadius: 7 },
+  previewMine: { alignSelf: "flex-end", width: "58%" },
+  previewCheck: {
+    position: "absolute",
+    top: 5,
+    right: 5,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  previewName: { ...theme.typography.caption, color: theme.colors.textMuted },
+  previewNameOn: { color: theme.colors.text, fontWeight: "700" },
   rowStatic: { flexDirection: "row", alignItems: "center", gap: 10, paddingBottom: 6 },
   row: { paddingVertical: 12, paddingHorizontal: 4, borderRadius: theme.borderRadius.md },
   rowPressed: { backgroundColor: theme.colors.surfaceAlt },
