@@ -21,7 +21,7 @@ import { CAMERA_BG, ON_CAMERA } from "../../features/tryon/ar/cameraChrome";
 import { FramingGuide } from "../../features/tryon/ar/FramingGuide";
 import { useLiveGarment, type LiveGarment } from "../../features/tryon/ar/liveGarmentStore";
 import { liveStatus, type CutoutState } from "../../features/tryon/ar/liveStatus";
-import { garmentBounds, LiveOutfitLayer, useSkImages, type OutfitLayerItem } from "../../features/tryon/ar/LiveOutfitLayer";
+import { LiveOutfitLayer, useSkImages, type OutfitLayerItem } from "../../features/tryon/ar/LiveOutfitLayer";
 import type { Size } from "../../features/tryon/ar/overlayGeometry";
 import { useLiveTracker } from "../../features/tryon/ar/useLiveTracker";
 import { useSteadyHint } from "../../features/tryon/ar/useSteadyHint";
@@ -108,9 +108,9 @@ export default function LiveTryOnScreen() {
     () =>
       placeable.flatMap((g) => {
         const uri = readyUriOf(g);
-        const image = uri ? images[uri] : undefined;
-        if (!g.kind || !image || image === "failed") return [];
-        return [{ id: g.id, kind: g.kind, image, bounds: garmentBounds(image) }];
+        const loaded = uri ? images[uri] : undefined;
+        if (!g.kind || !loaded || loaded === "failed") return [];
+        return [{ id: g.id, kind: g.kind, image: loaded.image, bounds: loaded.bounds }];
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [placeableKey, cutouts, images],
