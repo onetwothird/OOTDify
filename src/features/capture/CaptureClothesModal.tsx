@@ -12,15 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 
 import { AppButton } from "../../shared/components/AppButton";
 import { Sheet } from "../../shared/components/Sheet";
@@ -70,6 +62,8 @@ export default function CaptureClothesModal() {
 
   const [entries, setEntries] = useState<CapturedEntry[]>([]);
   const [processing, setProcessing] = useState(false);
+  // New pieces show in Discover unless the owner switches it off here.
+  const [showInDiscover, setShowInDiscover] = useState(true);
 
   const reset = () => {
     setEntries([]);
@@ -191,6 +185,7 @@ export default function CaptureClothesModal() {
           category: entry.category,
           color: garment?.color ?? undefined,
           image_url: storageRef,
+          is_public: showInDiscover,
           tags: [garment?.pattern, garment?.fit].filter(
             (tag): tag is string => Boolean(tag) && tag !== "unknown",
           ),
@@ -239,6 +234,26 @@ export default function CaptureClothesModal() {
       footer={
         entries.length === 0 ? undefined : (
           <>
+            <View style={styles.discoverRow}>
+              <Ionicons
+                name={showInDiscover ? "compass-outline" : "lock-closed-outline"}
+                size={18}
+                color={showInDiscover ? theme.colors.brand : theme.colors.textMuted}
+              />
+              <View style={styles.discoverTexts}>
+                <Text style={styles.discoverTitle}>{t("capture.discover.title")}</Text>
+                <Text style={styles.discoverHint}>
+                  {showInDiscover ? t("capture.discover.on") : t("capture.discover.off")}
+                </Text>
+              </View>
+              <Switch
+                value={showInDiscover}
+                onValueChange={setShowInDiscover}
+                disabled={processing}
+                accessibilityLabel={t("capture.discover.title")}
+                trackColor={{ true: theme.colors.brand, false: theme.colors.border }}
+              />
+            </View>
             <AppButton
               label={t("capture.save", { count: entries.length })}
               icon="checkmark"
@@ -588,6 +603,10 @@ const useStyles = makeStyles((theme) => ({
   captureBtnAltText: { color: theme.colors.text, fontWeight: "600", fontSize: 14 },
   pressed: { opacity: 0.85 },
   doneBtn: { marginTop: 14 },
+  discoverRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingBottom: 10 },
+  discoverTexts: { flex: 1, minWidth: 0 },
+  discoverTitle: { fontSize: 14, fontWeight: "600", color: theme.colors.text },
+  discoverHint: { fontSize: 12, color: theme.colors.textMuted, marginTop: 1 },
   hint: {
     fontSize: 12,
     color: theme.colors.textMuted,
