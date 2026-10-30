@@ -151,6 +151,39 @@ describe("accessoryFit", () => {
   });
 });
 
+/** The same person seen from the back camera: the preview isn't mirrored, so left joints sit on screen right. */
+function backCamera(over: Record<string, Pt | undefined> = {}): Keypoint[] {
+  return pose(over).map((k) => ({ ...k, x: 1 - k.x }));
+}
+
+describe("accessoryFit on the back camera", () => {
+  it("hat still sits above the eyes", () => {
+    const [q] = quads("hat", backCamera(), FULL);
+    expectPoint(bottomCentre(q), 0.5, 0.2 - 0.55 * 0.12);
+    expect(topCentre(q).y).toBeLessThan(bottomCentre(q).y);
+  });
+
+  it("hanging items still grow downward from their anchors", () => {
+    for (const kind of ["earrings", "necklace", "bag", "shoes"] as const) {
+      for (const q of quads(kind, backCamera(), FULL)) expect(bottomCentre(q).y).toBeGreaterThan(topCentre(q).y);
+    }
+  });
+
+  it("glasses and belt stay upright", () => {
+    for (const kind of ["glasses", "belt"] as const) {
+      const [q] = quads(kind, backCamera(), FULL);
+      expect(bottomCentre(q).y).toBeGreaterThan(topCentre(q).y);
+    }
+  });
+
+  it("shoes stay on their own ankles", () => {
+    const qs = quads("shoes", backCamera(), { x: 0, y: 0, width: 0.5, height: 1 });
+    expectPoint(topCentre(qs[0]), 1 - 0.44, 0.95);
+    expectPoint(topCentre(qs[1]), 1 - 0.56, 0.95);
+    expect(qs[1].mirror).toBe(true);
+  });
+});
+
 describe("quadsToMesh", () => {
   const quad: Quad = {
     corners: [
