@@ -33,7 +33,7 @@ import { AppButton } from "../../shared/components/AppButton";
 import { Chip } from "../../shared/components/Chip";
 import { ClothingCard } from "../../shared/components/ClothingCard";
 import { SkeletonGrid, SkeletonRow } from "../../shared/components/LoadingState";
-import { Mascot } from "../../shared/components/Mascot";
+import { SwappingMascot } from "../../shared/components/Mascot";
 import { SectionHeader } from "../../shared/components/SectionHeader";
 import { EmptyState } from "../../shared/components/StateViews";
 import { Skeleton } from "../../shared/components/Skeleton";
@@ -568,7 +568,7 @@ function Hero({ pieceCount, lookCount, loading }: { pieceCount: number; lookCoun
       <View style={[styles.heroStageBlob, { width: Math.round(mascot * 1.1), height: Math.round(mascot * 0.2), left: -Math.round(mascot * 0.16) }]} pointerEvents="none" />
 
       <Animated.View
-        pointerEvents="none"
+        pointerEvents="box-none"
         style={[
           styles.heroMascot,
           {
@@ -584,8 +584,17 @@ function Hero({ pieceCount, lookCount, loading }: { pieceCount: number; lookCoun
           },
         ]}
       >
-        {/* Happy Penggi says the hello; the usual Penggi does the small talk. */}
-        <Mascot size={mascot} mood={tipIndex === 0 ? "happy" : "default"} />
+        {/* Happy Penggi says the hello; the usual Penggi does the small talk.
+            Tapping Penggi says hello again (or moves on from the hello). */}
+        <SwappingMascot
+          size={mascot}
+          mood={tipIndex === 0 ? "happy" : "default"}
+          accessibilityLabel={t("home.hero.mascot.a11y")}
+          onPress={() => {
+            setTyped(0);
+            setTipIndex((i) => (i === 0 ? 1 : 0));
+          }}
+        />
       </Animated.View>
 
       <View style={[styles.heroSpeak, { minHeight: Math.round(mascot * 0.9) }]}>
