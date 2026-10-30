@@ -3,7 +3,8 @@
 // sheet and Settings. The account being left is shown so there is no doubt
 // which one it is, and staying signed in is the prominent, safe choice.
 // Logging out covers the app with Penggi's farewell (crying on a white
-// screen) and lands on the sign-in screen underneath it from every entry point.
+// screen) and lands on the landing page ("Dress well, effortlessly.")
+// underneath it from every entry point.
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -51,11 +52,11 @@ export function LogOutSheet({ visible, onClose }: { visible: boolean; onClose: (
     if (busy) return;
     setBusy(true);
     // The sheet is a native modal, which draws above everything, so it goes
-    // away first; then the farewell covers the app and the switch to sign-in
-    // happens out of sight behind it.
+    // away first; then the farewell covers the app and the switch to the
+    // landing page happens out of sight behind it.
     onClose();
-    // Straight to sign-in; the hold keeps the root gate from also pushing the
-    // landing page on the signed-out session.
+    // The hold keeps the root gate from also redirecting on the signed-out
+    // session while we navigate ourselves.
     void withAuthRedirectHeld(async () => {
       try {
         await wait(SHEET_GONE_MS);
@@ -64,7 +65,7 @@ export function LogOutSheet({ visible, onClose }: { visible: boolean; onClose: (
         // This phone stops getting the account's notifications first.
         await unregisterPush().catch(() => {});
         await supabase.auth.signOut();
-        router.replace("/login");
+        router.replace("/(auth)");
       } finally {
         setBusy(false);
       }
