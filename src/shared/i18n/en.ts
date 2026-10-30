@@ -1194,6 +1194,7 @@ export const en = {
   "tryon.live.disclaimer": "Preview only. The garment follows your body but isn't a realistic render.",
   "tryon.live.unsupported": "Live preview works with clothes, shoes, bags, hats, glasses, earrings, necklaces, scarves, watches and belts.",
   "tryon.live.cant_show": "Can't show {names} live",
+  "tryon.live.items_count": "{count} items",
   "tryon.live.frame.no_person": "Stand in the frame",
   "tryon.live.frame.step_back": "Step back",
   "tryon.live.frame.come_closer": "Come closer",
