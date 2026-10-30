@@ -32,6 +32,7 @@ import { OutfitCalendar } from "../../features/outfit/components/OutfitCalendar"
 import { AppButton } from "../../shared/components/AppButton";
 import { Chip } from "../../shared/components/Chip";
 import { ConfirmSheet } from "../../shared/components/ConfirmSheet";
+import { Sheet } from "../../shared/components/Sheet";
 import { SmartImage } from "../../shared/components/SmartImage";
 import { ClothingCard } from "../../shared/components/ClothingCard";
 import { EmptyState, ErrorState } from "../../shared/components/StateViews";
@@ -450,32 +451,6 @@ export function OutfitsScreen({ switcher }: { switcher: ReactNode }) {
               style={building ? styles.btnDisabled : undefined}
             />
             {buildError ? <Text style={styles.errorText}>{buildError}</Text> : null}
-            {closetTooSmall ? (
-              // The look's empty slots, so it's clear what's missing; the camera
-              // link is deliberately lighter than the Compose button above it.
-              <View style={styles.closetHint}>
-                <View style={styles.slots}>
-                  {(["top", "bottom", "shoes"] as const).map((slot) => (
-                    <View key={slot} style={styles.slot}>
-                      <Ionicons name="add" size={18} color={theme.colors.textMuted} />
-                      <Text style={styles.slotLabel} numberOfLines={1}>
-                        {t(`outfits.builder.slot.${slot}`)}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-                <Text style={styles.closetHintText}>{t("outfits.builder.error.no_items")}</Text>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={openCapture}
-                  hitSlop={6}
-                  style={({ pressed }) => [styles.captureLink, pressed && { opacity: 0.6 }]}
-                >
-                  <Ionicons name="camera-outline" size={17} color={theme.colors.brand} />
-                  <Text style={styles.captureLinkText}>{t("home.action.capture")}</Text>
-                </Pressable>
-              </View>
-            ) : null}
 
             {outfit ? (
               <View style={styles.outfitPreview}>
@@ -535,6 +510,46 @@ export function OutfitsScreen({ switcher }: { switcher: ReactNode }) {
         )}
       </ScrollView>
 
+      {/* Composing needs clothes: an empty closet asks for a capture first. */}
+      <Sheet
+        visible={closetTooSmall}
+        onClose={() => setClosetTooSmall(false)}
+        icon="camera-outline"
+        title={t("outfits.builder.need_clothes.title")}
+        scroll={false}
+        footer={
+          <View style={styles.needActions}>
+            <AppButton
+              label={t("home.action.capture")}
+              icon="camera-outline"
+              onPress={() => {
+                setClosetTooSmall(false);
+                openCapture();
+              }}
+            />
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setClosetTooSmall(false)}
+              style={({ pressed }) => [styles.needLater, pressed && { opacity: 0.6 }]}
+            >
+              <Text style={styles.needLaterText}>{t("outfits.builder.need_clothes.later")}</Text>
+            </Pressable>
+          </View>
+        }
+      >
+        {/* The look's empty slots, so it's clear what the closet is missing. */}
+        <View style={styles.slots}>
+          {(["top", "bottom", "shoes"] as const).map((slot) => (
+            <View key={slot} style={styles.slot}>
+              <Ionicons name="add" size={18} color={theme.colors.textMuted} />
+              <Text style={styles.slotLabel} numberOfLines={1}>
+                {t(`outfits.builder.slot.${slot}`)}
+              </Text>
+            </View>
+          ))}
+        </View>
+        <Text style={styles.needText}>{t("outfits.builder.error.no_items")}</Text>
+      </Sheet>
       <ConfirmSheet
         visible={deleteTarget !== null}
         onClose={() => !deleting && setDeleteTarget(null)}
@@ -749,8 +764,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   builder: { gap: 12 },
   btnDisabled: { opacity: 0.4 },
   errorText: { color: theme.colors.warning, fontSize: 12.5 },
-  closetHint: { gap: 10, marginTop: 6 },
-  slots: { flexDirection: "row", gap: 8 },
+  slots: { flexDirection: "row", gap: 8, marginTop: 4 },
   slot: {
     flex: 1,
     aspectRatio: 1,
@@ -763,19 +777,10 @@ const useStyles = makeStyles((theme: Theme) => ({
     gap: 4,
   },
   slotLabel: { fontSize: 12.5, fontWeight: "600", color: theme.colors.textMuted },
-  closetHintText: { fontSize: 13.5, color: theme.colors.textMuted, lineHeight: 19 },
-  captureLink: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: theme.borderRadius.pill,
-    borderWidth: 1.5,
-    borderColor: theme.colors.brand,
-  },
-  captureLinkText: { fontSize: 13.5, fontWeight: "700", color: theme.colors.brand },
+  needText: { fontSize: 14, color: theme.colors.textMuted, lineHeight: 20, textAlign: "center", marginTop: 14 },
+  needActions: { gap: 4 },
+  needLater: { alignItems: "center", paddingVertical: 12 },
+  needLaterText: { fontSize: 14, fontWeight: "600", color: theme.colors.textMuted },
   outfitPreview: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.lg,
