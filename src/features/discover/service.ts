@@ -111,7 +111,7 @@ export type PieceComment = Omit<FeedComment, "post_id"> & { item_id: string };
 export async function fetchPieceComments(itemId: string): Promise<PieceComment[]> {
   const { data, error } = await supabase
     .from("piece_comments")
-    .select("id, item_id, user_id, body, created_at")
+    .select("id, item_id, user_id, parent_id, body, created_at")
     .eq("item_id", itemId)
     .order("created_at", { ascending: true })
     .limit(100);
@@ -126,10 +126,13 @@ export async function fetchPieceComments(itemId: string): Promise<PieceComment[]
   }));
 }
 
-export async function addPieceComment(itemId: string, body: string): Promise<void> {
+/** Posts a comment on a piece, or a reply when `parentId` names a top-level comment. */
+export async function addPieceComment(itemId: string, body: string, parentId?: string | null): Promise<void> {
   const trimmed = body.trim();
   if (!trimmed) throw new Error("Comment cannot be empty");
-  const { error } = await supabase.from("piece_comments").insert({ item_id: itemId, user_id: await me(), body: trimmed });
+  const { error } = await supabase
+    .from("piece_comments")
+    .insert({ item_id: itemId, user_id: await me(), body: trimmed, ...(parentId ? { parent_id: parentId } : {}) });
   if (error) throw error;
 }
 
