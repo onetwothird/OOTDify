@@ -113,7 +113,7 @@ export default function LiveTryOnScreen() {
       focused && appActive && !released && !!garment && hasPermission && supported && cutoutState === "ready",
     facing,
     preview,
-    category,
+    kinds: garment?.kind ? [garment.kind] : [],
   });
 
   const statusKey = liveStatusKey(supported ? fitKind : "unsupported", live.tracker, cutoutState);
