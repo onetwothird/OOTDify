@@ -732,3 +732,40 @@ export async function composeOutfits(
     pool: typeof p.pool === "number" ? p.pool : 0,
   };
 }
+// ---------------------------------------------------------------------------
+// Ask Penggi (stylist chat over the caller's own closet; routes/stylist.py)
+// ---------------------------------------------------------------------------
+export interface StylistReply {
+  reply: string;
+  /** Ids of the caller's own closet pieces Penggi suggested. */
+  pieceIds: string[];
+}
+
+export async function askPenggi(
+  messages: { role: "user" | "assistant"; text: string }[],
+  context: { language: "en" | "fil"; place?: string | null; localTime?: string },
+): Promise<StylistReply> {
+  const payload = await apiRequest(
+    "/api/stylist/chat",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        messages,
+        context: { language: context.language, place: context.place ?? null, local_time: context.localTime ?? null },
+      }),
+    },
+    { timeoutMs: API_AI_TIMEOUT_MS },
+  );
+  const p = payload as { reply?: unknown; piece_ids?: unknown };
+  if (typeof p.reply !== "string" || !Array.isArray(p.piece_ids)) {
+    throw new ApiError("invalid-response", "The AI service returned an unexpected response.", 200, payload);
+  }
+  return { reply: p.reply, pieceIds: p.piece_ids.filter((id): id is string => typeof id === "string") };
+}
+
+/** The backend's reason code on an Ask Penggi failure ("not_configured", "refused", "unavailable"). */
+export function stylistErrorCode(err: unknown): string | null {
+  if (!(err instanceof ApiError)) return null;
+  const code = (err.payload as { code?: unknown } | null)?.code;
+  return typeof code === "string" ? code : null;
+}
