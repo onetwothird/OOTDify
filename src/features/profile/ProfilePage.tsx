@@ -5,6 +5,8 @@
 // their Closet, saved Looks and Community posts. Every number and tile is a
 // real row; a section that fails to load says so instead of showing zeros.
 // Editing details stays on the Edit profile screen; the bio and cover are edited here.
+// Opens instantly with the last load (profileData.ts) and refreshes behind it.
+// A failed refresh over shown data says so in a toast instead of blanking.
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
@@ -19,7 +21,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { getProfile, updateProfile, uploadProfileCover, type UserProfile } from "../../services/aiApi";
+import { updateProfile, uploadProfileCover } from "../../services/aiApi";
 import { AppButton } from "../../shared/components/AppButton";
 import { Pinstripes } from "../../shared/components/ClothesRail";
 import { Sheet } from "../../shared/components/Sheet";
@@ -28,18 +30,14 @@ import { EmptyState, ErrorState } from "../../shared/components/StateViews";
 import type { Theme } from "../../shared/config/theme";
 import { useT } from "../../shared/i18n/useT";
 import { useHideOnScroll, useTabBarSpace } from "../../shared/navigation/useTabChrome";
-import { supabase } from "../../shared/lib/supabase";
 import { toast } from "../../shared/lib/toast";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
-import { fetchMyCloset, fetchSavedOutfits, type SavedOutfit } from "../clothing/service";
-import type { ClothingItem } from "../clothing/types";
-import { fetchMyPosts } from "../community/service";
-import type { CommunityPost } from "../community/types";
 import { pickAvatarPhoto, type AvatarSource } from "./avatar";
 import { useAvatarStore } from "./avatarStore";
 import { CoverPhotoSheet } from "./CoverPhotoSheet";
 import { ProfileAvatar } from "./ProfileAvatar";
+import { cachedProfilePage, loadProfilePage, type ProfilePageData } from "./profileData";
 
 const BIO_MAX = 160;
 const COVER_HEIGHT = 148;
@@ -47,14 +45,7 @@ const AVATAR = 108;
 
 type Tab = "closet" | "looks" | "posts";
 
-interface Data {
-  profile: UserProfile;
-  email: string | null;
-  joined: string | null;
-  closet: ClothingItem[];
-  looks: SavedOutfit[];
-  posts: CommunityPost[];
-}
+type Data = ProfilePageData;
 
 export function ProfilePage() {
   // The tab bar slides away while scrolling down; content clears it at the end.
@@ -77,25 +68,18 @@ export function ProfilePage() {
 
   const load = useCallback(async () => {
     setError(null);
+    // Show the last load at once; the fresh one replaces it when it lands.
+    const cached = await cachedProfilePage().catch(() => null);
+    if (cached) setData((d) => d ?? cached);
     try {
-      const [{ profile, email }, user, closet, looks, posts] = await Promise.all([
-        getProfile(),
-        supabase.auth.getUser(),
-        fetchMyCloset(),
-        fetchSavedOutfits(),
-        fetchMyPosts(),
-      ]);
-      setData({
-        profile,
-        email,
-        joined: user.data.user?.created_at ?? null,
-        closet,
-        looks,
-        posts,
-      });
-      if (profile.avatar_url) setAvatarRef(profile.avatar_url);
+      const fresh = await loadProfilePage();
+      setData(fresh);
+      if (fresh.profile.avatar_url) setAvatarRef(fresh.profile.avatar_url);
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("profile.page.load_failed"));
+      const message = e instanceof Error ? e.message : t("profile.page.load_failed");
+      // Already showing the page: keep it and say the refresh failed.
+      if (cached) toast.error(t("profile.page.load_failed"), message);
+      else setError(message);
     }
   }, [setAvatarRef, t]);
 
