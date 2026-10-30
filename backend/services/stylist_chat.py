@@ -1,4 +1,4 @@
-"""Ask Penggi: a stylist chat over the caller's own closet, answered by Claude.
+"""Ask Penggi: a stylist chat over the caller's own closet, answered by an LLM.
 
 The app sends the recent conversation plus light context (app language, the
 place shown on Home, local time). The closet and style preferences are read
@@ -9,10 +9,13 @@ can show the real photos; ids that are not in the closet are dropped.
 Language: Penggi answers in the language the user writes in (English,
 Filipino, or a Taglish mix), falling back to the app's language.
 
+Provider: Gemini when GEMINI_API_KEY is set (services/gemini_client.py),
+otherwise Claude.
+
 Privacy: the conversation and a text summary of the closet (names, categories,
-colours; no photos) go to Anthropic for this request only; nothing is stored
-here. Callers must already have passed auth + consent. Without an API key the
-caller gets `StylistNotConfiguredError`, never an invented reply.
+colours; no photos) go to Google or Anthropic for this request only; nothing is
+stored here. Callers must already have passed auth + consent. Without an API key
+the caller gets `StylistNotConfiguredError`, never an invented reply.
 """
 from __future__ import annotations
 
@@ -22,6 +25,7 @@ from dataclasses import dataclass
 from typing import Callable, Optional
 
 from config import Config
+from services import gemini_client
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +63,7 @@ REPLY_SCHEMA = {
 
 
 class StylistNotConfiguredError(RuntimeError):
-    """Raised when ANTHROPIC_API_KEY is not set."""
+    """Raised when neither GEMINI_API_KEY nor ANTHROPIC_API_KEY is set."""
 
 
 class StylistRefusedError(RuntimeError):
@@ -129,12 +133,49 @@ def keep_known_pieces(piece_ids: list, closet: list[dict]) -> list[str]:
 
 
 def is_configured() -> bool:
-    return bool(Config.ANTHROPIC_API_KEY)
+    return gemini_client.use_gemini() or bool(Config.ANTHROPIC_API_KEY)
 
 
 def chat(history: list[ChatTurn], closet: list[dict], profile: dict, context: dict) -> dict:
     if not is_configured():
-        raise StylistNotConfiguredError("Ask Penggi is not configured. Set ANTHROPIC_API_KEY in backend/.env.")
+        raise StylistNotConfiguredError(
+            "Ask Penggi is not configured. Set GEMINI_API_KEY or ANTHROPIC_API_KEY in backend/.env."
+        )
+    if gemini_client.use_gemini():
+        text = _ask_gemini(history, closet, profile, context)
+    else:
+        text = _ask_claude(history, closet, profile, context)
+    try:
+        data = json.loads(text)
+        reply = str(data["reply"]).strip()
+        piece_ids = list(data.get("piece_ids") or [])
+    except (ValueError, KeyError, TypeError) as exc:
+        logger.error("Ask Penggi returned unusable output")
+        raise StylistError("Penggi could not answer right now.") from exc
+    if not reply:
+        raise StylistError("Penggi could not answer right now.")
+    return {"reply": reply, "piece_ids": keep_known_pieces(piece_ids, closet)}
+
+
+def _ask_gemini(history: list[ChatTurn], closet: list[dict], profile: dict, context: dict) -> str:
+    turns: list[tuple[str, list]] = [
+        ("model" if turn.role == "assistant" else "user", [turn.text]) for turn in history
+    ]
+    turns[-1] = ("user", [context_block(context), history[-1].text])
+    schema = {k: v for k, v in REPLY_SCHEMA.items() if k != "additionalProperties"}
+    try:
+        return gemini_client.generate_json(
+            turns=turns, system=build_system_prompt(closet, profile), schema=schema, max_tokens=2048
+        )
+    except gemini_client.GeminiBlocked as exc:
+        raise StylistRefusedError("Penggi can't help with that one.") from exc
+    except gemini_client.GeminiRateLimited as exc:
+        raise StylistError("Penggi is busy right now. Try again in a moment.") from exc
+    except gemini_client.GeminiFailed as exc:
+        raise StylistError("Penggi could not answer right now.") from exc
+
+
+def _ask_claude(history: list[ChatTurn], closet: list[dict], profile: dict, context: dict) -> str:
     import anthropic  # imported lazily: only needed when the feature is on
 
     messages = [turn.as_message() for turn in history]
@@ -171,17 +212,7 @@ def chat(history: list[ChatTurn], closet: list[dict], profile: dict, context: di
 
     if response.stop_reason == "refusal":
         raise StylistRefusedError("Penggi can't help with that one.")
-    text = next((b.text for b in response.content if b.type == "text"), "")
-    try:
-        data = json.loads(text)
-        reply = str(data["reply"]).strip()
-        piece_ids = list(data.get("piece_ids") or [])
-    except (ValueError, KeyError, TypeError) as exc:
-        logger.error("Ask Penggi returned unusable output (stop_reason=%s)", response.stop_reason)
-        raise StylistError("Penggi could not answer right now.") from exc
-    if not reply:
-        raise StylistError("Penggi could not answer right now.")
-    return {"reply": reply, "piece_ids": keep_known_pieces(piece_ids, closet)}
+    return next((b.text for b in response.content if b.type == "text"), "")
 
 
 Stylist = Callable[[list[ChatTurn], list[dict], dict, dict], dict]
