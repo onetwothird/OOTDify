@@ -27,6 +27,9 @@ import {
   SavedOutfit,
 } from "../../features/clothing/service";
 import { generateOutfit } from "../../features/outfit/generator";
+import { lookThumbnails, savedLookTarget } from "../../features/outfit/savedLooks";
+import { fetchDirectory } from "../../features/community/service";
+import { displayName } from "../../features/community/socialService";
 import { Outfit } from "../../features/outfit/types";
 import { OutfitCalendar } from "../../features/outfit/components/OutfitCalendar";
 import { AppButton } from "../../shared/components/AppButton";
@@ -105,6 +108,14 @@ export function OutfitsScreen({ switcher }: { switcher: ReactNode }) {
   const [saving, setSaving] = useState(false);
 
   // Core loader — effect-safe (no synchronous setState); state starts as loading.
+  // Names for looks saved from someone else's Discover post ("Saved from …").
+  const [sourceNames, setSourceNames] = useState<Record<string, string>>({});
+  const openSaved = (o: SavedOutfit) => {
+    const target = savedLookTarget(o);
+    if (target.kind === "post") router.push({ pathname: "/community/post/[id]", params: { id: target.id } });
+    else router.push(`/outfit/${target.id}`);
+  };
+
   const fetchSavedRows = useCallback(async () => {
     try {
       setSaved(await fetchSavedOutfits());
@@ -129,6 +140,25 @@ export function OutfitsScreen({ switcher }: { switcher: ReactNode }) {
       .then(() => fetchSavedRows())
       .catch(() => {});
   }, [fetchSavedRows]);
+
+  useEffect(() => {
+    const ids = Array.from(new Set(saved.map((o) => o.source_user_id).filter((id): id is string => !!id)));
+    if (!ids.length) return;
+    let cancelled = false;
+    void fetchDirectory(ids)
+      .then((dir) => {
+        if (cancelled) return;
+        const names: Record<string, string> = {};
+        for (const [id, profile] of dir) names[id] = displayName(profile);
+        setSourceNames((prev) => ({ ...prev, ...names }));
+      })
+      .catch(() => {
+        // Non-fatal: the row still says it was saved from someone.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [saved]);
 
   // Hydrate the real pieces (closet items, or legacy catalog rows) referenced
   // by saved outfits so each look can show its actual item thumbnails.
@@ -387,8 +417,9 @@ export function OutfitsScreen({ switcher }: { switcher: ReactNode }) {
                     <SavedOutfitRow
                       key={o.id}
                       outfit={o}
-                      thumbnails={thumbnailsFor(o, piecesById)}
-                      onPress={() => router.push(`/outfit/${o.id}`)}
+                      savedFrom={o.source_post_id ? (o.source_user_id ? sourceNames[o.source_user_id] ?? "" : "") : null}
+                      thumbnails={lookThumbnails(o, piecesById)}
+                      onPress={() => openSaved(o)}
                       onDelete={() => removeOutfit(o.id)}
                     />
                   ))
@@ -398,9 +429,10 @@ export function OutfitsScreen({ switcher }: { switcher: ReactNode }) {
                       <SavedOutfitCard
                         key={o.id}
                         outfit={o}
-                        thumbnails={thumbnailsFor(o, piecesById)}
+                        savedFrom={o.source_post_id ? (o.source_user_id ? sourceNames[o.source_user_id] ?? "" : "") : null}
+                        thumbnails={lookThumbnails(o, piecesById)}
                         width={gridCardWidth}
-                        onPress={() => router.push(`/outfit/${o.id}`)}
+                        onPress={() => openSaved(o)}
                         onDelete={() => removeOutfit(o.id)}
                       />
                     ))}
@@ -574,20 +606,6 @@ export function OutfitsScreen({ switcher }: { switcher: ReactNode }) {
  * First few real thumbnails for a saved look, in the outfit's own item order.
  * Falls back to [] when the pieces are unavailable.
  */
-function thumbnailsFor(
-  outfit: SavedOutfit,
-  pieces: Record<string, OutfitPiece>,
-  max = 4,
-): string[] {
-  const urls: string[] = [];
-  for (const id of outfit.clothing_ids ?? []) {
-    const url = pieces[id]?.image_url;
-    if (url) urls.push(url);
-    if (urls.length >= max) break;
-  }
-  return urls;
-}
-
 /** Row of item thumbnails for a look; falls back to the shirt icon. */
 function LookThumbs({ urls, size, gap }: { urls: string[]; size: number; gap: number }) {
   const theme = useAppTheme();
@@ -622,11 +640,14 @@ function LookThumbs({ urls, size, gap }: { urls: string[]; size: number; gap: nu
 
 function SavedOutfitRow({
   outfit,
+  savedFrom,
   thumbnails,
   onPress,
   onDelete,
 }: {
   outfit: SavedOutfit;
+  /** Owner's name when saved from someone's look ("" while it loads); null for my own. */
+  savedFrom?: string | null;
   thumbnails?: string[];
   onPress: () => void;
   onDelete: () => void;
@@ -647,8 +668,11 @@ function SavedOutfitRow({
           {outfit.name || t("outfits.untitled")}
         </Text>
         <Text style={styles.savedMeta} numberOfLines={1}>
-          {outfit.occasion ?? t("home.looks.no_occasion")} · {t("home.looks.items", { count })} ·{" "}
-          {new Date(outfit.created_at).toLocaleDateString()}
+          {savedFrom != null
+            ? savedFrom
+              ? t("outfits.saved_from", { name: savedFrom })
+              : t("outfits.saved_from_someone")
+            : `${outfit.occasion ?? t("home.looks.no_occasion")} · ${t("home.looks.items", { count })} · ${new Date(outfit.created_at).toLocaleDateString()}`}
         </Text>
       </View>
       <Pressable accessibilityRole="button" hitSlop={8} onPress={onDelete} style={styles.savedTrash}>
@@ -660,12 +684,15 @@ function SavedOutfitRow({
 
 function SavedOutfitCard({
   outfit,
+  savedFrom,
   thumbnails,
   width,
   onPress,
   onDelete,
 }: {
   outfit: SavedOutfit;
+  /** Owner's name when saved from someone's look ("" while it loads); null for my own. */
+  savedFrom?: string | null;
   thumbnails?: string[];
   width?: number;
   onPress: () => void;
@@ -693,7 +720,11 @@ function SavedOutfitCard({
           {outfit.name || t("outfits.untitled")}
         </Text>
         <Text style={styles.savedCardMeta} numberOfLines={1}>
-          {outfit.occasion ?? t("home.looks.no_occasion")} · {t("home.looks.items", { count })}
+          {savedFrom != null
+            ? savedFrom
+              ? t("outfits.saved_from", { name: savedFrom })
+              : t("outfits.saved_from_someone")
+            : `${outfit.occasion ?? t("home.looks.no_occasion")} · ${t("home.looks.items", { count })}`}
         </Text>
         <Text style={styles.savedCardDate} numberOfLines={1}>
           {new Date(outfit.created_at).toLocaleDateString()}
