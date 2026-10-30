@@ -33,6 +33,7 @@ import { useAppTheme } from "../shared/theme/ThemeProvider";
 import { makeStyles } from "../shared/theme/makeStyles";
 import type { Theme } from "../shared/config/theme";
 import { useT } from "../shared/i18n/useT";
+import { holdPermissions, releasePermissions } from "../shared/lib/permissionGate";
 import { toast } from "../shared/lib/toast";
 import { getProfile, updateProfile } from "../services/aiApi";
 
@@ -56,6 +57,12 @@ export default function OnboardingScreen() {
   const theme = useAppTheme();
   const styles = useStyles();
   const { t } = useT();
+
+  // Location and notification prompts wait until this screen is done.
+  useEffect(() => {
+    holdPermissions("onboarding");
+    return () => releasePermissions("onboarding");
+  }, []);
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
