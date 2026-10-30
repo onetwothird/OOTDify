@@ -6,6 +6,7 @@ import { fetchDirectory } from "../community/service";
 import { fetchFriends } from "../community/socialService";
 import type { DirectoryProfile, FeedPost } from "../community/types";
 import { supabase } from "../../shared/lib/supabase";
+import { morePieces, pageOf } from "./paging";
 import type { FriendIds, PublicPiece } from "./pieces";
 
 export interface DiscoverPiece extends PublicPiece {
@@ -43,18 +44,24 @@ async function withViewerState(rows: PublicPiece[], uid: string): Promise<Discov
   }));
 }
 
-/** The newest public pieces from everyone else. */
-export async function fetchPublicPieces(limit = 60): Promise<DiscoverPiece[]> {
+/** One page of the newest public pieces from everyone else, optionally one category. */
+export async function fetchPublicPieces(options: {
+  category: string | null;
+  shown: number;
+  size: number;
+}): Promise<{ items: DiscoverPiece[]; hasMore: boolean }> {
   const uid = await me();
-  const { data, error } = await supabase
+  const { from, to } = morePieces(options.shown, options.size);
+  let query = supabase
     .from("clothing_items")
     .select(PIECE_COLUMNS)
     .eq("is_public", true)
-    .neq("user_id", uid)
-    .order("created_at", { ascending: false })
-    .limit(limit);
+    .neq("user_id", uid);
+  if (options.category) query = query.eq("category", options.category);
+  const { data, error } = await query.order("created_at", { ascending: false }).range(from, to);
   if (error) throw error;
-  return withViewerState((data ?? []) as PublicPiece[], uid);
+  const page = pageOf((data ?? []) as PublicPiece[], options.size);
+  return { items: await withViewerState(page.items, uid), hasMore: page.hasMore };
 }
 
 /** Pieces I saved that are still public, newest save first. */
