@@ -8,12 +8,22 @@
 // stop, reaching 0, background, error — lands on a phase where sessionOpen() is
 // false, and the hook tears the connection down on exactly that edge.
 
-export type RealisticPhase = "idle" | "consent" | "connecting" | "live" | "ended" | "failed" | "not_configured";
+export type RealisticPhase =
+  | "idle"
+  | "consent"
+  | "connecting"
+  | "live"
+  | "ended"
+  | "failed"
+  | "not_configured"
+  /** This build has no WebRTC native module (Expo Go, an older dev build). */
+  | "unsupported";
 
 export type RealisticState = { phase: RealisticPhase; secondsLeft: number };
 
 export type RealisticEvent =
   | { type: "start"; consented: boolean }
+  | { type: "unsupported" }
   | { type: "consented" }
   | { type: "connected"; sessionSeconds: number }
   | { type: "tick" }
@@ -47,6 +57,8 @@ export function realisticReducer(state: RealisticState, event: RealisticEvent): 
       // Only from idle: a double tap, or a tap while a session is open, opens nothing.
       if (phase !== "idle") return state;
       return at(event.consented ? "connecting" : "consent");
+    case "unsupported":
+      return phase === "idle" ? at("unsupported") : state;
     case "consented":
       return phase === "consent" ? at("connecting") : state;
     case "connected":
@@ -117,4 +129,13 @@ export function createDialGate() {
       return dial;
     },
   };
+}
+
+/**
+ * True when this build registered LiveKit's native WebRTCModule. Expo Go and
+ * dev builds made before WebRTC was added lack it (bridgeless reports null,
+ * the legacy bridge undefined). Takes NativeModules so it stays pure.
+ */
+export function webRTCLinked(modules: Record<string, unknown>): boolean {
+  return modules.WebRTCModule != null;
 }
