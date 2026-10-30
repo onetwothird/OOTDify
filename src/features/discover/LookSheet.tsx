@@ -1,12 +1,14 @@
 // C:\OOTDify\src\features\discover\LookSheet.tsx
 // One look, opened from Discover. Unlike a Community post card it is about the
 // outfit, not the conversation: the pieces large and swipeable, who put it
-// together (tap through to their profile) and a like. Comments stay in
-// Community. Your own look can be taken off Discover (deletes the share).
+// together (tap through to their profile, or add them as a friend), a like,
+// and saving it into your own Saved looks. Comments stay in Community. Your
+// own look can be taken off Discover (deletes the share).
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
+import { deleteSavedOutfit } from "../clothing/service";
 import { deletePost, likePost, unlikePost } from "../community/service";
 import { displayName } from "../community/socialService";
 import type { FeedPost } from "../community/types";
@@ -18,6 +20,9 @@ import { useT } from "../../shared/i18n/useT";
 import { toast } from "../../shared/lib/toast";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
+import type { FriendState } from "./pieces";
+import { FriendButton } from "./PieceViews";
+import { saveLook } from "./service";
 
 interface Props {
   look: FeedPost | null;
@@ -26,9 +31,25 @@ interface Props {
   onLikeChanged: (postId: string, likedByMe: boolean, likeCount: number) => void;
   onRemoved: (postId: string) => void;
   onOpenCreator: (userId: string) => void;
+  /** My saved copy of this look, if I saved it. */
+  savedOutfitId?: string;
+  onSavedChanged: (postId: string, outfitId: string | null) => void;
+  friend: FriendState;
+  onFriendChanged: (userId: string, next: FriendState) => void;
 }
 
-export function LookSheet({ look, isOwn, onClose, onLikeChanged, onRemoved, onOpenCreator }: Props) {
+export function LookSheet({
+  look,
+  isOwn,
+  onClose,
+  onLikeChanged,
+  onRemoved,
+  onOpenCreator,
+  savedOutfitId,
+  onSavedChanged,
+  friend,
+  onFriendChanged,
+}: Props) {
   const styles = useStyles();
   const theme = useAppTheme();
   const { t } = useT();
@@ -37,6 +58,27 @@ export function LookSheet({ look, isOwn, onClose, onLikeChanged, onRemoved, onOp
   const [liking, setLiking] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const toggleSave = async () => {
+    if (!look || saving) return;
+    setSaving(true);
+    try {
+      if (savedOutfitId) {
+        await deleteSavedOutfit(savedOutfitId);
+        onSavedChanged(look.id, null);
+        toast.success(t("explore.look.unsaved_toast"));
+      } else {
+        const outfit = await saveLook(look);
+        onSavedChanged(look.id, outfit.id);
+        toast.success(t("explore.look.saved_toast"));
+      }
+    } catch {
+      toast.error(t("explore.look.save_error"));
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const close = () => {
     setPage(0);
@@ -109,6 +151,25 @@ export function LookSheet({ look, isOwn, onClose, onLikeChanged, onRemoved, onOp
                 {look.likedByMe ? t("explore.liked", { count: look.like_count }) : t("explore.like_count", { count: look.like_count })}
               </Text>
             </Pressable>
+            {!isOwn ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ selected: Boolean(savedOutfitId), busy: saving }}
+                accessibilityLabel={savedOutfitId ? t("explore.look.unsave") : t("explore.look.save")}
+                disabled={saving}
+                onPress={() => void toggleSave()}
+                style={({ pressed }) => [styles.saveBtn, savedOutfitId ? styles.saveBtnOn : null, pressed && styles.pressed]}
+              >
+                <Ionicons
+                  name={savedOutfitId ? "bookmark" : "bookmark-outline"}
+                  size={18}
+                  color={savedOutfitId ? theme.colors.onBrand : theme.colors.text}
+                />
+                <Text style={[styles.saveText, savedOutfitId ? styles.saveTextOn : null]}>
+                  {savedOutfitId ? t("explore.look.saved") : t("explore.look.save")}
+                </Text>
+              </Pressable>
+            ) : null}
             {isOwn ? (
               <Pressable
                 accessibilityRole="button"
@@ -150,6 +211,7 @@ export function LookSheet({ look, isOwn, onClose, onLikeChanged, onRemoved, onOp
             ) : null}
           </View>
 
+          <View style={styles.creatorRow}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t("explore.view_creator", { name })}
@@ -166,8 +228,9 @@ export function LookSheet({ look, isOwn, onClose, onLikeChanged, onRemoved, onOp
               </Text>
               <Text style={styles.creatorHint}>{t("explore.view_profile")}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={theme.colors.textMuted} />
           </Pressable>
+          <FriendButton userId={look.user_id} state={friend} onChanged={onFriendChanged} />
+          </View>
 
           {look.caption ? <Text style={styles.caption}>{look.caption}</Text> : null}
         </View>
@@ -189,7 +252,22 @@ const useStyles = makeStyles((theme: Theme) => ({
     backgroundColor: theme.colors.surface,
   },
   counterText: { ...theme.typography.caption, color: theme.colors.text, fontVariant: ["tabular-nums"] },
-  creator: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: theme.spacing.md },
+  creatorRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: theme.spacing.md },
+  creator: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 12 },
+  saveBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    borderRadius: theme.borderRadius.pill,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+  },
+  saveBtnOn: { backgroundColor: theme.colors.brand, borderColor: theme.colors.brand },
+  saveText: { fontSize: 14, fontWeight: "700", color: theme.colors.text },
+  saveTextOn: { color: theme.colors.onBrand },
   creatorText: { flex: 1 },
   creatorName: { ...theme.typography.body, color: theme.colors.text, fontWeight: "600" },
   creatorHint: { ...theme.typography.caption, color: theme.colors.textMuted },
