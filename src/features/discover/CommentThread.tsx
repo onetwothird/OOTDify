@@ -4,23 +4,30 @@
 // any comment on their look or piece (RLS enforces both). The parent passes
 // the three calls for its kind of target and hears about count changes so
 // cards stay in step. Keyed by the target id, so switching targets reloads.
+//
+// Replies sit one level under a comment; replying to a reply joins the same
+// thread and starts the draft with an @mention. Deleting a comment removes
+// its replies too.
 import { Ionicons } from "@expo/vector-icons";
-import { useCallback, useEffect, useState } from "react";
+import { type ComponentRef, useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
 
 import { timeAgo } from "../community/format";
 import { ProfileAvatar } from "../profile/ProfileAvatar";
 import type { Theme } from "../../shared/config/theme";
 import { useT } from "../../shared/i18n/useT";
+import { useSheet } from "../../shared/components/Sheet";
+import { buzz } from "../../shared/lib/haptics";
 import { supabase } from "../../shared/lib/supabase";
 import { toast } from "../../shared/lib/toast";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
-import { canDeleteComment, COMMENT_MAX, commentDraft } from "./comments";
+import { canDeleteComment, COMMENT_MAX, commentDraft, replyParentId, threadComments } from "./comments";
 
 export interface ThreadComment {
   id: string;
   user_id: string;
+  parent_id?: string | null;
   body: string;
   created_at: string;
   authorName: string;
@@ -40,7 +47,8 @@ export function CommentThread({
   /** Who owns the look or piece (may delete any comment on it). */
   ownerId: string;
   load: () => Promise<ThreadComment[]>;
-  send: (body: string) => Promise<void>;
+  /** Posts a comment, or a reply to the top-level comment `parentId`. */
+  send: (body: string, parentId: string | null) => Promise<void>;
   remove: (commentId: string) => Promise<void>;
   /** +1 after a comment is posted, -1 after one is deleted. */
   onCountChange: (delta: number) => void;
@@ -55,6 +63,9 @@ export function CommentThread({
   const [sending, setSending] = useState(false);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [replyTo, setReplyTo] = useState<{ parentId: string; name: string } | null>(null);
+  const inputRef = useRef<ComponentRef<typeof TextInput>>(null);
+  const { revealEnd } = useSheet();
 
   const refresh = useCallback(async () => {
     try {
@@ -87,8 +98,10 @@ export function CommentThread({
     if (!canSend || sending) return;
     setSending(true);
     try {
-      await send(body);
+      await send(body, replyTo?.parentId ?? null);
+      buzz("tap");
       setDraft("");
+      setReplyTo(null);
       onCountChange(1);
       await refresh();
     } catch {
@@ -106,14 +119,72 @@ export function CommentThread({
     setDeletingId(id);
     try {
       await remove(id);
-      setComments((prev) => (prev ? prev.filter((c) => c.id !== id) : prev));
-      onCountChange(-1);
+      // Its replies go with it (the database cascades).
+      const gone = 1 + (comments ?? []).filter((c) => c.parent_id === id).length;
+      setComments((prev) => (prev ? prev.filter((c) => c.id !== id && c.parent_id !== id) : prev));
+      if (replyTo?.parentId === id) setReplyTo(null);
+      onCountChange(-gone);
     } catch {
       toast.error(t("explore.comments.delete_error"));
     } finally {
       setDeletingId(null);
       setConfirmId(null);
     }
+  };
+
+  const startReply = (c: ThreadComment) => {
+    setReplyTo({ parentId: replyParentId(c), name: c.authorName });
+    // Answering a reply: say who to, since the thread holds several voices.
+    if (c.parent_id && !draft.trim()) setDraft(`@${c.authorName} `);
+    inputRef.current?.focus();
+  };
+
+  const renderComment = (c: ThreadComment, isReply: boolean) => {
+    const deletable = canDeleteComment(c.user_id, meId, ownerId);
+    const confirming = confirmId === c.id;
+    return (
+      <View key={c.id} style={[styles.row, isReply && styles.replyRow]}>
+        <ProfileAvatar size={isReply ? 24 : 30} avatarRef={c.authorAvatar} initial={c.authorName.slice(0, 1)} />
+        <View style={styles.rowMain}>
+          <View style={styles.rowHead}>
+            <Text style={styles.name} numberOfLines={1}>
+              {c.authorName}
+            </Text>
+            {c.user_id === ownerId ? <Text style={styles.ownerTag}>{t("explore.comments.owner")}</Text> : null}
+            <Text style={styles.time}>{timeAgo(c.created_at)}</Text>
+          </View>
+          <Text style={styles.body}>{c.body}</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("explore.comments.reply_to", { name: c.authorName })}
+            hitSlop={8}
+            onPress={() => startReply(c)}
+            style={styles.replyBtn}
+          >
+            <Text style={styles.replyText}>{t("explore.comments.reply")}</Text>
+          </Pressable>
+        </View>
+        {deletable ? (
+          deletingId === c.id ? (
+            <ActivityIndicator size="small" color={theme.colors.textMuted} />
+          ) : (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={confirming ? t("explore.comments.delete_confirm") : t("explore.comments.delete")}
+              hitSlop={8}
+              onPress={() => void del(c.id)}
+              style={confirming ? styles.confirm : styles.trash}
+            >
+              {confirming ? (
+                <Text style={styles.confirmText}>{t("explore.comments.delete_confirm")}</Text>
+              ) : (
+                <Ionicons name="trash-outline" size={16} color={theme.colors.textMuted} />
+              )}
+            </Pressable>
+          )
+        ) : null}
+      </View>
+    );
   };
 
   return (
@@ -138,53 +209,41 @@ export function CommentThread({
 
       {comments && !comments.length ? <Text style={styles.empty}>{t("explore.comments.empty")}</Text> : null}
 
-      {comments?.map((c) => {
-        const deletable = canDeleteComment(c.user_id, meId, ownerId);
-        const confirming = confirmId === c.id;
-        return (
-          <View key={c.id} style={styles.row}>
-            <ProfileAvatar size={30} avatarRef={c.authorAvatar} initial={c.authorName.slice(0, 1)} />
-            <View style={styles.rowMain}>
-              <View style={styles.rowHead}>
-                <Text style={styles.name} numberOfLines={1}>
-                  {c.authorName}
-                </Text>
-                {c.user_id === ownerId ? <Text style={styles.ownerTag}>{t("explore.comments.owner")}</Text> : null}
-                <Text style={styles.time}>{timeAgo(c.created_at)}</Text>
-              </View>
-              <Text style={styles.body}>{c.body}</Text>
+      {comments
+        ? threadComments(comments).map(({ comment, replies }) => (
+            <View key={comment.id}>
+              {renderComment(comment, false)}
+              {replies.map((reply) => renderComment(reply, true))}
             </View>
-            {deletable ? (
-              deletingId === c.id ? (
-                <ActivityIndicator size="small" color={theme.colors.textMuted} />
-              ) : (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={confirming ? t("explore.comments.delete_confirm") : t("explore.comments.delete")}
-                  hitSlop={8}
-                  onPress={() => void del(c.id)}
-                  style={confirming ? styles.confirm : styles.trash}
-                >
-                  {confirming ? (
-                    <Text style={styles.confirmText}>{t("explore.comments.delete_confirm")}</Text>
-                  ) : (
-                    <Ionicons name="trash-outline" size={16} color={theme.colors.textMuted} />
-                  )}
-                </Pressable>
-              )
-            ) : null}
-          </View>
-        );
-      })}
+          ))
+        : null}
+
+      {replyTo ? (
+        <View style={styles.replying}>
+          <Text style={styles.replyingText} numberOfLines={1}>
+            {t("explore.comments.replying_to", { name: replyTo.name })}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("explore.comments.cancel_reply")}
+            hitSlop={8}
+            onPress={() => setReplyTo(null)}
+          >
+            <Ionicons name="close" size={16} color={theme.colors.textMuted} />
+          </Pressable>
+        </View>
+      ) : null}
 
       <View style={styles.composer}>
         <TextInput
+          ref={inputRef}
           style={styles.input}
           value={draft}
           onChangeText={setDraft}
-          placeholder={t("explore.comments.placeholder")}
+          onFocus={revealEnd}
+          placeholder={replyTo ? t("explore.comments.reply_placeholder") : t("explore.comments.placeholder")}
           placeholderTextColor={theme.colors.textMuted}
-          accessibilityLabel={t("explore.comments.placeholder")}
+          accessibilityLabel={replyTo ? t("explore.comments.reply_placeholder") : t("explore.comments.placeholder")}
           maxLength={COMMENT_MAX + 50}
           multiline
         />
@@ -229,6 +288,17 @@ const useStyles = makeStyles((theme: Theme) => ({
   retry: { fontSize: 13, fontWeight: "700", color: theme.colors.brand },
   empty: { ...theme.typography.body, color: theme.colors.textMuted, marginVertical: theme.spacing.sm },
   row: { flexDirection: "row", alignItems: "flex-start", gap: 10, paddingVertical: 9 },
+  replyRow: { marginLeft: 40, paddingVertical: 6 },
+  replyBtn: { alignSelf: "flex-start", marginTop: 4 },
+  replyText: { fontSize: 12.5, fontWeight: "700", color: theme.colors.textMuted },
+  replying: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: theme.spacing.sm,
+    paddingHorizontal: 14,
+  },
+  replyingText: { flex: 1, fontSize: 12.5, color: theme.colors.textMuted },
   rowMain: { flex: 1, minWidth: 0 },
   rowHead: { flexDirection: "row", alignItems: "center", gap: 6 },
   name: { flexShrink: 1, fontSize: 13.5, fontWeight: "700", color: theme.colors.text },
