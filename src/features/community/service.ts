@@ -75,7 +75,7 @@ export async function fetchDirectory(userIds: string[]): Promise<Map<string, Dir
   return map;
 }
 
-function authorDisplayName(profile: DirectoryProfile | null | undefined): string {
+export function authorDisplayName(profile: DirectoryProfile | null | undefined): string {
   return profile?.display_name || profile?.first_name || "Penggi member";
 }
 
@@ -357,6 +357,14 @@ export async function addComment(postId: string, body: string): Promise<void> {
     .from("community_comments")
     .insert({ post_id: postId, user_id: uid, body: trimmed });
   if (error) throw error;
+}
+
+/** Deletes a comment: my own, or anyone's on my post (RLS decides). */
+export async function deleteComment(commentId: string): Promise<void> {
+  const { data, error } = await supabase.from("community_comments").delete().eq("id", commentId).select("id");
+  if (error) throw error;
+  // A delete RLS filtered out removes nothing and reports no error.
+  if (!data?.length) throw new Error("Comment not deleted");
 }
 
 // ---------------------------------------------------------------------------
