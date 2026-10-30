@@ -3,7 +3,7 @@
 //
 // Preload/splash: the native splash stays up (preventAutoHideAsync at module
 // load) until the auth session has resolved, then hides — BootSplash (the
-// same blue and Penggi) covers the gap on platforms where the native splash
+// same background and Penggi) covers the gap on platforms where the native splash
 // already retired, so a cold start never flashes white. Loading resolves on success AND failure.
 //
 // Consent gate (Phase 7): a signed-in session whose auth metadata doesn't
@@ -157,13 +157,13 @@ function RootLayoutInner() {
 
   if (!initialized || !themeReady) {
     // The window between native-splash hide and first route render: the
-    // same blue screen with the same Penggi as the native splash, so launch
-    // reads as one screen (never a white flash). Held until the saved
-    // appearance preference has been read.
+    // same screen and Penggi as the native splash (white, or dark in dark
+    // mode), so launch reads as one screen. Held until the saved appearance
+    // preference has been read.
     return (
       <>
-        <StatusBar style="light" />
-        <BootSplash />
+        <StatusBar style={scheme === "dark" ? "light" : "dark"} />
+        <BootSplash dark={scheme === "dark"} />
       </>
     );
   }
