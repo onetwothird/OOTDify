@@ -26,7 +26,7 @@ import type { Size } from "../../features/tryon/ar/overlayGeometry";
 import { useLiveTracker } from "../../features/tryon/ar/useLiveTracker";
 import { useSteadyHint } from "../../features/tryon/ar/useSteadyHint";
 import { getGarmentCutout, type CutoutOutcome } from "../../features/tryon/cutout";
-import { RealisticConsentSheet, RealisticStage } from "../../features/tryon/realistic/RealisticView";
+import { RealisticConsentSheet, RealisticItemPicker, RealisticStage } from "../../features/tryon/realistic/RealisticView";
 import { releasesCamera } from "../../features/tryon/realistic/session";
 import { useRealisticSession } from "../../features/tryon/realistic/useRealisticSession";
 import type { Theme } from "../../shared/config/theme";
@@ -117,8 +117,11 @@ export default function LiveTryOnScreen() {
   );
   const ready = layerItems.length > 0;
 
-  // Realistic mode redraws one item: the main clothing piece for now.
-  const realisticItem = mainRealisticItem(placeable.filter((g) => readyUriOf(g) !== null));
+  // Realistic mode redraws one item: the one picked, else the main clothing piece.
+  const realisticChoices = placeable.filter((g) => readyUriOf(g) !== null);
+  const [pickedId, setPickedId] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
+  const realisticItem = realisticChoices.find((g) => g.id === pickedId) ?? mainRealisticItem(realisticChoices);
   const realistic = useRealisticSession(realisticItem ? readyUriOf(realisticItem) : null, facing);
   const released = releasesCamera(realistic.phase);
   // Leaving the screen (blur) ends any open session; the hook's unmount
@@ -228,7 +231,7 @@ export default function LiveTryOnScreen() {
             accessibilityState={{ disabled: !canGoRealistic }}
             disabled={!canGoRealistic}
             style={[styles.realisticBtn, !canGoRealistic && styles.realisticBtnOff]}
-            onPress={realistic.start}
+            onPress={() => (realisticChoices.length > 1 ? setPicking(true) : realistic.start())}
           >
             <Ionicons name="sparkles-outline" size={18} color={brand} />
             <View style={styles.realisticBtnLabel}>
@@ -240,6 +243,16 @@ export default function LiveTryOnScreen() {
         <Text style={styles.disclaimer}>{t("tryon.live.disclaimer")}</Text>
       </View>
       <RealisticConsentSheet session={realistic} />
+      <RealisticItemPicker
+        visible={picking}
+        items={realisticChoices.map((g) => ({ id: g.id, name: g.name, thumbUri: readyUriOf(g) }))}
+        onPick={(id) => {
+          setPickedId(id);
+          setPicking(false);
+          realistic.start();
+        }}
+        onClose={() => setPicking(false)}
+      />
     </View>
   );
 }
