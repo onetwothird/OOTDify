@@ -1,6 +1,7 @@
 // C:\OOTDify\src\features\discover\PieceViews.tsx
 // Public closet pieces in Discover: the wall card, the sheet a piece opens in
-// (heart, save, its owner) and the add-friend button shared with LookSheet.
+// (heart, save, its owner, comments) and the add-friend button shared with
+// LookSheet.
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
@@ -15,7 +16,17 @@ import { toast } from "../../shared/lib/toast";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import type { FriendState } from "./pieces";
-import { likePiece, savePiece, unlikePiece, unsavePiece, type DiscoverPiece } from "./service";
+import { CommentThread } from "./CommentThread";
+import {
+  addPieceComment,
+  deletePieceComment,
+  fetchPieceComments,
+  likePiece,
+  savePiece,
+  unlikePiece,
+  unsavePiece,
+  type DiscoverPiece,
+} from "./service";
 
 /** Add friend / Accept / Requested / Friends for one creator; nothing for yourself. */
 export function FriendButton({
@@ -144,6 +155,12 @@ export function PieceCard({
           <Ionicons name={piece.likedByMe ? "heart" : "heart-outline"} size={15} color={theme.colors.accent} />
           <Text style={styles.likes}>{piece.like_count}</Text>
         </Pressable>
+        {piece.comment_count > 0 ? (
+          <View style={styles.heart} accessibilityLabel={t("explore.comments.count", { count: piece.comment_count })}>
+            <Ionicons name="chatbubble-outline" size={14} color={theme.colors.textMuted} />
+            <Text style={styles.likes}>{piece.comment_count}</Text>
+          </View>
+        ) : null}
       </View>
     </Pressable>
   );
@@ -205,6 +222,15 @@ export function PieceSheet({
             </Pressable>
             <FriendButton userId={piece.user_id} state={friend} onChanged={onFriendChanged} />
           </View>
+
+          <CommentThread
+            key={piece.id}
+            ownerId={piece.user_id}
+            load={() => fetchPieceComments(piece.id)}
+            send={(body) => addPieceComment(piece.id, body)}
+            remove={deletePieceComment}
+            onCountChange={(delta) => onChanged({ ...piece, comment_count: Math.max(0, piece.comment_count + delta) })}
+          />
         </View>
       ) : null}
     </Sheet>
