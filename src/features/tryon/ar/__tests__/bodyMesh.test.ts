@@ -1,4 +1,4 @@
-import { bodyMesh, isSupportedCategory, MESH_COLUMNS, STRIPS_PER_SEGMENT, type Bounds } from "../bodyMesh";
+import { bodyMesh, isSupportedCategory, meshFit, meshGarmentKind, MESH_COLUMNS, STRIPS_PER_SEGMENT, type Bounds } from "../bodyMesh";
 import type { Keypoint } from "../overlayGeometry";
 
 type Pt = [number, number, number?];
@@ -148,5 +148,19 @@ describe("bodyMesh", () => {
   it("no_pose when a confidence is NaN", () => {
     const kps = standing({ left_hip: [0.43, 0.6, NaN] });
     expect(bodyMesh("Tops", kps, FULL).kind).toBe("no_pose");
+  });
+});
+
+describe("meshFit", () => {
+  it("fits by kind exactly like bodyMesh fits by category", () => {
+    expect(meshFit("upper", standing(), FULL)).toEqual(bodyMesh("Tops", standing(), FULL));
+    expect(meshFit("outer", standing(), FULL)).toEqual(bodyMesh("Outerwear", standing(), FULL));
+    expect(meshFit("dress", standing(), FULL)).toEqual(bodyMesh("Dresses", standing(), FULL));
+    expect(meshFit("bottom", standing(), FULL)).toEqual(bodyMesh("Bottoms", standing(), FULL));
+  });
+
+  it("meshes outerwear like a top", () => {
+    expect(meshGarmentKind("outer")).toBe("upper");
+    expect(meshGarmentKind("bottom")).toBe("bottom");
   });
 });
