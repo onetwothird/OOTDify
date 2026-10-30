@@ -6,7 +6,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
 
 import { useT } from "../../../shared/i18n/useT";
 import { makeStyles } from "../../../shared/theme/makeStyles";
@@ -201,10 +201,11 @@ const useStyles = makeStyles((theme) => ({
     justifyContent: "center",
     borderRadius: 12,
     backgroundColor: theme.colors.surface,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     borderColor: theme.colors.border,
   },
-  noteEmpty: { borderStyle: "dashed", backgroundColor: "transparent" },
+  // Empty "Add a note" still needs to read as a tappable bubble.
+  noteEmpty: { borderStyle: "dashed", borderWidth: 1.5, borderColor: theme.colors.textMuted },
   noteHidden: { opacity: 0 },
   notePressed: { opacity: 0.7 },
   noteText: { fontWeight: "500", lineHeight: 14, textAlign: "center", color: theme.colors.text },
