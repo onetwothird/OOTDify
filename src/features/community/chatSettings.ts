@@ -117,3 +117,17 @@ export function sortMembers<T extends { name: string; role: MemberRole }>(member
     (a, b) => ROLE_ORDER[a.role] - ROLE_ORDER[b.role] || a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
   );
 }
+
+const THEME_TILE_MIN = 72;
+const THEME_COLUMNS_MAX = 6;
+
+/**
+ * The theme preview grid for a measured width: as many tiles of at least
+ * 72px as fit (two to six), sized so a row fills the width without wrapping.
+ */
+export function themeGrid(width: number, gap: number): { columns: number; size: number } {
+  const fit = Math.floor((width + gap) / (THEME_TILE_MIN + gap));
+  const columns = Math.min(THEME_COLUMNS_MAX, Math.max(2, fit));
+  const size = Math.max(0, Math.floor((width - gap * (columns - 1)) / columns));
+  return { columns, size };
+}
