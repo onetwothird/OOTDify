@@ -9,13 +9,14 @@
 // collects what you saved. Ranking rules live in features/discover.
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, Text, useWindowDimensions, View } from "react-native";
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { communityErrorMessage, fetchFeed } from "../../features/community/service";
 import type { FeedPost } from "../../features/community/types";
 import { LookSheet } from "../../features/discover/LookSheet";
 import { PieceCard, PieceSheet } from "../../features/discover/PieceViews";
+import { appendPage, showMore } from "../../features/discover/paging";
 import { friendState, type FriendIds, type FriendState } from "../../features/discover/pieces";
 import {
   fetchFriendIds,
@@ -33,7 +34,9 @@ import { EmptyState, ErrorState } from "../../shared/components/StateViews";
 import type { Theme } from "../../shared/config/theme";
 import { useT } from "../../shared/i18n/useT";
 import { useHideOnScroll, useTabBarSpace } from "../../shared/navigation/useTabChrome";
+import { toast } from "../../shared/lib/toast";
 import { makeStyles } from "../../shared/theme/makeStyles";
+import { useAppTheme } from "../../shared/theme/ThemeProvider";
 
 const GUTTER = 20;
 const COLUMN_GAP = 12;
@@ -43,6 +46,16 @@ const CREATORS = 8;
 type Load = { status: "loading" } | { status: "error"; message: string } | { status: "ready" };
 type View_ = "looks" | "pieces" | "saved";
 type PieceLoad = { status: "loading" } | { status: "error"; message: string } | { status: "ready"; pieces: DiscoverPiece[] };
+type PublicLoad =
+  | { status: "loading" }
+  | { status: "error"; message: string }
+  | { status: "ready"; pieces: DiscoverPiece[]; hasMore: boolean; loadingMore: boolean };
+
+const PIECES_PAGE = 24;
+const LOOKS_PAGE = 20;
+/** Start loading the next page this far (px) before the end of the list. */
+const LOAD_AHEAD_PX = 600;
+const PIECE_FILTERS = ["Tops", "Bottoms", "Dresses", "Outerwear", "Shoes", "Bags", "Accessories"] as const;
 
 /** Two columns, alternating, for same-shaped piece cards. */
 function twoColumns<T>(items: T[]): [T[], T[]] {
@@ -51,7 +64,8 @@ function twoColumns<T>(items: T[]): [T[], T[]] {
 
 export default function DiscoverScreen() {
   const styles = useStyles();
-  const { t } = useT();
+  const { t, tl } = useT();
+  const theme = useAppTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -68,7 +82,9 @@ export default function DiscoverScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [view, setView] = useState<View_>("looks");
-  const [pieces, setPieces] = useState<PieceLoad>({ status: "loading" });
+  const [pieces, setPieces] = useState<PublicLoad>({ status: "loading" });
+  const [pieceCategory, setPieceCategory] = useState<string | null>(null);
+  const [lookLimit, setLookLimit] = useState(LOOKS_PAGE);
   const [savedPieces, setSavedPieces] = useState<PieceLoad>({ status: "loading" });
   // Post id to my saved copy of that look.
   const [savedLooks, setSavedLooks] = useState<Map<string, string>>(new Map());
@@ -77,13 +93,41 @@ export default function DiscoverScreen() {
   // Fixed once per load, so rankings don't shift while the user scrolls.
   const [now, setNow] = useState(() => Date.now());
 
-  const loadPieces = useCallback(async () => {
+  const loadPieces = useCallback(async (category: string | null) => {
     try {
-      setPieces({ status: "ready", pieces: await fetchPublicPieces() });
+      const page = await fetchPublicPieces({ category, shown: 0, size: PIECES_PAGE });
+      setPieces({ status: "ready", pieces: page.items, hasMore: page.hasMore, loadingMore: false });
     } catch (e) {
       setPieces({ status: "error", message: communityErrorMessage(e) });
     }
   }, []);
+
+  const loadMorePieces = async () => {
+    if (pieces.status !== "ready" || !pieces.hasMore || pieces.loadingMore) return;
+    setPieces({ ...pieces, loadingMore: true });
+    try {
+      const page = await fetchPublicPieces({ category: pieceCategory, shown: pieces.pieces.length, size: PIECES_PAGE });
+      setPieces((prev) =>
+        prev.status === "ready"
+          ? { status: "ready", pieces: appendPage(prev.pieces, page.items), hasMore: page.hasMore, loadingMore: false }
+          : prev,
+      );
+    } catch {
+      setPieces((prev) => (prev.status === "ready" ? { ...prev, loadingMore: false } : prev));
+      toast.error(t("explore.more_error"));
+    }
+  };
+
+  const pickCategory = (category: string | null) => {
+    setPieceCategory(category);
+    setPieces({ status: "loading" });
+    void loadPieces(category);
+  };
+
+  const pickSort = (next: LookSort) => {
+    setSort(next);
+    setLookLimit(LOOKS_PAGE);
+  };
 
   const loadSaved = useCallback(async () => {
     try {
@@ -96,7 +140,7 @@ export default function DiscoverScreen() {
   }, []);
 
   const reload = useCallback(async () => {
-    void loadPieces();
+    void loadPieces(pieceCategory);
     void loadSaved();
     try {
       const [feed, friends] = await Promise.all([
@@ -114,7 +158,7 @@ export default function DiscoverScreen() {
     } catch (e) {
       setLoad({ status: "error", message: communityErrorMessage(e) });
     }
-  }, [loadPieces, loadSaved]);
+  }, [loadPieces, loadSaved, pieceCategory]);
 
   useFocusEffect(
     useCallback(() => {
@@ -138,7 +182,8 @@ export default function DiscoverScreen() {
       ),
     [posts, sort, now, friendIds, likedCreatorIds, me, spotlight],
   );
-  const [left, right] = useMemo(() => splitColumns(wall), [wall]);
+  const shownWall = useMemo(() => wall.slice(0, lookLimit), [wall, lookLimit]);
+  const [left, right] = useMemo(() => splitColumns(shownWall), [shownWall]);
   const columnW = (width - GUTTER * 2 - COLUMN_GAP) / 2;
   const open = posts.find((p) => p.id === openId) ?? null;
   const shownPieces = pieces.status === "ready" ? pieces.pieces : [];
@@ -151,14 +196,13 @@ export default function DiscoverScreen() {
 
   // A heart or save on a piece updates it wherever it is shown.
   const onPieceChanged = (next: DiscoverPiece) => {
-    const swap = (load: PieceLoad): PieceLoad =>
-      load.status === "ready" ? { ...load, pieces: load.pieces.map((p) => (p.id === next.id ? next : p)) } : load;
-    setPieces(swap);
+    const swap = (list: DiscoverPiece[]) => list.map((p) => (p.id === next.id ? next : p));
+    setPieces((prev) => (prev.status === "ready" ? { ...prev, pieces: swap(prev.pieces) } : prev));
     setSavedPieces((prev) => {
       if (prev.status !== "ready") return prev;
       const has = prev.pieces.some((p) => p.id === next.id);
       if (next.savedByMe && !has) return { ...prev, pieces: [next, ...prev.pieces] };
-      return swap(prev);
+      return { ...prev, pieces: swap(prev.pieces) };
     });
   };
   const onFriendChanged = (userId: string, next: FriendState) =>
@@ -222,7 +266,15 @@ export default function DiscoverScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
-        {...hideOnScroll}
+        scrollEventThrottle={hideOnScroll.scrollEventThrottle}
+        onScroll={(e) => {
+          hideOnScroll.onScroll(e);
+          // Near the end: the next page of pieces, or more looks.
+          const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+          if (contentSize.height - contentOffset.y - layoutMeasurement.height > LOAD_AHEAD_PX) return;
+          if (view === "pieces") void loadMorePieces();
+          else if (view === "looks" && lookLimit < wall.length) setLookLimit((n) => showMore(n, wall.length, LOOKS_PAGE));
+        }}
       >
         <ScreenHeader variant="tab" icon="compass" title={t("explore.title")} subtitle={t("explore.subtitle")} />
 
@@ -241,20 +293,58 @@ export default function DiscoverScreen() {
         </View>
 
         {view === "pieces" ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filters}
+            style={styles.filterRow}
+          >
+            {[null, ...PIECE_FILTERS].map((c) => (
+              <Chip
+                key={c ?? "all"}
+                label={c ? tl("category", c) : t("explore.filter.all")}
+                active={pieceCategory === c}
+                onPress={() => pickCategory(c)}
+              />
+            ))}
+          </ScrollView>
+        ) : null}
+        {view === "pieces" && pieces.status === "ready" && pieces.pieces.length > 0 ? (
+          <Text style={styles.viewIntro}>{t("explore.pieces_intro")}</Text>
+        ) : null}
+
+        {view === "pieces" ? (
           pieces.status === "loading" ? (
             <SkeletonGrid />
           ) : pieces.status === "error" ? (
-            <ErrorState message={pieces.message} onRetry={() => void loadPieces()} />
+            <ErrorState message={pieces.message} onRetry={() => pickCategory(pieceCategory)} />
           ) : pieces.pieces.length === 0 ? (
             <EmptyState
               icon="shirt-outline"
-              title={t("explore.pieces_empty.title")}
-              message={t("explore.pieces_empty.message")}
+              title={pieceCategory ? t("explore.filter_empty.title") : t("explore.pieces_empty.title")}
+              message={pieceCategory ? t("explore.filter_empty.message") : t("explore.pieces_empty.message")}
+              actionLabel={pieceCategory ? t("explore.filter.clear") : undefined}
+              onAction={pieceCategory ? () => pickCategory(null) : undefined}
             />
           ) : (
             <>
-              <Text style={styles.viewIntro}>{t("explore.pieces_intro")}</Text>
               {pieceWall(pieces.pieces)}
+              {pieces.hasMore ? (
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={pieces.loadingMore}
+                  onPress={() => void loadMorePieces()}
+                  style={({ pressed }) => [styles.more, pressed && { opacity: 0.7 }]}
+                >
+                  {pieces.loadingMore ? (
+                    <ActivityIndicator size="small" color={theme.colors.brand} />
+                  ) : (
+                    <Text style={styles.moreText}>{t("explore.more_pieces")}</Text>
+                  )}
+                </Pressable>
+              ) : (
+                <Text style={styles.end}>{t("explore.pieces_end")}</Text>
+              )}
             </>
           )
         ) : view === "saved" ? (
@@ -319,7 +409,7 @@ export default function DiscoverScreen() {
             />
             <View style={[styles.block, styles.sorts]}>
               {sorts.map(([key, label]) => (
-                <Chip key={key} label={label} active={sort === key} onPress={() => setSort(key)} />
+                <Chip key={key} label={label} active={sort === key} onPress={() => pickSort(key)} />
               ))}
             </View>
             {wall.length === 0 ? (
@@ -384,6 +474,22 @@ const useStyles = makeStyles((theme: Theme) => ({
   viewText: { fontSize: 15.5, fontWeight: "600", color: theme.colors.textMuted },
   viewTextOn: { color: theme.colors.text },
   viewIntro: { fontSize: 13, color: theme.colors.textMuted, lineHeight: 18, marginTop: theme.spacing.md },
+  filterRow: { marginTop: theme.spacing.md, marginHorizontal: -GUTTER },
+  filters: { gap: 8, paddingHorizontal: GUTTER },
+  more: {
+    alignSelf: "center",
+    minWidth: 160,
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    marginTop: 4,
+    marginBottom: theme.spacing.lg,
+    borderRadius: theme.borderRadius.pill,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+  },
+  moreText: { fontSize: 14, fontWeight: "700", color: theme.colors.text },
+  end: { textAlign: "center", fontSize: 12.5, color: theme.colors.textMuted, marginTop: 4, marginBottom: theme.spacing.lg },
   savedHead: { fontSize: 17, fontWeight: "700", color: theme.colors.text, marginTop: theme.spacing.lg },
   sorts: { flexDirection: "row", gap: 8 },
   wall: { flexDirection: "row", gap: COLUMN_GAP, marginTop: theme.spacing.md, alignItems: "flex-start" },
