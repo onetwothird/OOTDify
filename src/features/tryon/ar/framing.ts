@@ -25,6 +25,8 @@ const REQUIRED: Record<ItemKind, string[]> = {
   shoes: ["ankle"],
 };
 
+const BODY_ROWS = ["shoulder", "hip", "knee", "ankle"];
+
 /** Swap move_left / move_right, for a preview that isn't mirrored (back camera). */
 export function mirrorSides(hint: FramingHint): FramingHint {
   "worklet";
@@ -48,9 +50,13 @@ export function framingHint(kinds: ItemKind[], keypoints: Keypoint[]): FramingHi
     for (let j = 0; j < need.length; j++) if (joints.indexOf(need[j]) < 0) joints.push(need[j]);
   }
   if (joints.length === 0) return "good";
-  // A face-only outfit (hat, glasses, earrings) spans far less than a body.
-  let bodyJoint = false;
-  for (let j = 0; j < joints.length; j++) if (joints[j] !== "eye" && joints[j] !== "ear") bodyJoint = true;
+  // "Come closer" needs a height to judge by: at least two body rows (e.g. a
+  // top's shoulders and hips). A face-only or one-row outfit (hat, belt,
+  // shoes, necklace, watch) spans far less than a body, so it is never
+  // judged too small.
+  let bodyRows = 0;
+  for (let j = 0; j < joints.length; j++) if (BODY_ROWS.indexOf(joints[j]) >= 0) bodyRows++;
+  const bodyJoint = bodyRows >= 2;
 
   let offTop = false;
   let offBottom = false;
