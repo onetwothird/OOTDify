@@ -8,9 +8,13 @@
 // (few messages rest at the floor) and auto-follows new messages only while the
 // viewer is parked at the bottom — otherwise a tappable pill offers the jump
 // instead of yanking their scroll position away.
+//
+// Long-press a message for reactions, reply, edit, unsend for everyone or
+// remove for you (rules in features/community/chatThread.ts). The info button
+// opens the conversation's settings (theme, mute, members, photos).
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -31,16 +35,35 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   COMMUNITY_ROOM_ID,
   communityErrorMessage,
+  editMessage,
+  fetchChatTheme,
   fetchMessages,
+  fetchReactions,
   fetchRoomMeta,
   fetchUserProfile,
+  hideMessage,
   markConversationRead,
   sendMessage,
   sendPhotoMessage,
+  setReaction,
   subscribeToMessages,
+  subscribeToReactions,
+  unsendMessage,
 } from "../../../features/community/service";
 import type { ChatMessageEntry } from "../../../features/community/types";
 import { CHAT_EMOJI, showsCaption } from "../../../features/community/chatMedia";
+import { chatTheme } from "../../../features/community/chatSettings";
+import {
+  applyReaction,
+  mergeMessage,
+  messageActions,
+  nextReaction,
+  quoteOf,
+  reactionChips,
+  type MessageAction,
+  type ReactionRow,
+} from "../../../features/community/chatThread";
+import { MessageActionSheet } from "../../../features/community/components/MessageActionSheet";
 import { clockLabel, dayLabel } from "../../../features/community/format";
 import { ChatPhotoSheet } from "../../../features/community/components/ChatPhotoSheet";
 import { EditRoomIconSheet } from "../../../features/community/components/EditRoomIconSheet";
@@ -65,6 +88,11 @@ const CLUSTER_GAP_MS = 5 * 60_000;
 const PIN_THRESHOLD_PX = 60;
 // Corner radius used where a bubble tucks against its cluster neighbours.
 const TUCK_RADIUS = 6;
+
+/** The actions a message offers as of the moment it is long-pressed. */
+function actionsNow(message: ChatMessageEntry, meId: string | null): MessageAction[] {
+  return messageActions(message, meId, Date.now());
+}
 
 /** Local calendar-day key so day separators match `dayLabel`'s boundaries. */
 function dayKey(iso: string): string {
@@ -112,6 +140,14 @@ export default function ChatThreadScreen() {
   const [avatars, setAvatars] = useState<Record<string, string | null>>({});
   // Messages that arrived while the viewer was scrolled up.
   const [newCount, setNewCount] = useState(0);
+  const [reactions, setReactions] = useState<ReactionRow[]>([]);
+  // The long-pressed message and the actions it offered at that moment.
+  const [selected, setSelected] = useState<{ message: ChatMessageEntry; actions: MessageAction[] } | null>(null);
+  const [replyTo, setReplyTo] = useState<ChatMessageEntry | null>(null);
+  const [editing, setEditing] = useState<ChatMessageEntry | null>(null);
+  const [themeKey, setThemeKey] = useState<string | null>(null);
+  // Briefly outlines the message a reply quote jumped to.
+  const [highlightId, setHighlightId] = useState<string | null>(null);
 
   const listRef = useRef<FlatList<ChatMessageEntry>>(null);
   // Sender-name cache so each realtime message resolves its name at most once.
@@ -294,9 +330,68 @@ export default function ChatThreadScreen() {
           })
           .catch(() => {});
       }
+    }, (row) => {
+      // An edit or an unsend, from me on another device or from the other side.
+      setMessages((prev) => (prev ? mergeMessage(prev, row) : prev));
     });
     return unsubscribe;
   }, [conversationId, rememberName, rememberAvatar]);
+
+  // Reactions: one load, then live changes (a removal arrives as a null emoji).
+  useEffect(() => {
+    if (!conversationId) return;
+    let alive = true;
+    void fetchReactions(conversationId)
+      .then((rows) => {
+        if (alive) setReactions(rows);
+      })
+      .catch(() => {});
+    const unsubscribe = subscribeToReactions(conversationId, (row) =>
+      setReactions((prev) => applyReaction(prev, row)),
+    );
+    return () => {
+      alive = false;
+      unsubscribe();
+    };
+  }, [conversationId]);
+
+  // The shared theme and the room's name/icon can change in settings, so
+  // re-read them whenever the thread comes back into view.
+  useFocusEffect(
+    useCallback(() => {
+      if (!conversationId) return;
+      let alive = true;
+      void fetchChatTheme(conversationId)
+        .then((key) => {
+          if (alive) setThemeKey(key);
+        })
+        .catch(() => {});
+      void fetchRoomMeta(conversationId)
+        .then((meta) => {
+          if (!alive || !meta) return;
+          setGroupMeta((g) =>
+            g ? { ...g, title: meta.title || g.title, iconUrl: meta.iconUrl, iconPreset: meta.iconPreset, mine: meta.canEdit } : g,
+          );
+          if (meta.title && (meta.isPublic || conversationId === COMMUNITY_ROOM_ID)) setTitle(meta.title);
+        })
+        .catch(() => {});
+      return () => {
+        alive = false;
+      };
+    }, [conversationId]),
+  );
+
+  const byId = useMemo(() => new Map((messages ?? []).map((m) => [m.id, m])), [messages]);
+  const reactionsByMessage = useMemo(() => {
+    const map = new Map<string, ReactionRow[]>();
+    for (const r of reactions) {
+      const list = map.get(r.message_id);
+      if (list) list.push(r);
+      else map.set(r.message_id, [r]);
+    }
+    return map;
+  }, [reactions]);
+  const bubbleTheme = chatTheme(themeKey);
 
   const jumpToBottom = useCallback((animated: boolean) => {
     atBottomRef.current = true;
@@ -356,7 +451,15 @@ export default function ChatThreadScreen() {
     if (!body || sending || !conversationId) return;
     setSending(true);
     try {
-      await sendMessage(conversationId, body);
+      if (editing) {
+        await editMessage(editing.id, body);
+        setEditing(null);
+        setDraft("");
+        await load();
+        return;
+      }
+      await sendMessage(conversationId, body, replyTo?.id ?? null);
+      setReplyTo(null);
       setDraft("");
       // I just wrote — follow my own message to the floor.
       atBottomRef.current = true;
@@ -367,14 +470,15 @@ export default function ChatThreadScreen() {
     } finally {
       setSending(false);
     }
-  }, [draft, sending, conversationId, load, t]);
+  }, [draft, sending, conversationId, load, t, editing, replyTo]);
 
   /** Sends a picked photo, with whatever is typed as its caption. */
   const sendPhoto = useCallback(
     async (uri: string): Promise<boolean> => {
       if (!conversationId) return false;
       try {
-        await sendPhotoMessage(conversationId, uri, draft);
+        await sendPhotoMessage(conversationId, uri, draft, replyTo?.id ?? null);
+        setReplyTo(null);
         setDraft("");
         atBottomRef.current = true;
         setNewCount(0);
@@ -385,8 +489,94 @@ export default function ChatThreadScreen() {
         return false;
       }
     },
-    [conversationId, draft, load, t],
+    [conversationId, draft, load, t, replyTo],
   );
+
+  const nameOf = useCallback(
+    (m: ChatMessageEntry) =>
+      m.sender_id === meId
+        ? t("community.chat.you")
+        : m.senderName || names[m.sender_id] || t("community.chat.default_member_name"),
+    [meId, names, t],
+  );
+
+  const openActions = (message: ChatMessageEntry) =>
+    setSelected({ message, actions: actionsNow(message, meId) });
+
+  const myReactionOn = (messageId: string) =>
+    reactions.find((r) => r.message_id === messageId && r.user_id === meId)?.emoji ?? null;
+
+  const react = async (message: ChatMessageEntry, emoji: string) => {
+    setSelected(null);
+    if (!meId) return;
+    const current = myReactionOn(message.id);
+    const next = nextReaction(current, emoji);
+    const at = new Date().toISOString();
+    // Optimistic; the realtime echo carries the same row.
+    setReactions((prev) => applyReaction(prev, { message_id: message.id, user_id: meId, emoji: next, created_at: at }));
+    try {
+      await setReaction(message.id, next);
+    } catch (e) {
+      setReactions((prev) => applyReaction(prev, { message_id: message.id, user_id: meId, emoji: current, created_at: at }));
+      toast.error(t("community.chat.react_error"), communityErrorMessage(e));
+    }
+  };
+
+  const runAction = async (message: ChatMessageEntry, action: Exclude<MessageAction, "react">) => {
+    setSelected(null);
+    if (action === "reply") {
+      setEditing(null);
+      setReplyTo(message);
+      return;
+    }
+    if (action === "edit") {
+      setReplyTo(null);
+      setEditing(message);
+      setDraft(message.body);
+      return;
+    }
+    try {
+      if (action === "unsend_everyone") {
+        await unsendMessage(message);
+        setMessages((prev) =>
+          prev ? mergeMessage(prev, { ...message, body: "", image_ref: null, unsent_at: new Date().toISOString() }) : prev,
+        );
+        setReactions((prev) => prev.filter((r) => r.message_id !== message.id));
+      } else {
+        await hideMessage(message.id);
+        setMessages((prev) => (prev ? prev.filter((m) => m.id !== message.id) : prev));
+      }
+      if (replyTo?.id === message.id) setReplyTo(null);
+      if (editing?.id === message.id) {
+        setEditing(null);
+        setDraft("");
+      }
+    } catch (e) {
+      toast.error(
+        action === "unsend_everyone" ? t("community.chat.unsend_error") : t("community.chat.remove_error"),
+        communityErrorMessage(e),
+      );
+    }
+  };
+
+  /** Scroll to the message a reply quotes and outline it for a moment. */
+  const jumpTo = (messageId: string) => {
+    const index = (messages ?? []).findIndex((m) => m.id === messageId);
+    if (index < 0) {
+      toast.info(t("community.chat.quote_gone"));
+      return;
+    }
+    atBottomRef.current = false;
+    listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.4 });
+    setHighlightId(messageId);
+    setTimeout(() => setHighlightId((h) => (h === messageId ? null : h)), 1600);
+  };
+
+  const cancelContext = () => {
+    if (editing) setDraft("");
+    setEditing(null);
+    setReplyTo(null);
+  };
 
   const headerInitial =
     conversationId === COMMUNITY_ROOM_ID
@@ -465,6 +655,13 @@ export default function ChatThreadScreen() {
           accessibilityLabel={t("community.chat.reload_a11y")}
           onPress={() => void load()}
         />
+        {conversationId ? (
+          <HeaderIconButton
+            icon="information-circle-outline"
+            accessibilityLabel={t("community.chat.settings_a11y")}
+            onPress={() => router.push({ pathname: "/community/chat-settings/[id]", params: { id: conversationId } })}
+          />
+        ) : null}
       </View>
 
       {/* ------------------------------------------------- Thread + composer */}
@@ -496,6 +693,14 @@ export default function ChatThreadScreen() {
               keyboardShouldPersistTaps="handled"
               scrollEventThrottle={16}
               onScroll={handleScroll}
+              onScrollToIndexFailed={(info) => {
+                // Rows are measured lazily: get close, then aim again.
+                listRef.current?.scrollToOffset({ offset: info.averageItemLength * info.index, animated: false });
+                setTimeout(
+                  () => listRef.current?.scrollToIndex({ index: info.index, animated: true, viewPosition: 0.4 }),
+                  120,
+                );
+              }}
               onContentSizeChange={() => {
                 // Re-pin on content growth only while already following —
                 // never yank a viewer who scrolled up to read.
@@ -580,29 +785,141 @@ export default function ChatThreadScreen() {
                             {displayName}
                           </Text>
                         ) : null}
-                        <View
-                          style={[styles.bubble, bubbleRadius, mine && styles.bubbleMine]}
-                        >
-                          {item.image_ref ? (
-                            <SmartImage
-                              source={item.image_ref}
-                              style={styles.bubbleImage}
-                              accessibilityLabel={t("community.chat.photo.a11y")}
-                            />
-                          ) : null}
-                          {!item.image_ref || showsCaption(item.body) ? (
-                            <Text style={[styles.bubbleText, mine && styles.bubbleTextMine]}>
-                              {item.body}
-                            </Text>
-                          ) : null}
-                          {isLast ? (
-                            <Text
-                              style={[styles.bubbleClock, mine && styles.bubbleClockMine]}
-                            >
-                              {clockLabel(item.created_at)}
-                            </Text>
-                          ) : null}
-                        </View>
+                        {item.unsent_at ? (
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityHint={t("community.chat.actions_hint")}
+                            onLongPress={() => openActions(item)}
+                            delayLongPress={280}
+                            style={[styles.bubble, styles.bubbleUnsent, bubbleRadius]}
+                          >
+                            <View style={styles.unsentRow}>
+                              <Ionicons name="arrow-undo-outline" size={14} color={theme.colors.textMuted} />
+                              <Text style={styles.unsentText}>
+                                {mine
+                                  ? t("community.chat.unsent.mine")
+                                  : t("community.chat.unsent.theirs", { name: displayName })}
+                              </Text>
+                            </View>
+                            {isLast ? <Text style={styles.bubbleClock}>{clockLabel(item.created_at)}</Text> : null}
+                          </Pressable>
+                        ) : (
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityHint={t("community.chat.actions_hint")}
+                            onLongPress={() => openActions(item)}
+                            delayLongPress={280}
+                            style={[
+                              styles.bubble,
+                              bubbleRadius,
+                              mine && styles.bubbleMine,
+                              mine && bubbleTheme
+                                ? { backgroundColor: bubbleTheme.bubble, borderColor: bubbleTheme.bubble }
+                                : null,
+                              highlightId === item.id && styles.bubbleHighlight,
+                            ]}
+                          >
+                            {item.reply_to ? (
+                              (() => {
+                                const original = byId.get(item.reply_to);
+                                const quote = quoteOf(original);
+                                const text =
+                                  quote.kind === "missing"
+                                    ? t("community.chat.quote.missing")
+                                    : quote.kind === "unsent"
+                                      ? t("community.chat.quote.unsent")
+                                      : quote.kind === "photo"
+                                        ? quote.text || t("community.chat.quote.photo")
+                                        : quote.text;
+                                return (
+                                  <Pressable
+                                    accessibilityRole="button"
+                                    accessibilityLabel={t("community.chat.quote.a11y", {
+                                      name: original ? nameOf(original) : "",
+                                    })}
+                                    onPress={() => item.reply_to && jumpTo(item.reply_to)}
+                                    style={[styles.quote, mine && styles.quoteMine]}
+                                  >
+                                    {original ? (
+                                      <Text
+                                        style={[styles.quoteName, mine && styles.quoteTextMine, mine && bubbleTheme ? { color: bubbleTheme.onBubble } : null]}
+                                        numberOfLines={1}
+                                      >
+                                        {nameOf(original)}
+                                      </Text>
+                                    ) : null}
+                                    <Text
+                                      style={[
+                                        styles.quoteText,
+                                        mine && styles.quoteTextMine,
+                                        mine && bubbleTheme ? { color: bubbleTheme.onBubble } : null,
+                                        quote.kind !== "text" && quote.kind !== "photo" && styles.quoteGone,
+                                      ]}
+                                      numberOfLines={2}
+                                    >
+                                      {quote.kind === "photo" ? `📷 ${text}` : text}
+                                    </Text>
+                                  </Pressable>
+                                );
+                              })()
+                            ) : null}
+                            {item.image_ref ? (
+                              <SmartImage
+                                source={item.image_ref}
+                                style={styles.bubbleImage}
+                                accessibilityLabel={t("community.chat.photo.a11y")}
+                              />
+                            ) : null}
+                            {!item.image_ref || showsCaption(item.body) ? (
+                              <Text
+                                style={[
+                                  styles.bubbleText,
+                                  mine && styles.bubbleTextMine,
+                                  mine && bubbleTheme ? { color: bubbleTheme.onBubble } : null,
+                                ]}
+                              >
+                                {item.body}
+                              </Text>
+                            ) : null}
+                            {isLast || item.edited_at ? (
+                              <Text
+                                style={[
+                                  styles.bubbleClock,
+                                  mine && styles.bubbleClockMine,
+                                  mine && bubbleTheme ? [{ color: bubbleTheme.onBubble }, styles.clockOnTheme] : null,
+                                ]}
+                              >
+                                {[item.edited_at ? t("community.chat.edited") : null, isLast ? clockLabel(item.created_at) : null]
+                                  .filter(Boolean)
+                                  .join(" · ")}
+                              </Text>
+                            ) : null}
+                          </Pressable>
+                        )}
+                        {(() => {
+                          const chips = reactionChips(reactionsByMessage.get(item.id) ?? [], meId);
+                          if (chips.length === 0 || item.unsent_at) return null;
+                          return (
+                            <View style={[styles.chips, mine && styles.chipsMine]}>
+                              {chips.map((chip) => (
+                                <Pressable
+                                  key={chip.emoji}
+                                  accessibilityRole="button"
+                                  accessibilityState={{ selected: chip.mine }}
+                                  accessibilityLabel={t("community.chat.reaction_chip_a11y", {
+                                    emoji: chip.emoji,
+                                    count: chip.count,
+                                  })}
+                                  onPress={() => void react(item, chip.emoji)}
+                                  style={({ pressed }) => [styles.chip, chip.mine && styles.chipMine, pressed && { opacity: 0.7 }]}
+                                >
+                                  <Text style={styles.chipEmoji}>{chip.emoji}</Text>
+                                  {chip.count > 1 ? <Text style={styles.chipCount}>{chip.count}</Text> : null}
+                                </Pressable>
+                              ))}
+                            </View>
+                          );
+                        })()}
                       </View>
                     </View>
                   </View>
@@ -630,6 +947,39 @@ export default function ChatThreadScreen() {
         </View>
 
         {/* ---------------------------------------------------------- Composer */}
+        {replyTo || editing ? (
+          <View style={styles.contextBar}>
+            <Ionicons
+              name={editing ? "create-outline" : "arrow-undo-outline"}
+              size={18}
+              color={theme.colors.brand}
+            />
+            <View style={styles.contextTexts}>
+              <Text style={styles.contextTitle} numberOfLines={1}>
+                {editing
+                  ? t("community.chat.editing")
+                  : t("community.chat.replying_to", { name: replyTo ? nameOf(replyTo) : "" })}
+              </Text>
+              <Text style={styles.contextPreview} numberOfLines={1}>
+                {(() => {
+                  const target = editing ?? replyTo;
+                  if (!target) return "";
+                  const q = quoteOf(target);
+                  return q.kind === "photo" ? `📷 ${q.text || t("community.chat.quote.photo")}` : q.kind === "text" ? q.text : "";
+                })()}
+              </Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={editing ? t("community.chat.cancel_edit_a11y") : t("community.chat.cancel_reply_a11y")}
+              hitSlop={8}
+              onPress={cancelContext}
+              style={({ pressed }) => [styles.composerBtn, pressed && { opacity: 0.6 }]}
+            >
+              <Ionicons name="close" size={20} color={theme.colors.textMuted} />
+            </Pressable>
+          </View>
+        ) : null}
         {emojiOpen ? (
           <View style={styles.emojiTray}>
             {CHAT_EMOJI.map((emoji) => (
@@ -649,8 +999,9 @@ export default function ChatThreadScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t("community.chat.photo.title")}
+            disabled={editing !== null}
             onPress={() => setPhotoOpen(true)}
-            style={({ pressed }) => [styles.composerBtn, pressed && { opacity: 0.6 }]}
+            style={({ pressed }) => [styles.composerBtn, editing && styles.sendBtnDisabled, pressed && { opacity: 0.6 }]}
           >
             <Ionicons name="image-outline" size={23} color={theme.colors.textMuted} />
           </Pressable>
@@ -671,14 +1022,14 @@ export default function ChatThreadScreen() {
             style={styles.composerInput}
             value={draft}
             onChangeText={setDraft}
-            placeholder={t("community.chat.composer_placeholder")}
+            placeholder={editing ? t("community.chat.edit_placeholder") : t("community.chat.composer_placeholder")}
             placeholderTextColor={theme.colors.textMuted}
             multiline
             maxLength={2000}
           />
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={t("community.chat.send_a11y")}
+            accessibilityLabel={editing ? t("community.chat.save_edit_a11y") : t("community.chat.send_a11y")}
             disabled={!draft.trim() || sending}
             onPress={() => void send()}
             style={[styles.sendBtn, (!draft.trim() || sending) && styles.sendBtnDisabled]}
@@ -686,12 +1037,31 @@ export default function ChatThreadScreen() {
             {sending ? (
               <ActivityIndicator size="small" color={theme.colors.onBrand} />
             ) : (
-              <Ionicons name="send" size={18} color={theme.colors.onBrand} />
+              <Ionicons name={editing ? "checkmark" : "send"} size={18} color={theme.colors.onBrand} />
             )}
           </Pressable>
         </View>
       </KeyboardAvoidingView>
       <ChatPhotoSheet visible={photoOpen} onClose={() => setPhotoOpen(false)} onSend={sendPhoto} />
+      <MessageActionSheet
+        visible={selected !== null}
+        preview={(() => {
+          if (!selected) return "";
+          const q = quoteOf(selected.message);
+          return q.kind === "unsent"
+            ? t("community.chat.quote.unsent")
+            : q.kind === "photo"
+              ? `📷 ${q.text || t("community.chat.quote.photo")}`
+              : q.kind === "text"
+                ? q.text
+                : "";
+        })()}
+        actions={selected?.actions ?? []}
+        myReaction={selected ? myReactionOn(selected.message.id) : null}
+        onReact={(emoji) => selected && void react(selected.message, emoji)}
+        onAction={(action) => selected && void runAction(selected.message, action)}
+        onClose={() => setSelected(null)}
+      />
       {groupMeta?.mine && conversationId ? (
         <EditRoomIconSheet
           visible={editingIcon}
@@ -783,6 +1153,56 @@ const useStyles = makeStyles((theme: Theme) => ({
     gap: 2,
   },
   bubbleMine: { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
+  // "Unsent" is a mark, not a message: an outline with no fill.
+  bubbleUnsent: { backgroundColor: theme.colors.background, borderStyle: "dashed", borderColor: theme.colors.border, borderWidth: 1 },
+  bubbleHighlight: { borderColor: theme.colors.brand, borderWidth: 2 },
+  unsentRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  unsentText: { fontSize: 13.5, fontStyle: "italic", color: theme.colors.textMuted },
+  quote: {
+    borderLeftWidth: 3,
+    borderLeftColor: theme.colors.brand,
+    backgroundColor: theme.colors.surfaceAlt,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    marginBottom: 4,
+  },
+  quoteMine: { borderLeftColor: theme.colors.onPrimaryMuted, backgroundColor: "transparent" },
+  quoteName: { fontSize: 11.5, fontWeight: "700", color: theme.colors.text },
+  quoteText: { fontSize: 12.5, color: theme.colors.textMuted },
+  quoteTextMine: { color: theme.colors.onPrimaryMuted },
+  quoteGone: { fontStyle: "italic" },
+  clockOnTheme: { opacity: 0.75 },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: -4, marginLeft: 8 },
+  chipsMine: { alignSelf: "flex-end", marginLeft: 0, marginRight: 8 },
+  chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: theme.borderRadius.pill,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  chipMine: { borderColor: theme.colors.brand },
+  chipEmoji: { fontSize: 13 },
+  chipCount: { fontSize: 11.5, fontWeight: "600", color: theme.colors.text, fontVariant: ["tabular-nums"] },
+  contextBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingLeft: theme.spacing.page,
+    paddingRight: theme.spacing.page - 8,
+    paddingVertical: 6,
+    backgroundColor: theme.colors.surface,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: theme.colors.border,
+  },
+  contextTexts: { flex: 1, minWidth: 0 },
+  contextTitle: { fontSize: 12.5, fontWeight: "700", color: theme.colors.text },
+  contextPreview: { fontSize: 12.5, color: theme.colors.textMuted },
   bubbleImage: {
     width: 220,
     aspectRatio: 3 / 4,
