@@ -16,7 +16,7 @@ import { fetchFriends } from "../../features/community/socialService";
 import type { FeedPost } from "../../features/community/types";
 import { LookSheet } from "../../features/discover/LookSheet";
 import { CreatorsRow, LookCard, Spotlight } from "../../features/discover/LookViews";
-import { lookOfTheWeek, outfitLooks, sortLooks, splitColumns, topCreators, type LookSort } from "../../features/discover/rank";
+import { likedCreators, lookOfTheWeek, outfitLooks, sortLooks, splitColumns, topCreators, type LookSort } from "../../features/discover/rank";
 import { Chip } from "../../shared/components/Chip";
 import { SkeletonGrid } from "../../shared/components/LoadingState";
 import { ScreenHeader } from "../../shared/components/ScreenHeader";
@@ -46,7 +46,9 @@ export default function DiscoverScreen() {
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [friendIds, setFriendIds] = useState<ReadonlySet<string>>(new Set());
   const [me, setMe] = useState<string | null>(null);
-  const [sort, setSort] = useState<LookSort>("trending");
+  const [sort, setSort] = useState<LookSort>("for_you");
+  // Creators whose posts I liked, fixed per load so "For you" doesn't reshuffle on every like.
+  const [likedCreatorIds, setLikedCreatorIds] = useState<ReadonlySet<string>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   // Fixed once per load, so rankings don't shift while the user scrolls.
@@ -62,6 +64,7 @@ export default function DiscoverScreen() {
       setPosts(outfitLooks(feed));
       setFriendIds(new Set(friends?.friends.map((f) => f.user_id) ?? []));
       setMe(friends?.me ?? null);
+      setLikedCreatorIds(likedCreators(feed, friends?.me ?? null));
       setNow(Date.now());
       setLoad({ status: "ready" });
     } catch (e) {
@@ -85,8 +88,11 @@ export default function DiscoverScreen() {
   const creators = useMemo(() => topCreators(posts, now, CREATORS), [posts, now]);
   // The spotlight look isn't repeated on the wall.
   const wall = useMemo(
-    () => sortLooks(posts, sort, now, friendIds).filter((p) => sort !== "trending" || p.id !== spotlight?.id),
-    [posts, sort, now, friendIds, spotlight],
+    () =>
+      sortLooks(posts, sort, now, friendIds, { friendIds, likedCreatorIds, me }).filter(
+        (p) => (sort !== "trending" && sort !== "for_you") || p.id !== spotlight?.id,
+      ),
+    [posts, sort, now, friendIds, likedCreatorIds, me, spotlight],
   );
   const [left, right] = useMemo(() => splitColumns(wall), [wall]);
   const columnW = (width - GUTTER * 2 - COLUMN_GAP) / 2;
@@ -100,6 +106,7 @@ export default function DiscoverScreen() {
   const shareFirst = () => router.push({ pathname: "/(tabs)/wardrobe", params: { section: "outfits" } });
 
   const sorts: [LookSort, string][] = [
+    ["for_you", t("explore.sort.for_you")],
     ["trending", t("explore.sort.trending")],
     ["new", t("explore.sort.new")],
     ["friends", t("explore.sort.friends")],
