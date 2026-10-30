@@ -3,6 +3,7 @@ import {
   MUTE_FOREVER_ISO,
   canChangeTheme,
   chatTheme,
+  contrastRatio,
   isMuted,
   memberActions,
   memberRole,
@@ -38,14 +39,41 @@ describe("mute", () => {
 });
 
 describe("chat themes", () => {
-  it("ships eight presets with hex colours and unique keys", () => {
-    expect(CHAT_THEMES).toHaveLength(8);
-    expect(new Set(CHAT_THEMES.map((t) => t.key)).size).toBe(8);
+  it("ships fourteen full themes with unique keys and hex colours", () => {
+    expect(CHAT_THEMES).toHaveLength(14);
+    expect(new Set(CHAT_THEMES.map((t) => t.key)).size).toBe(14);
     for (const t of CHAT_THEMES) {
       expect(t.key).toMatch(/^[a-z]{1,20}$/);
-      expect(t.bubble).toMatch(/^#[0-9A-F]{6}$/);
-      expect(t.onBubble).toMatch(/^#[0-9A-F]{6}$/);
+      for (const colour of [t.background, t.mine, t.onMine, t.theirs, t.onTheirs, t.accent, t.onAccent, t.muted]) {
+        expect(colour).toMatch(/^#[0-9A-F]{6}$/);
+      }
     }
+  });
+
+  it("keeps the keys stored before full themes existed", () => {
+    for (const key of ["denim", "copper", "olive", "plum", "teal", "rose", "charcoal", "butter"]) {
+      expect(chatTheme(key)?.key).toBe(key);
+    }
+  });
+
+  it("offers dark themes as well as light ones", () => {
+    expect(CHAT_THEMES.filter((t) => t.dark).length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("keeps every text colour readable on what it sits on (WCAG 4.5:1)", () => {
+    for (const t of CHAT_THEMES) {
+      expect([t.key, contrastRatio(t.onMine, t.mine) >= 4.5]).toEqual([t.key, true]);
+      expect([t.key, contrastRatio(t.onTheirs, t.theirs) >= 4.5]).toEqual([t.key, true]);
+      expect([t.key, contrastRatio(t.onAccent, t.accent) >= 4.5]).toEqual([t.key, true]);
+      expect([t.key, contrastRatio(t.muted, t.background) >= 4.5]).toEqual([t.key, true]);
+      // The send button and accents must stand out from the chat background.
+      expect([t.key, contrastRatio(t.accent, t.background) >= 3]).toEqual([t.key, true]);
+    }
+  });
+
+  it("measures contrast like WCAG", () => {
+    expect(contrastRatio("#000000", "#FFFFFF")).toBeCloseTo(21);
+    expect(contrastRatio("#FFFFFF", "#FFFFFF")).toBeCloseTo(1);
   });
 
   it("resolves a stored key, or null for the default", () => {
