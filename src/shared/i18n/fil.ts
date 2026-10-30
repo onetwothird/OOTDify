@@ -1219,5 +1219,6 @@ export const fil: Record<keyof typeof en, string> = {
   "tryon.live.realistic_ended": "Tapos na ang makatotohanang preview",
   "tryon.live.realistic_back": "Bumalik sa live preview",
   "tryon.live.realistic_failed": "Hindi nakapagsimula ang realistic mode. Tingnan ang koneksyon mo at subukang muli.",
-  "tryon.live.realistic_not_configured": "Hindi pa naka-set up ang realistic mode."
+  "tryon.live.realistic_not_configured": "Hindi pa naka-set up ang realistic mode.",
+  "tryon.live.realistic_unsupported": "Kailangan ng realistic mode ang development build ng OOTDify. I-install ang pinakabagong build sa phone na ito at subukang muli."
 };
