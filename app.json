@@ -11,8 +11,7 @@
       "package": "com.ootdify.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundImage": "./assets/images/adaptive-icon-background.png",
-        "backgroundColor": "#22355C"
+        "backgroundColor": "#3A5A96"
       },
       "googleServicesFile": "./google-services.json",
       "predictiveBackGestureEnabled": false,
