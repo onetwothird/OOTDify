@@ -154,9 +154,7 @@ def chat(history: list[ChatTurn], closet: list[dict], profile: dict, context: di
             max_tokens=4096,
             # Chat: quick and light. Thinking stays adaptive (always on for this model).
             output_config={"effort": "low", "format": {"type": "json_schema", "schema": REPLY_SCHEMA}},
-            # On a safety decline the API retries on a suitable model in the same call.
-            betas=["server-side-fallback-2026-07-01"],
-            fallbacks="default",
+            # No server-side fallback: Haiku 5.5 has none, so a decline is a refusal below.
             cache_control={"type": "ephemeral"},
             system=build_system_prompt(closet, profile),
             messages=messages,
