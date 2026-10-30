@@ -23,6 +23,7 @@ export const fil: Record<keyof typeof en, string> = {
   "season.All-season": "Lahat ng Season",
 
   // Auth — shared
+  "auth.common.back": "Bumalik",
   "auth.common.continue_with": "o magpatuloy gamit ang",
   "auth.common.try_again": "Pakisubukan muli.",
   "auth.common.email_label": "Email address",
