@@ -16,7 +16,8 @@ Everything there still holds unless this document says otherwise.
 - Every wardrobe item MoveNet's 17 keypoints can place shows in the live
   preview, not only tops, outerwear, dresses and bottoms.
 - **Detection is automatic** (option 1): an accessory's body slot comes from its
-  subcategory, then its name. No new "worn on" field.
+  tags, then its name, then its description. No new "worn on" field. (Wardrobe
+  items, `ClothingItem`, have no subcategory column, so tags stand in for it.)
 - **A whole outfit at once** (option 2), up to 5 items, layered.
 - **Picked on Scan** (option 1): multi-select there, then "Live preview". No
   saved-outfit entry point and no in-camera item strip.
@@ -49,7 +50,7 @@ camera, more than one realistic item at a time.
 
 ## 1. Item kinds (`src/features/tryon/ar/itemKind.ts`, new, pure)
 
-`itemKind({ category, subcategory, name }) → ItemKind | null`, where
+`itemKind({ category, tags, name, description }) → ItemKind | null`, where
 
 ```ts
 type ItemKind =
@@ -61,7 +62,7 @@ type ItemKind =
 - Category first (case-insensitive): `Tops` → upper, `Outerwear` → outer,
   `Dresses` → dress, `Bottoms` → bottom, `Shoes` → shoes, `Bags` → bag.
 - `Accessories` (or an unknown category): match whole words in the
-  subcategory, then the name, lower-cased. First kind with a match wins, in
+  tags, then the name, then the description, lower-cased. First kind with a match wins, in
   the table order below. No match, or a ring word → null.
 
 | Kind | Words (English, Filipino) |
@@ -106,8 +107,7 @@ at or above `MIN_KEYPOINT_CONFIDENCE` count; anything missing → `no_pose`.
 ## 3. The outfit
 
 **Store** (`liveGarmentStore.ts`): `garment: LiveGarment | null` becomes
-`garments: LiveGarment[]` (each gains `kind: ItemKind | null` and
-`subcategory`). `liveGarmentCandidate` becomes `liveOutfit(selected, items)`:
+`garments: LiveGarment[]` (each gains `kind: ItemKind | null`). `liveGarmentCandidate` becomes `liveOutfit(selected, items)`:
 the selected items with images, at most `MAX_LIVE_ITEMS = 5`, or null when none
 can be shown.
 
