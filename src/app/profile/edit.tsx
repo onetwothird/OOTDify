@@ -37,6 +37,7 @@ import { useT } from "../../shared/i18n/useT";
 import type { I18n } from "../../shared/i18n/useT";
 import type { TranslationKey } from "../../shared/i18n/translate";
 import { toast } from "../../shared/lib/toast";
+import { notePenggi } from "../../features/home/penggiNotes";
 import {
   checkProfilePhoto,
   getProfile,
@@ -168,6 +169,7 @@ export default function ProfileScreen() {
         sizes: Array.from(sizesSel),
       });
       setDirty(false);
+      notePenggi("profile_updated");
       toast.success(t("profile.toast.updated.title"), t("profile.toast.updated.message"));
     } catch (e) {
       toast.error(t("profile.toast.save_error.title"), e instanceof Error ? e.message : t("profile.toast.save_error.message"));
