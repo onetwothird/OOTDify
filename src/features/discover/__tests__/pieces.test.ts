@@ -9,6 +9,7 @@ function piece(id: string, over: Partial<PublicPiece> = {}): PublicPiece {
     image_url: `wardrobe/${id}.jpg`,
     is_public: true,
     like_count: 0,
+    comment_count: 0,
     created_at: "2026-10-30T10:00:00Z",
     ...over,
   };
