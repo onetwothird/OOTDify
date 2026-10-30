@@ -528,6 +528,9 @@ export default function CommunityScreen() {
           renderItem={({ item }) => (
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel={
+                item.unread > 0 ? t("community.chat.unread_a11y", { name: item.otherName, count: item.unread }) : undefined
+              }
               onPress={() => router.push(`/community/chat/${item.id}`)}
               style={({ pressed }) => [styles.chatRow, pressed && { opacity: 0.85 }]}
             >
@@ -536,33 +539,48 @@ export default function CommunityScreen() {
                 initial={(item.otherName[0] ?? "?").toUpperCase()}
                 avatarRef={item.otherAvatar}
               />
+              {/* Two lines like Messenger: name and time, then the preview with
+                  the muted icon and unread count at its end. */}
               <View style={styles.chatBody}>
-                <Text style={styles.chatName} numberOfLines={1}>
-                  {item.otherName}
-                </Text>
-                <Text style={[styles.chatPreview, item.lastMessageUnsent && styles.chatPreviewUnsent]} numberOfLines={1}>
-                  {item.lastMessageUnsent
-                    ? t("community.chat.quote.unsent")
-                    : item.lastMessage ?? t("community.chat.no_messages")}
-                </Text>
-              </View>
-              <View style={styles.chatMeta}>
-                {item.lastMessageAt ? (
-                  <Text style={styles.chatTime}>{timeAgo(item.lastMessageAt)}</Text>
-                ) : null}
-                {item.muted ? (
-                  <Ionicons
-                    name="notifications-off-outline"
-                    size={14}
-                    color={theme.colors.textMuted}
-                    accessibilityLabel={t("community.chat.muted_a11y")}
-                  />
-                ) : null}
-                {item.unread > 0 ? (
-                  <View style={styles.unreadBadge}>
-                    <Text style={styles.unreadText}>{item.unread > 99 ? "99+" : item.unread}</Text>
-                  </View>
-                ) : null}
+                <View style={styles.chatLine}>
+                  <Text style={[styles.chatName, item.unread > 0 && styles.chatNameUnread]} numberOfLines={1}>
+                    {item.otherName}
+                  </Text>
+                  {item.lastMessageAt ? (
+                    <Text style={[styles.chatTime, item.unread > 0 && styles.chatTimeUnread]}>
+                      {timeAgo(item.lastMessageAt)}
+                    </Text>
+                  ) : null}
+                </View>
+                <View style={styles.chatLine}>
+                  <Text
+                    style={[
+                      styles.chatPreview,
+                      item.unread > 0 && styles.chatPreviewUnread,
+                      item.lastMessageUnsent && styles.chatPreviewUnsent,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {item.lastMessageUnsent
+                      ? t("community.chat.quote.unsent")
+                      : item.lastMessage ?? t("community.chat.no_messages")}
+                  </Text>
+                  {item.muted ? (
+                    <Ionicons
+                      name="notifications-off-outline"
+                      size={14}
+                      color={theme.colors.textMuted}
+                      accessibilityLabel={t("community.chat.muted_a11y")}
+                    />
+                  ) : null}
+                  {item.unread > 0 ? (
+                    <View style={[styles.unreadBadge, item.muted && styles.unreadBadgeMuted]}>
+                      <Text style={[styles.unreadText, item.muted && styles.unreadTextMuted]}>
+                        {item.unread > 99 ? "99+" : item.unread}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
               </View>
             </Pressable>
           )}
@@ -688,12 +706,15 @@ const useStyles = makeStyles((theme) => ({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: theme.colors.border,
   },
-  chatBody: { flex: 1, minWidth: 0 },
-  chatName: { fontSize: 14.5, fontWeight: "700", color: theme.colors.text },
-  chatPreview: { fontSize: 12.5, color: theme.colors.textMuted, marginTop: 2 },
+  chatBody: { flex: 1, minWidth: 0, gap: 3 },
+  chatLine: { flexDirection: "row", alignItems: "center", gap: 8 },
+  chatName: { flex: 1, minWidth: 0, fontSize: 14.5, fontWeight: "700", color: theme.colors.text },
+  chatPreview: { flex: 1, minWidth: 0, fontSize: 13, color: theme.colors.textMuted },
   chatPreviewUnsent: { fontStyle: "italic" },
-  chatMeta: { alignItems: "flex-end", gap: 4 },
-  chatTime: { fontSize: 11, color: theme.colors.textMuted },
+  chatTime: { fontSize: 11.5, color: theme.colors.textMuted },
+  chatNameUnread: { fontWeight: "800" },
+  chatPreviewUnread: { color: theme.colors.text, fontWeight: "700" },
+  chatTimeUnread: { color: theme.colors.brand, fontWeight: "700" },
   unreadBadge: {
     minWidth: 20,
     height: 20,
@@ -703,5 +724,7 @@ const useStyles = makeStyles((theme) => ({
     alignItems: "center",
     justifyContent: "center",
   },
+  unreadBadgeMuted: { backgroundColor: theme.colors.surfaceAlt },
+  unreadTextMuted: { color: theme.colors.textMuted },
   unreadText: { fontSize: 11, fontWeight: "700", color: theme.colors.onBrand },
 }));
