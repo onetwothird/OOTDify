@@ -16,6 +16,10 @@ export interface CommunityPost {
   /** Maintained by SQL triggers — clients never write these. */
   like_count: number;
   comment_count: number;
+  /** The original post this one reshares, or null. */
+  reshared_from: string | null;
+  /** How many times this post was reshared (trigger-maintained). */
+  reshare_count: number;
   created_at: string;
 }
 
@@ -37,6 +41,9 @@ export interface FriendProfile extends DirectoryProfile {
 export interface FeedPost extends CommunityPost {
   author: DirectoryProfile | null;
   likedByMe: boolean;
+  savedByMe: boolean;
+  /** For a reshare, the post it reshares (null if deleted or not a reshare). */
+  original: FeedPost | null;
 }
 
 /** Mirrors a public.community_comments row. */
@@ -97,6 +104,8 @@ export interface ChatMessageEntry {
   edited_at: string | null;
   /** Set when the sender unsent it for everyone (body and photo are wiped). */
   unsent_at: string | null;
+  /** A community post sent in this message, shown as a card. */
+  shared_post_id: string | null;
   senderName: string;
   /** Sender's avatar ref; null for realtime inserts (resolved by the screen). */
   senderAvatar: string | null;
