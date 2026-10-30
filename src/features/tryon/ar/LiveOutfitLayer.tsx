@@ -20,7 +20,7 @@ import {
   type SkPoint,
   type SkSize,
 } from "@shopify/react-native-skia";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet } from "react-native";
 import {
   useAnimatedReaction,
@@ -35,6 +35,8 @@ import { alphaBounds } from "./alphaBounds";
 import { meshFit, type Bounds } from "./bodyMesh";
 import { isMeshKind, type ItemKind } from "./itemKind";
 import { layerIndex } from "./outfit";
+import { holdStep, type HoldState } from "./outfitHold";
+import { urisToLoad } from "./outfitImages";
 import type { Keypoint, Point } from "./overlayGeometry";
 
 const OPACITY = 0.95;
@@ -90,29 +92,35 @@ export function garmentBounds(image: SkImage): Bounds {
   }
 }
 
+/** A decoded cut-out and its opaque bounds, measured once when it loads. */
+export interface LoadedImage {
+  image: SkImage;
+  bounds: Bounds;
+}
+
 /**
- * Decodes the cut-out PNGs. Each uri maps to its image, or "failed" once it
- * can't be read; an absent uri is still loading.
+ * Decodes the cut-out PNGs, each exactly once: a uri maps to its image, or
+ * "failed" once it can't be read; an absent uri is still loading. Entries are
+ * kept as more uris arrive, so a loaded image is never decoded again.
  */
-export function useSkImages(uris: string[]): Record<string, SkImage | "failed"> {
-  const [images, setImages] = useState<Record<string, SkImage | "failed">>({});
+export function useSkImages(uris: string[]): Record<string, LoadedImage | "failed"> {
+  const [images, setImages] = useState<Record<string, LoadedImage | "failed">>({});
+  const started = useRef(new Set<string>());
   const key = uris.join("\n");
   useEffect(() => {
-    let cancelled = false;
-    for (const uri of key === "" ? [] : key.split("\n")) {
+    for (const uri of urisToLoad(key === "" ? [] : key.split("\n"), started.current)) {
+      started.current.add(uri);
       Skia.Data.fromURI(uri)
-        .then((data) => Skia.Image.MakeImageFromEncoded(data) ?? ("failed" as const))
+        .then((data) => {
+          const image = Skia.Image.MakeImageFromEncoded(data);
+          return image ? { image, bounds: garmentBounds(image) } : ("failed" as const);
+        })
         .catch((e: unknown) => {
           console.warn("Cut-out image failed to load:", e);
           return "failed" as const;
         })
-        .then((image) => {
-          if (!cancelled) setImages((prev) => ({ ...prev, [uri]: image }));
-        });
+        .then((entry) => setImages((prev) => ({ ...prev, [uri]: entry })));
     }
-    return () => {
-      cancelled = true;
-    };
   }, [key]);
   return images;
 }
@@ -129,21 +137,18 @@ export function LiveOutfitLayer({
   const canvasSize = useSharedValue<SkSize>({ width: 0, height: 0 });
   const ordered = useMemo(() => [...items].sort((a, b) => layerIndex(a.kind) - layerIndex(b.kind)), [items]);
   // Plain data for the worklet: the fit needs each item's kind and opaque bounds.
-  const specs = useMemo(() => ordered.map((i) => ({ kind: i.kind, bounds: i.bounds })), [ordered]);
+  const specs = useMemo(() => ordered.map((i) => ({ id: i.id, kind: i.kind, bounds: i.bounds })), [ordered]);
 
-  // Per item: the last good mesh and when its pose was lost (-1 while tracked).
-  const held = useSharedValue<(ItemMesh | null)[]>([]);
-  const lostAt = useSharedValue<number[]>([]);
+  // Per item id: the last good mesh and when its pose was lost (-1 while tracked).
+  const held = useSharedValue<HoldState<ItemMesh>>({ mesh: {}, lostAt: {} });
 
   // One fit pass per tracker frame for the whole outfit.
   useAnimatedReaction(
     () => keypoints.value,
     (kps) => {
-      const now = performance.now();
-      const nextHeld: (ItemMesh | null)[] = [];
-      const nextLost: number[] = [];
+      const fits: { id: string; mesh: ItemMesh | null }[] = [];
       for (let i = 0; i < specs.length; i++) {
-        const { kind, bounds } = specs[i];
+        const { id, kind, bounds } = specs[i];
         let mesh: ItemMesh | null = null;
         if (isMeshKind(kind)) {
           const fit = meshFit(kind, kps ?? [], bounds);
@@ -152,32 +157,22 @@ export function LiveOutfitLayer({
           const fit = accessoryFit(kind, kps ?? [], bounds);
           if (fit.kind === "quads") mesh = quadsToMesh(fit.quads);
         }
-        const prevMesh = i < held.value.length ? held.value[i] : null;
-        const prevLost = i < lostAt.value.length ? lostAt.value[i] : -1;
-        if (mesh) {
-          nextHeld.push(mesh);
-          nextLost.push(-1);
-        } else {
-          nextHeld.push(prevMesh);
-          nextLost.push(prevMesh !== null && prevLost < 0 ? now : prevLost);
-        }
+        fits.push({ id, mesh });
       }
-      held.value = nextHeld;
-      lostAt.value = nextLost;
+      held.value = holdStep(held.value, fits, performance.now());
     },
     [specs],
   );
 
   return (
     <Canvas style={StyleSheet.absoluteFill} pointerEvents="none" onSize={canvasSize}>
-      {ordered.map((item, index) => (
+      {ordered.map((item) => (
         <OutfitItem
           key={item.id}
-          index={index}
+          id={item.id}
           image={item.image}
           bounds={item.bounds}
           held={held}
-          lostAt={lostAt}
           canvasSize={canvasSize}
           flip={facing === "back"}
         />
@@ -187,19 +182,17 @@ export function LiveOutfitLayer({
 }
 
 function OutfitItem({
-  index,
+  id,
   image,
   bounds,
   held,
-  lostAt,
   canvasSize,
   flip,
 }: {
-  index: number;
+  id: string;
   image: SkImage;
   bounds: Bounds;
-  held: SharedValue<(ItemMesh | null)[]>;
-  lostAt: SharedValue<number[]>;
+  held: SharedValue<HoldState<ItemMesh>>;
   canvasSize: SharedValue<SkSize>;
   flip: boolean;
 }) {
@@ -211,9 +204,9 @@ function OutfitItem({
   const opacity = useDerivedValue(() => {
     // Reading the clock re-evaluates every frame while the fade runs.
     const now = clock.value >= 0 ? performance.now() : 0;
-    const mesh = index < held.value.length ? held.value[index] : null;
-    if (mesh === null) return 0;
-    const lost = lostAt.value[index];
+    const mesh = held.value.mesh[id];
+    if (mesh === undefined) return 0;
+    const lost = held.value.lostAt[id];
     if (lost < 0) return OPACITY;
     const elapsed = now - lost;
     if (elapsed < HOLD_MS) return OPACITY;
@@ -222,13 +215,13 @@ function OutfitItem({
   });
 
   const vertices = useDerivedValue<SkPoint[]>(() => {
-    const mesh = index < held.value.length ? held.value[index] : null;
+    const mesh = held.value.mesh[id];
     const { width, height } = canvasSize.value;
     if (!mesh || width <= 0) return EMPTY_POINTS;
     return mesh.vertices.map((p) => ({ x: p.x * width, y: p.y * height }));
   });
   const textures = useDerivedValue<SkPoint[]>(() => {
-    const mesh = index < held.value.length ? held.value[index] : null;
+    const mesh = held.value.mesh[id];
     if (!mesh || canvasSize.value.width <= 0) return EMPTY_POINTS;
     // Fits put image-left on the person's left joints; seen from the back
     // camera that reverses the item, so mirror x within the opaque bounds.
@@ -238,7 +231,7 @@ function OutfitItem({
     }));
   });
   const indices = useDerivedValue<number[]>(() => {
-    const mesh = index < held.value.length ? held.value[index] : null;
+    const mesh = held.value.mesh[id];
     return mesh && canvasSize.value.width > 0 ? mesh.indices : EMPTY_INDICES;
   });
 
