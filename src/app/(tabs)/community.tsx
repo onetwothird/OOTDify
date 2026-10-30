@@ -537,13 +537,23 @@ export default function CommunityScreen() {
                 <Text style={styles.chatName} numberOfLines={1}>
                   {item.otherName}
                 </Text>
-                <Text style={styles.chatPreview} numberOfLines={1}>
-                  {item.lastMessage ?? t("community.chat.no_messages")}
+                <Text style={[styles.chatPreview, item.lastMessageUnsent && styles.chatPreviewUnsent]} numberOfLines={1}>
+                  {item.lastMessageUnsent
+                    ? t("community.chat.quote.unsent")
+                    : item.lastMessage ?? t("community.chat.no_messages")}
                 </Text>
               </View>
               <View style={styles.chatMeta}>
                 {item.lastMessageAt ? (
                   <Text style={styles.chatTime}>{timeAgo(item.lastMessageAt)}</Text>
+                ) : null}
+                {item.muted ? (
+                  <Ionicons
+                    name="notifications-off-outline"
+                    size={14}
+                    color={theme.colors.textMuted}
+                    accessibilityLabel={t("community.chat.muted_a11y")}
+                  />
                 ) : null}
                 {item.unread > 0 ? (
                   <View style={styles.unreadBadge}>
@@ -678,6 +688,7 @@ const useStyles = makeStyles((theme) => ({
   chatBody: { flex: 1, minWidth: 0 },
   chatName: { fontSize: 14.5, fontWeight: "700", color: theme.colors.text },
   chatPreview: { fontSize: 12.5, color: theme.colors.textMuted, marginTop: 2 },
+  chatPreviewUnsent: { fontStyle: "italic" },
   chatMeta: { alignItems: "flex-end", gap: 4 },
   chatTime: { fontSize: 11, color: theme.colors.textMuted },
   unreadBadge: {
