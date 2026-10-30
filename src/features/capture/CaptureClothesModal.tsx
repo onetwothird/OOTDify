@@ -23,6 +23,7 @@ import { useT } from "../../shared/i18n/useT";
 import { toast } from "../../shared/lib/toast";
 import { uuid } from "../../shared/lib/uuid";
 import { insertClothingItem, uploadToWardrobeBucket } from "../clothing/service";
+import { penggi } from "../../shared/components/PenggiMoment";
 import { ClothingItem } from "../clothing/types";
 import { WardrobeStore } from "../wardrobe/store";
 import { useCaptureModalStore } from "./captureModalStore";
@@ -217,8 +218,9 @@ export default function CaptureClothesModal() {
     const message =
       t("capture.alert.added.message", { count: saved.length }) +
       (failed ? t("capture.alert.added.failed_suffix", { count: failed }) : "");
+    // Some photos failing makes it a heads-up; a clean save gets happy Penggi.
     if (failed) toast.info(t("capture.alert.added.title"), message);
-    else toast.success(t("capture.alert.added.title"), message);
+    else penggi.show("added", t("penggi.added.title", { count: saved.length }), t("penggi.added.message"));
     handleClose();
   };
 
