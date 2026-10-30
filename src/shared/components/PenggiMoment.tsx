@@ -56,8 +56,8 @@ const CONFETTI = Array.from({ length: 22 }, (_, i) => ({
 }));
 /** Where the farewell tears start, as fractions of Penggi's box (under each eye). */
 const TEARS = [
-  { x: 0.425, y: 0.47, delay: 0 },
-  { x: 0.63, y: 0.41, delay: 420 },
+  { x: 0.477, y: 0.463, delay: 0 },
+  { x: 0.685, y: 0.403, delay: 420 },
 ];
 
 export function PenggiMomentHost() {
