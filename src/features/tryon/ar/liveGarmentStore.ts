@@ -1,6 +1,8 @@
-// Hands the live try-on screen the garment picked on Scan (same cross-screen
-// bridge pattern as ../selectionStore.ts).
+// Hands the live try-on screen the outfit picked on Scan or an item page (same
+// cross-screen bridge pattern as ../selectionStore.ts).
 import { create } from "zustand";
+
+import { itemKind, type ItemKind } from "./itemKind";
 
 export interface LiveGarment {
   /** Closet item id, for the cut-out route. */
@@ -9,30 +11,52 @@ export interface LiveGarment {
   imageRef: string;
   category: string | null;
   name: string;
+  /** Body slot; null when the live preview can't place it (named on screen). */
+  kind: ItemKind | null;
 }
 
 interface LiveGarmentState {
-  garment: LiveGarment | null;
-  set: (garment: LiveGarment) => void;
+  garments: LiveGarment[];
+  set: (garments: LiveGarment[]) => void;
   clear: () => void;
 }
 
+interface OutfitSource {
+  id: string;
+  image_url: string | null;
+  category: string | null;
+  name: string | null;
+  tags?: string[] | null;
+  description?: string | null;
+}
+
 /**
- * The garment the live preview can open with: exactly one selected item that
- * is in the list on screen and has an image. Null means "hide the button".
+ * The outfit the live preview opens with: the selected items in the list that
+ * have an image, in selection order. Null (hide the button) when none of them
+ * can be placed.
  */
-export function liveGarmentCandidate<T extends { id: string; image_url: string | null }>(
-  selected: Set<string>,
+export function liveOutfit<T extends OutfitSource>(
+  selected: Iterable<string>,
   items: T[],
-): (T & { image_url: string }) | null {
-  if (selected.size !== 1) return null;
-  const [id] = Array.from(selected);
-  const item = items.find((i) => i.id === id);
-  return item?.image_url ? (item as T & { image_url: string }) : null;
+  fallbackName: string,
+): LiveGarment[] | null {
+  const garments: LiveGarment[] = [];
+  for (const id of selected) {
+    const item = items.find((i) => i.id === id);
+    if (!item?.image_url) continue;
+    garments.push({
+      id: item.id,
+      imageRef: item.image_url,
+      category: item.category ?? null,
+      name: item.name || fallbackName,
+      kind: itemKind(item),
+    });
+  }
+  return garments.some((g) => g.kind !== null) ? garments : null;
 }
 
 export const useLiveGarment = create<LiveGarmentState>((set) => ({
-  garment: null,
-  set: (garment) => set({ garment }),
-  clear: () => set({ garment: null }),
+  garments: [],
+  set: (garments) => set({ garments }),
+  clear: () => set({ garments: [] }),
 }));
