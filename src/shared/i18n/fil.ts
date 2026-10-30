@@ -1054,7 +1054,6 @@ export const fil: Record<keyof typeof en, string> = {
   "community.chat.subtitle.dm": "Direktang mensahe",
   "community.chat.default_member_name": "Miyembro",
   "community.chat.back_a11y": "Bumalik",
-  "community.chat.reload_a11y": "I-reload ang mga mensahe",
   "community.chat.missing_id": "Kulang ng conversation id ang chat link na ito.",
   "community.chat.empty_thread": "Wala pang mensahe — magbati.",
   "community.chat.new_pill.one": "{count} bagong mensahe",
