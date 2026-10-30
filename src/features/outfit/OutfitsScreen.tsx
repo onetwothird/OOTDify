@@ -37,7 +37,6 @@ import { ClothingCard } from "../../shared/components/ClothingCard";
 import { EmptyState, ErrorState } from "../../shared/components/StateViews";
 import { LoadingState } from "../../shared/components/LoadingState";
 import { ScreenHeader } from "../../shared/components/ScreenHeader";
-import { SectionHeader } from "../../shared/components/SectionHeader";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import type { Theme } from "../../shared/config/theme";
@@ -265,13 +264,7 @@ export function OutfitsScreen({ switcher }: { switcher: ReactNode }) {
           variant="tab"
           icon={builderMode ? "construct" : "layers"}
           title={builderMode ? t("outfits.builder.title") : t("outfits.title")}
-          subtitle={
-            builderMode
-              ? t("outfits.builder.subtitle")
-              : view === "calendar"
-                ? t("outfits.calendar.subtitle")
-                : t("outfits.subtitle")
-          }
+          subtitle={builderMode ? t("outfits.builder.subtitle") : t("outfits.subtitle")}
         />
         {!builderMode ? switcher : null}
 
@@ -312,32 +305,61 @@ export function OutfitsScreen({ switcher }: { switcher: ReactNode }) {
               </Pressable>
             </View>
 
-            <View style={styles.segment}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{ selected: view === "looks" }}
-                onPress={() => setView("looks")}
-                style={[styles.segmentBtn, view === "looks" && styles.segmentBtnActive]}
-              >
-                <Text
-                  style={[styles.segmentText, view === "looks" && styles.segmentTextActive]}
-                >
-                  {t("outfits.tab.looks")}
-                </Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{ selected: view === "calendar" }}
-                onPress={() => setView("calendar")}
-                style={[styles.segmentBtn, view === "calendar" && styles.segmentBtnActive]}
-              >
-                <Text
-                  style={[styles.segmentText, view === "calendar" && styles.segmentTextActive]}
-                >
-                  {t("outfits.tab.calendar")}
-                </Text>
-              </Pressable>
+            {/* The content's heading is also its view switch: the view you're on
+                is dark, the other one grey. Distinct from the page tabs above. */}
+            <View style={styles.viewHead}>
+              <View style={styles.viewTitles} accessibilityRole="tablist">
+                {(["looks", "calendar"] as const).map((key) => {
+                  const active = view === key;
+                  return (
+                    <Pressable
+                      key={key}
+                      accessibilityRole="tab"
+                      accessibilityState={{ selected: active }}
+                      onPress={() => setView(key)}
+                      hitSlop={6}
+                    >
+                      <Text style={[styles.viewTitle, active && styles.viewTitleActive]} numberOfLines={1}>
+                        {key === "looks" ? t("outfits.tab.looks") : t("outfits.tab.calendar")}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              {view === "looks" ? (
+                <View style={styles.viewToggle}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t("outfits.view.list_a11y")}
+                    accessibilityState={{ selected: looksView === "list" }}
+                    onPress={() => setLooksView("list")}
+                    style={[styles.toggleBtn, looksView === "list" && styles.toggleBtnActive]}
+                  >
+                    <Ionicons
+                      name="list"
+                      size={14}
+                      color={looksView === "list" ? theme.colors.onPrimary : theme.colors.textMuted}
+                    />
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t("outfits.view.grid_a11y")}
+                    accessibilityState={{ selected: looksView === "grid" }}
+                    onPress={() => setLooksView("grid")}
+                    style={[styles.toggleBtn, looksView === "grid" && styles.toggleBtnActive]}
+                  >
+                    <Ionicons
+                      name="grid"
+                      size={14}
+                      color={looksView === "grid" ? theme.colors.onPrimary : theme.colors.textMuted}
+                    />
+                  </Pressable>
+                </View>
+              ) : null}
             </View>
+            <Text style={styles.viewSubtitle}>
+              {view === "calendar" ? t("outfits.calendar.subtitle") : t("outfits.saved.subtitle")}
+            </Text>
 
             {view === "calendar" ? (
               <OutfitCalendar
@@ -346,39 +368,6 @@ export function OutfitsScreen({ switcher }: { switcher: ReactNode }) {
               />
             ) : (
               <>
-                <SectionHeader
-                  title={t("outfits.saved.title")}
-                  subtitle={t("outfits.saved.subtitle")}
-                  right={(
-                    <View style={styles.viewToggle}>
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityState={{ selected: looksView === "list" }}
-                        onPress={() => setLooksView("list")}
-                        style={[styles.toggleBtn, looksView === "list" && styles.toggleBtnActive]}
-                      >
-                        <Ionicons
-                          name="list"
-                          size={14}
-                          color={looksView === "list" ? theme.colors.onPrimary : theme.colors.textMuted}
-                        />
-                      </Pressable>
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityState={{ selected: looksView === "grid" }}
-                        onPress={() => setLooksView("grid")}
-                        style={[styles.toggleBtn, looksView === "grid" && styles.toggleBtnActive]}
-                      >
-                        <Ionicons
-                          name="grid"
-                          size={14}
-                          color={looksView === "grid" ? theme.colors.onPrimary : theme.colors.textMuted}
-                        />
-                      </Pressable>
-                    </View>
-                  )}
-                />
-
                 {savedLoading ? (
                   <LoadingState label={t("outfits.loading")} />
                 ) : savedError ? (
@@ -726,23 +715,17 @@ const useStyles = makeStyles((theme: Theme) => ({
     color: theme.colors.textMuted,
     marginTop: 8,
   },
-  segment: {
+  viewHead: {
     flexDirection: "row",
-    backgroundColor: theme.colors.surfaceAlt,
-    borderRadius: theme.borderRadius.pill,
-    padding: 4,
-    gap: 4,
-  },
-  segmentBtn: {
-    flex: 1,
     alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 9,
-    borderRadius: theme.borderRadius.pill,
+    justifyContent: "space-between",
+    gap: 12,
+    marginTop: theme.spacing.sm,
   },
-  segmentBtnActive: { backgroundColor: theme.colors.primary },
-  segmentText: { fontSize: 13, fontWeight: "600", color: theme.colors.textMuted },
-  segmentTextActive: { color: theme.colors.onPrimary },
+  viewTitles: { flexDirection: "row", alignItems: "baseline", gap: 18, flexShrink: 1 },
+  viewTitle: { fontSize: 19, fontWeight: "700", letterSpacing: -0.3, color: theme.colors.textMuted },
+  viewTitleActive: { color: theme.colors.text },
+  viewSubtitle: { fontSize: 13, color: theme.colors.textMuted, marginTop: 2, marginBottom: 4 },
   chips: { gap: 8, paddingRight: 16 },
 
   builder: { gap: 12 },
