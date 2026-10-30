@@ -109,7 +109,7 @@ export function LogOutSheet({ visible, onClose }: { visible: boolean; onClose: (
     >
       <View style={styles.body}>
         <Animated.View style={[styles.penggi, { transform: [{ rotate }] }]}>
-          <Mascot size={PENGGI} />
+          <Mascot size={PENGGI} mood="sad" />
         </Animated.View>
         <Text style={styles.message}>{t("auth.exit.message")}</Text>
 
