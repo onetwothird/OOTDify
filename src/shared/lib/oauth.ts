@@ -16,6 +16,10 @@
 // and the caller surfaces it honestly instead of pretending to succeed.
 import { makeRedirectUri } from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
+import type { User } from "@supabase/supabase-js";
+
+import { isFirstSignIn } from "../../features/profile/newAccount";
+import { markOnboardingPending } from "../../features/profile/onboarding";
 import { supabase } from "./supabase";
 
 export type SocialProvider = "google" | "facebook";
@@ -106,9 +110,10 @@ export async function signInWithSocialProvider(
 
   // PKCE flow: exchange the one-time authorization code for a session.
   if (params.code) {
-    const { error: exchangeError } =
+    const { data: exchanged, error: exchangeError } =
       await supabase.auth.exchangeCodeForSession(params.code);
     if (exchangeError) throw exchangeError;
+    await markOnboardingIfNew(exchanged.user);
     return;
   }
 
@@ -116,11 +121,12 @@ export async function signInWithSocialProvider(
   // session. refresh_token is always present in this flow; fall back to "" only
   // to satisfy the non-nullable type.
   if (params.access_token) {
-    const { error: sessionError } = await supabase.auth.setSession({
+    const { data: set, error: sessionError } = await supabase.auth.setSession({
       access_token: params.access_token,
       refresh_token: params.refresh_token ?? "",
     });
     if (sessionError) throw sessionError;
+    await markOnboardingIfNew(set.user);
     return;
   }
 
@@ -128,6 +134,16 @@ export async function signInWithSocialProvider(
     `${label} sign-in returned no session data. Make sure the ${label} provider is ` +
       `enabled in Supabase and ${redirectUrl} is an allowed redirect URL.`,
   );
+}
+
+/**
+ * A Google or Facebook sign-in that just created the account is a sign-up:
+ * ask the onboarding questions (nickname, styles) like an email sign-up does.
+ * Best effort: a failed write only skips the prompt.
+ */
+async function markOnboardingIfNew(user: User | null): Promise<void> {
+  if (!user?.email || !isFirstSignIn(user)) return;
+  await markOnboardingPending(user.email).catch(() => {});
 }
 
 export function signInWithGoogle(): Promise<void> {
