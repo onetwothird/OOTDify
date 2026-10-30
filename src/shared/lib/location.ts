@@ -6,6 +6,8 @@
 import * as Location from "expo-location";
 import { useCallback, useEffect, useState } from "react";
 
+import { askInTurn } from "./permissionGate";
+
 export interface CurrentPlace {
   label: string;
 }
@@ -27,7 +29,8 @@ export async function getCurrentPlace(requestPermission: boolean): Promise<Curre
   try {
     let perm = await Location.getForegroundPermissionsAsync();
     if (!perm.granted && requestPermission && perm.canAskAgain) {
-      perm = await Location.requestForegroundPermissionsAsync();
+      // Waits out the welcome and onboarding, and any other open prompt.
+      perm = await askInTurn(() => Location.requestForegroundPermissionsAsync());
     }
     if (!perm.granted) return null;
 
