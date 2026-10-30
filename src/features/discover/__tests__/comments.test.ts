@@ -1,4 +1,4 @@
-import { COMMENT_MAX, canDeleteComment, commentDraft } from "../comments";
+import { COMMENT_MAX, canDeleteComment, commentDraft, replyParentId, threadComments } from "../comments";
 
 describe("commentDraft", () => {
   it("can be sent once it has text within the limit", () => {
@@ -24,5 +24,28 @@ describe("canDeleteComment", () => {
   it("doesn't let anyone else delete it", () => {
     expect(canDeleteComment("someone", "me", "owner")).toBe(false);
     expect(canDeleteComment("someone", null, "owner")).toBe(false);
+  });
+});
+
+describe("threadComments", () => {
+  const c = (id: string, parent_id: string | null = null) => ({ id, parent_id });
+
+  it("puts each reply under its comment, oldest first, keeping comment order", () => {
+    const rows = [c("a"), c("b"), c("r1", "a"), c("r2", "b"), c("r3", "a")];
+    expect(threadComments(rows)).toEqual([
+      { comment: c("a"), replies: [c("r1", "a"), c("r3", "a")] },
+      { comment: c("b"), replies: [c("r2", "b")] },
+    ]);
+  });
+
+  it("drops a reply whose comment isn't loaded", () => {
+    expect(threadComments([c("a"), c("r", "gone")])).toEqual([{ comment: c("a"), replies: [] }]);
+  });
+});
+
+describe("replyParentId", () => {
+  it("answers a top-level comment directly, and a reply's comment for a reply", () => {
+    expect(replyParentId({ id: "a", parent_id: null })).toBe("a");
+    expect(replyParentId({ id: "r", parent_id: "a" })).toBe("a");
   });
 });
