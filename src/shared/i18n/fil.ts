@@ -51,7 +51,7 @@ export const fil: Record<keyof typeof en, string> = {
   "auth.login.title": "Maligayang pagbabalik",
   "auth.login.subtitle": "Mag-log in para ipagpatuloy kung saan ka tumigil.",
   "auth.exit.title": "Mag-log out?",
-  "auth.exit.message": "Babalik ka sa sign-in screen. Naka-save pa rin ang closet, looks at settings mo.",
+  "auth.exit.message": "Babalik ka sa simulang screen. Naka-save pa rin ang closet, looks at settings mo.",
   "auth.exit.stay": "Manatiling naka-sign in",
   "auth.exit.confirm": "Mag-log out",
   "auth.exit.signed_in_as": "Naka-sign in bilang",
