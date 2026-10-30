@@ -457,6 +457,7 @@ export const en = {
   "wardrobe.section.outfits": "Outfits",
   "explore.title": "Discover",
   "explore.subtitle": "Outfit ideas from people on Penggi",
+  "explore.sort.for_you": "For you",
   "explore.sort.trending": "Trending",
   "explore.sort.new": "New",
   "explore.sort.friends": "Friends",
