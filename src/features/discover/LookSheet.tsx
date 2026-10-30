@@ -242,7 +242,7 @@ export function LookSheet({
             key={look.id}
             ownerId={look.user_id}
             load={() => fetchComments(look.id)}
-            send={(body) => addComment(look.id, body)}
+            send={(body, parentId) => addComment(look.id, body, parentId)}
             remove={deleteComment}
             onCountChange={(delta) => onCommentsChanged(look.id, delta)}
           />
