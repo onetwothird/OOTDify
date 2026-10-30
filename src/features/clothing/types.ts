@@ -81,6 +81,9 @@ export interface ClothingItem {
   wear_count: number;
   last_worn: string | null;
   created_at: string;
+  /** Shown in Discover to everyone signed in (the owner's choice). */
+  is_public?: boolean;
+  like_count?: number;
 }
 
 export interface FavoriteRow {
