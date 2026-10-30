@@ -1,13 +1,19 @@
 // C:\OOTDify\src\shared\components\ToastHost.tsx
 // Renders the single active toast from the toast store. Mounted once near the
 // root so every screen (and the avatar-upload service) shares one look: a light
-// card with a tinted icon tile — the same card language as the rest of the app.
+// card where Penggi says the message. He "talks" when a toast arrives (quick
+// head bobs with a tilt), keeps bobbing while something loads, and a small
+// badge on his corner says what kind of message it is. Reduce Motion keeps
+// him still.
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { Theme } from "../config/theme";
+import { useReduceMotion } from "../hooks/useReduceMotion";
+import { buzz } from "../lib/haptics";
 import { ToastRecord, ToastVariant, useToastStore } from "../lib/toast";
 import { makeStyles } from "../theme/makeStyles";
 import { useAppTheme } from "../theme/ThemeProvider";
@@ -33,6 +39,61 @@ function toastMeta(
     case "loading":
       return { icon: "sync", tint: theme.colors.textMuted };
   }
+}
+
+const PENGGI = require("../../../assets/images/toast-penggi.png");
+const PENGGI_SIZE = 40;
+/** Head bobs per "sentence" when a toast arrives. */
+const TALK_BOBS = 4;
+
+/** Penggi saying the toast: talks once on arrival, keeps bobbing while loading. */
+function TalkingPenggi({ toastId, variant, tint }: { toastId: number; variant: ToastVariant; tint: string }) {
+  const styles = useStyles();
+  const theme = useAppTheme();
+  const reduceMotion = useReduceMotion();
+  const [talk] = useState(() => new Animated.Value(0));
+
+  useEffect(() => {
+    talk.setValue(0);
+    if (reduceMotion) return;
+    const bob = Animated.sequence([
+      Animated.timing(talk, { toValue: 1, duration: 120, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.timing(talk, { toValue: 0, duration: 140, easing: Easing.in(Easing.quad), useNativeDriver: true }),
+    ]);
+    const anim =
+      variant === "loading"
+        ? Animated.loop(Animated.sequence([bob, Animated.delay(260)]))
+        : Animated.loop(bob, { iterations: TALK_BOBS });
+    anim.start();
+    return () => anim.stop();
+  }, [toastId, variant, talk, reduceMotion]);
+
+  return (
+    <View style={styles.penggi} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <Animated.View
+        style={{
+          transform: [
+            { translateY: talk.interpolate({ inputRange: [0, 1], outputRange: [0, -3] }) },
+            { rotate: talk.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "-7deg"] }) },
+            { scaleY: talk.interpolate({ inputRange: [0, 1], outputRange: [1, 1.05] }) },
+          ],
+        }}
+      >
+        <Image source={PENGGI} style={styles.penggiImage} contentFit="contain" />
+      </Animated.View>
+      <View style={[styles.badge, { backgroundColor: variant === "loading" ? theme.colors.surface : tint }]}>
+        {variant === "loading" ? (
+          <ActivityIndicator size={10} color={tint} />
+        ) : (
+          <Ionicons
+            name={variant === "success" ? "checkmark" : variant === "error" ? "alert" : "information"}
+            size={10}
+            color={theme.colors.onBrand}
+          />
+        )}
+      </View>
+    </View>
+  );
 }
 
 export function ToastHost() {
@@ -73,6 +134,11 @@ export function ToastHost() {
     }
   }, [current, shown, anim]);
 
+  // A short buzz for outcomes (Settings > Vibration); info and loading stay still.
+  useEffect(() => {
+    if (current?.variant === "success" || current?.variant === "error") buzz(current.variant);
+  }, [current]);
+
   useEffect(() => {
     if (!current || current.duration <= 0) return;
     const id = setTimeout(() => dismiss(current.id), current.duration);
@@ -107,13 +173,7 @@ export function ToastHost() {
           onPress={() => dismiss(shown.id)}
           style={styles.card}
         >
-          <View style={styles.tile}>
-            {shown.variant === "loading" ? (
-              <ActivityIndicator size="small" color={meta.tint} />
-            ) : (
-              <Ionicons name={meta.icon} size={18} color={meta.tint} />
-            )}
-          </View>
+          <TalkingPenggi toastId={shown.id} variant={shown.variant} tint={meta.tint} />
           <View style={styles.body}>
             <Text style={styles.title} numberOfLines={2}>
               {shown.title}
@@ -174,13 +234,19 @@ const useStyles = makeStyles((theme) => ({
     shadowOffset: { width: 0, height: 8 },
     elevation: 6,
   },
-  tile: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: theme.colors.surfaceAlt,
+  penggi: { width: PENGGI_SIZE, height: PENGGI_SIZE },
+  penggiImage: { width: PENGGI_SIZE, height: PENGGI_SIZE },
+  badge: {
+    position: "absolute",
+    right: -3,
+    bottom: -2,
+    width: 17,
+    height: 17,
+    borderRadius: 9,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 2,
+    borderColor: theme.colors.surface,
   },
   body: { flex: 1, minWidth: 0 },
   title: { fontSize: 13.5, fontWeight: "600", color: theme.colors.text },
