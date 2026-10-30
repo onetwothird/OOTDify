@@ -2,9 +2,9 @@
 // Root layout: auth gating + consent gating + SafeAreaProvider + stack routes.
 //
 // Preload/splash: the native splash stays up (preventAutoHideAsync at module
-// load) until the auth session has resolved, then hides — a branded preloader
-// covers the gap on platforms where the native splash already retired, so a
-// cold start never flashes white. Loading resolves on success AND failure.
+// load) until the auth session has resolved, then hides — BootSplash (the
+// same blue and Penggi) covers the gap on platforms where the native splash
+// already retired, so a cold start never flashes white. Loading resolves on success AND failure.
 //
 // Consent gate (Phase 7): a signed-in session whose auth metadata doesn't
 // record the current terms version is routed to /consent (which allows reading
@@ -20,10 +20,9 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
-import { StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { BiometricGate } from "../features/settings/BiometricGate";
-import { FlyingPreloader } from "../shared/components/FlyingPreloader";
+import { BootSplash } from "../shared/components/BootSplash";
 import { PenggiMomentHost, penggi } from "../shared/components/PenggiMoment";
 import { translateNow } from "../shared/i18n/useT";
 import { nextWelcome } from "../shared/lib/welcome";
@@ -157,14 +156,15 @@ function RootLayoutInner() {
   }, [session, initialized, segments, router]);
 
   if (!initialized || !themeReady) {
-    // Branded preloader for the window between native-splash hide and first
-    // route render (never an unbranded white flash). Held until the saved
-    // appearance preference has been read, so a Dark-mode user never sees a
-    // light frame first.
+    // The window between native-splash hide and first route render: the
+    // same blue screen with the same Penggi as the native splash, so launch
+    // reads as one screen (never a white flash). Held until the saved
+    // appearance preference has been read.
     return (
-      <View style={[styles.boot, { backgroundColor: activeTheme.colors.background }]}>
-        <FlyingPreloader />
-      </View>
+      <>
+        <StatusBar style="light" />
+        <BootSplash />
+      </>
     );
   }
 
@@ -199,12 +199,3 @@ function RootLayoutInner() {
   );
 }
 
-const styles = StyleSheet.create({
-  boot: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    // backgroundColor is applied inline from the active theme (see the boot
-    // preloader) so dark mode does not flash a light page.
-  },
-});
