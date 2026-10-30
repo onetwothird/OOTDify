@@ -96,7 +96,8 @@
         }
       ],
       "@livekit/react-native-expo-plugin",
-      "@config-plugins/react-native-webrtc"
+      "@config-plugins/react-native-webrtc",
+      "./plugins/withResizerShaders"
     ],
     "experiments": {
       "typedRoutes": true,

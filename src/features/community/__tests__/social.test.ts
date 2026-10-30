@@ -117,8 +117,10 @@ describe("dmsByFriend", () => {
     otherName: "Ana",
     otherAvatar: null,
     lastMessage: "hi",
+    lastMessageUnsent: false,
     lastMessageAt: "2026-10-28T10:00:00Z",
     unread: 2,
+    muted: false,
     ...over,
   });
 

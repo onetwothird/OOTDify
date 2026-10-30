@@ -1,7 +1,7 @@
-// Tells the user how to move so the selected garment's joints sit inside a safe
-// zone of the preview. Pure and native-free so it can run in a worklet.
+// Tells the user how to move so the joints every outfit item needs sit inside a
+// safe zone of the preview. Pure and native-free so it can run in a worklet.
 // Keypoints are in preview coordinates (0..1), after rotation and mirroring.
-import { garmentKind, type GarmentKind } from "./bodyMesh";
+import type { ItemKind } from "./itemKind";
 import { MIN_KEYPOINT_CONFIDENCE, type Keypoint } from "./overlayGeometry";
 
 export type FramingHint = "no_person" | "step_back" | "come_closer" | "move_left" | "move_right" | "good";
@@ -10,11 +10,22 @@ export const SAFE_X = 0.06;
 export const SAFE_Y = 0.04;
 export const MIN_BODY_SPAN = 0.35;
 
-const REQUIRED: Record<GarmentKind, string[]> = {
+const REQUIRED: Record<ItemKind, string[]> = {
   upper: ["shoulder", "hip"],
+  outer: ["shoulder", "hip"],
   dress: ["shoulder", "hip", "knee"],
   bottom: ["hip", "knee", "ankle"],
+  hat: ["eye", "ear"],
+  glasses: ["eye"],
+  earrings: ["ear"],
+  necklace: ["shoulder"],
+  watch: ["elbow", "wrist"],
+  belt: ["hip"],
+  bag: ["hip"],
+  shoes: ["ankle"],
 };
+
+const BODY_ROWS = ["shoulder", "hip", "knee", "ankle"];
 
 /** Swap move_left / move_right, for a preview that isn't mirrored (back camera). */
 export function mirrorSides(hint: FramingHint): FramingHint {
@@ -24,7 +35,7 @@ export function mirrorSides(hint: FramingHint): FramingHint {
   return hint;
 }
 
-export function framingHint(category: string | null, keypoints: Keypoint[]): FramingHint {
+export function framingHint(kinds: ItemKind[], keypoints: Keypoint[]): FramingHint {
   "worklet";
   let anyConfident = false;
   for (let i = 0; i < keypoints.length; i++) {
@@ -32,9 +43,20 @@ export function framingHint(category: string | null, keypoints: Keypoint[]): Fra
   }
   if (!anyConfident) return "no_person";
 
-  const kind = garmentKind(category);
-  if (kind === null) return "good";
-  const joints = REQUIRED[kind];
+  // The union of every item's joints.
+  const joints: string[] = [];
+  for (let k = 0; k < kinds.length; k++) {
+    const need = REQUIRED[kinds[k]];
+    for (let j = 0; j < need.length; j++) if (joints.indexOf(need[j]) < 0) joints.push(need[j]);
+  }
+  if (joints.length === 0) return "good";
+  // "Come closer" needs a height to judge by: at least two body rows (e.g. a
+  // top's shoulders and hips). A face-only or one-row outfit (hat, belt,
+  // shoes, necklace, watch) spans far less than a body, so it is never
+  // judged too small.
+  let bodyRows = 0;
+  for (let j = 0; j < joints.length; j++) if (BODY_ROWS.indexOf(joints[j]) >= 0) bodyRows++;
+  const bodyJoint = bodyRows >= 2;
 
   let offTop = false;
   let offBottom = false;
@@ -75,12 +97,12 @@ export function framingHint(category: string | null, keypoints: Keypoint[]): Fra
   }
 
   if (anyOutside) {
-    if ((offTop && offBottom) || (offBottom && !offTop && kind !== "bottom")) return "step_back";
+    if ((offTop && offBottom) || (offBottom && !offTop && joints.indexOf("ankle") < 0)) return "step_back";
     if (!otherSide && leftSide && !rightSide) return "move_right";
     if (!otherSide && rightSide && !leftSide) return "move_left";
     return "step_back";
   }
 
-  if (!(maxY - minY >= MIN_BODY_SPAN)) return "come_closer";
+  if (bodyJoint && !(maxY - minY >= MIN_BODY_SPAN)) return "come_closer";
   return "good";
 }

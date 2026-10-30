@@ -74,8 +74,12 @@ export interface ConversationListEntry {
   /** The peer's avatar ref (null when unset — render an initial instead). */
   otherAvatar: string | null;
   lastMessage: string | null;
+  /** True when the latest message was unsent for everyone. */
+  lastMessageUnsent: boolean;
   lastMessageAt: string | null;
   unread: number;
+  /** True while I have this chat muted. */
+  muted: boolean;
 }
 
 /** Mirrors a public.messages row, enriched with the sender's name. */
@@ -87,6 +91,12 @@ export interface ChatMessageEntry {
   /** 'chat/…' ref of a photo sent in this message, or null for plain text. */
   image_ref: string | null;
   created_at: string;
+  /** The message this one replies to (same conversation), or null. */
+  reply_to: string | null;
+  /** Set when the sender edited the text. */
+  edited_at: string | null;
+  /** Set when the sender unsent it for everyone (body and photo are wiped). */
+  unsent_at: string | null;
   senderName: string;
   /** Sender's avatar ref; null for realtime inserts (resolved by the screen). */
   senderAvatar: string | null;
@@ -127,3 +137,26 @@ export const ROOM_CATEGORIES = [
 ] as const;
 
 export type RoomCategory = (typeof ROOM_CATEGORIES)[number];
+
+/** One person in a conversation, for the settings screen's members list. */
+export interface ConversationMember {
+  userId: string;
+  name: string;
+  avatar: string | null;
+}
+
+/** What a conversation's settings screen loads. */
+export interface ConversationSettings {
+  id: string;
+  /** True for communities (public rooms and the shared room), false for DMs. */
+  isCommunity: boolean;
+  title: string | null;
+  category: string | null;
+  createdBy: string | null;
+  chatTheme: string | null;
+  mutedUntil: string | null;
+  members: ConversationMember[];
+  adminIds: string[];
+  iconUrl: string | null;
+  iconPreset: string | null;
+}

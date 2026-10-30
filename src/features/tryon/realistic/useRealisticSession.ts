@@ -14,8 +14,8 @@
 // The screen must make the VisionCamera inactive whenever
 // releasesCamera(phase) is true, so LiveKit can open the camera.
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { createDecartClient, isRealtimeModel, models, resolveFpsNumber, type RealTimeClient } from "@decartai/sdk";
-import { mediaDevices, type MediaStream } from "@livekit/react-native-webrtc";
+import type { RealTimeClient } from "@decartai/sdk";
+import type { MediaStream } from "@livekit/react-native-webrtc";
 import { File } from "expo-file-system";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { AppState } from "react-native";
@@ -29,6 +29,7 @@ import {
   sessionOpen,
   type RealisticPhase,
 } from "./session";
+import { realtimeDeps } from "./webrtc";
 
 export const REALISTIC_CONSENT_KEY = "ootdify.tryon.realistic.consent.v1";
 
@@ -121,6 +122,11 @@ export function useRealisticSession(
 
     const run = async () => {
       if (!cutoutUri) throw new Error("Garment cut-out is not ready.");
+      // start() only opens a session when these loaded.
+      const deps = realtimeDeps();
+      if (!deps) throw new Error("WebRTC native module not found.");
+      const { mediaDevices } = deps.webrtc;
+      const { createDecartClient, isRealtimeModel, models, resolveFpsNumber } = deps.decart;
       // An earlier session's dial may still be in flight: let it settle (it is
       // disconnected if abandoned) before this session mints or dials anything.
       await dialGate.idle();
@@ -222,6 +228,10 @@ export function useRealisticSession(
 
   // Stable callbacks: the screen runs `stop` as a blur cleanup.
   const start = useCallback(() => {
+    if (!realtimeDeps()) {
+      dispatch({ type: "unsupported" });
+      return;
+    }
     AsyncStorage.getItem(REALISTIC_CONSENT_KEY)
       .then((v) => dispatch({ type: "start", consented: v === "true" }))
       .catch(() => dispatch({ type: "start", consented: false }));

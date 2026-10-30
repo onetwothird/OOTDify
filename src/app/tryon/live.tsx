@@ -10,25 +10,23 @@
 // garment. While it runs the VisionCamera is inactive (LiveKit owns the
 // camera) and the AR layers are hidden; "Back to live preview" restores both.
 import { Ionicons } from "@expo/vector-icons";
-import { useImage } from "@shopify/react-native-skia";
 import { Image } from "expo-image";
 import { useFocusEffect, useIsFocused, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AccessibilityInfo, AppState, LayoutChangeEvent, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Camera, useCameraPermission } from "react-native-vision-camera";
 
-import { isSupportedCategory, type MeshFit } from "../../features/tryon/ar/bodyMesh";
 import { CAMERA_BG, ON_CAMERA } from "../../features/tryon/ar/cameraChrome";
 import { FramingGuide } from "../../features/tryon/ar/FramingGuide";
-import { LiveGarmentLayer, useGarmentBounds } from "../../features/tryon/ar/LiveGarmentLayer";
-import { useLiveGarment } from "../../features/tryon/ar/liveGarmentStore";
-import { liveStatusKey, type CutoutState } from "../../features/tryon/ar/liveStatus";
+import { useLiveGarment, type LiveGarment } from "../../features/tryon/ar/liveGarmentStore";
+import { liveStatus, type CutoutState } from "../../features/tryon/ar/liveStatus";
+import { LiveOutfitLayer, useSkImages, type OutfitLayerItem } from "../../features/tryon/ar/LiveOutfitLayer";
 import type { Size } from "../../features/tryon/ar/overlayGeometry";
 import { useLiveTracker } from "../../features/tryon/ar/useLiveTracker";
 import { useSteadyHint } from "../../features/tryon/ar/useSteadyHint";
 import { getGarmentCutout, type CutoutOutcome } from "../../features/tryon/cutout";
-import { RealisticConsentSheet, RealisticStage } from "../../features/tryon/realistic/RealisticView";
+import { RealisticConsentSheet, RealisticItemPicker, RealisticStage } from "../../features/tryon/realistic/RealisticView";
 import { releasesCamera } from "../../features/tryon/realistic/session";
 import { useRealisticSession } from "../../features/tryon/realistic/useRealisticSession";
 import type { Theme } from "../../shared/config/theme";
@@ -54,74 +52,101 @@ export default function LiveTryOnScreen() {
   const insets = useSafeAreaInsets();
   const focused = useIsFocused();
   const appActive = useAppActive();
-  const garment = useLiveGarment((s) => s.garment);
-  const thumb = useResolvedImage(garment?.imageRef);
+  const garments = useLiveGarment((s) => s.garments);
+  const first = garments.length > 0 ? garments[0] : null;
+  const thumb = useResolvedImage(first?.imageRef);
   const { hasPermission, requestPermission } = useCameraPermission();
   const [facing, setFacing] = useState<"front" | "back">("front");
   const [preview, setPreview] = useState<Size | null>(null);
-  const [fitKind, setFitKind] = useState<MeshFit["kind"]>("no_pose");
 
   const goBack = () => (router.canGoBack() ? router.back() : router.replace("/(tabs)/scan"));
 
   // Nothing to try on (e.g. opened by deep link): return to Scan.
   useEffect(() => {
-    if (!garment) goBack();
+    if (garments.length === 0) goBack();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [garment]);
+  }, [garments]);
 
-  // The cut-out (transparent PNG), keyed by garment so a stale result is ignored.
-  const garmentKey = garment ? `${garment.id}|${garment.imageRef}` : null;
-  const [cutout, setCutout] = useState<{ key: string; outcome: CutoutOutcome } | null>(null);
+  // The cut-outs (transparent PNGs), fetched in parallel and keyed by item so a
+  // stale result is ignored. Unplaceable items are never cut out.
+  const keyOf = (g: LiveGarment) => `${g.id}|${g.imageRef}`;
+  const placeable = garments.filter((g) => g.kind !== null);
+  const placeableKey = placeable.map(keyOf).join(",");
+  const [cutouts, setCutouts] = useState<Record<string, CutoutOutcome>>({});
   useEffect(() => {
-    if (!garment || !garmentKey) return;
     let cancelled = false;
-    void getGarmentCutout({ id: garment.id, image_url: garment.imageRef }).then((outcome) => {
-      if (!cancelled) setCutout({ key: garmentKey, outcome });
-    });
+    for (const g of placeable) {
+      void getGarmentCutout({ id: g.id, image_url: g.imageRef }).then((outcome) => {
+        if (!cancelled) setCutouts((prev) => ({ ...prev, [keyOf(g)]: outcome }));
+      });
+    }
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [garmentKey]);
-  const outcome = cutout?.key === garmentKey ? cutout.outcome : null;
-  const readyUri = outcome?.status === "ready" ? outcome.uri : null;
-  const [imageFailedUri, setImageFailedUri] = useState<string | null>(null);
-  const garmentImage = useImage(readyUri, () => setImageFailedUri(readyUri));
-  const bounds = useGarmentBounds(garmentImage);
+  }, [placeableKey]);
+  const readyUris = placeable.flatMap((g) => {
+    const o = cutouts[keyOf(g)];
+    return o?.status === "ready" ? [o.uri] : [];
+  });
+  const images = useSkImages(readyUris);
 
-  const cutoutState: CutoutState =
-    outcome === null
-      ? "loading"
-      : outcome.status !== "ready" || imageFailedUri === readyUri
-        ? "failed"
-        : garmentImage
-          ? "ready"
-          : "loading";
+  const stateOf = (g: LiveGarment): CutoutState => {
+    const o = cutouts[keyOf(g)];
+    if (!o) return "loading";
+    if (o.status !== "ready") return "failed";
+    const image = images[o.uri];
+    return image === "failed" ? "failed" : image ? "ready" : "loading";
+  };
+  const readyUriOf = (g: LiveGarment): string | null => {
+    const o = cutouts[keyOf(g)];
+    return o?.status === "ready" && stateOf(g) === "ready" ? o.uri : null;
+  };
 
-  // Realistic mode. While it holds the camera, the preview and tracker pause.
-  const realistic = useRealisticSession(cutoutState === "ready" ? readyUri : null, facing);
+  // The drawable outfit: placeable items whose cut-out image is loaded.
+  const layerItems = useMemo<OutfitLayerItem[]>(
+    () =>
+      placeable.flatMap((g) => {
+        const uri = readyUriOf(g);
+        const loaded = uri ? images[uri] : undefined;
+        if (!g.kind || !loaded || loaded === "failed") return [];
+        return [{ id: g.id, kind: g.kind, image: loaded.image, bounds: loaded.bounds }];
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [placeableKey, cutouts, images],
+  );
+  const ready = layerItems.length > 0;
+
+  // Realistic mode redraws one item: the one picked, else the main clothing piece.
+  const realisticChoices = placeable.filter((g) => readyUriOf(g) !== null);
+  const [pickedId, setPickedId] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
+  const realisticItem = realisticChoices.find((g) => g.id === pickedId) ?? mainRealisticItem(realisticChoices);
+  const realistic = useRealisticSession(realisticItem ? readyUriOf(realisticItem) : null, facing);
   const released = releasesCamera(realistic.phase);
   // Leaving the screen (blur) ends any open session; the hook's unmount
   // cleanup covers the back button.
   const stopRealistic = realistic.stop;
   useFocusEffect(useCallback(() => stopRealistic, [stopRealistic]));
 
-  const category = garment?.category ?? null;
-  const supported = isSupportedCategory(category);
   const live = useLiveTracker({
-    active:
-      focused && appActive && !released && !!garment && hasPermission && supported && cutoutState === "ready",
+    active: focused && appActive && !released && hasPermission && ready,
     facing,
     preview,
-    category,
+    kinds: layerItems.map((i) => i.kind),
   });
 
-  const statusKey = liveStatusKey(supported ? fitKind : "unsupported", live.tracker, cutoutState);
-  const status = statusKey ? t(statusKey) : null;
+  const outfitStatus = liveStatus(
+    garments.map((g) => ({ name: g.name, placeable: g.kind !== null, cutout: g.kind ? stateOf(g) : "failed" })),
+    live.tracker,
+  );
+  const status = outfitStatus ? t(outfitStatus.key, { names: outfitStatus.names ?? "" }) : null;
 
   // The framing guide takes over once nothing else needs saying. A status line
-  // (tracker or cut-out trouble, unsupported garment) outranks the hint text.
-  const guideOn = hasPermission && supported && cutoutState === "ready" && statusKey === null && !released;
+  // (tracker or cut-out trouble, nothing placeable) outranks the hint text; a
+  // "can't show X" note doesn't stop the rest of the outfit being framed.
+  const quiet = outfitStatus === null || outfitStatus.key === "tryon.live.cant_show";
+  const guideOn = hasPermission && ready && quiet && !released;
   const steady = useSteadyHint(guideOn ? live.hint : "no_person");
 
   // Android announces via accessibilityLiveRegion; iOS needs an explicit call.
@@ -129,10 +154,10 @@ export default function LiveTryOnScreen() {
     if (status && Platform.OS === "ios") AccessibilityInfo.announceForAccessibility(status);
   }, [status]);
 
-  // Enabled only while framing is steady "good" and the cut-out is ready.
-  const canGoRealistic = steady.readyToShoot && cutoutState === "ready" && realistic.phase === "idle";
+  // Enabled only while framing is steady "good" and an item's cut-out is ready.
+  const canGoRealistic = steady.readyToShoot && realisticItem !== null && realistic.phase === "idle";
 
-  if (!garment) return null;
+  if (!first) return null;
 
   const onLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
@@ -151,15 +176,8 @@ export default function LiveTryOnScreen() {
             orientationSource="interface"
           />
         ) : null}
-        {hasPermission && cutoutState === "ready" && !released ? (
-          <LiveGarmentLayer
-            image={garmentImage}
-            bounds={bounds}
-            category={category}
-            keypoints={live.keypoints}
-            facing={facing}
-            onFitKind={setFitKind}
-          />
+        {hasPermission && ready && !released ? (
+          <LiveOutfitLayer items={layerItems} keypoints={live.keypoints} facing={facing} />
         ) : null}
         {guideOn ? <FramingGuide hint={steady.shown} topOffset={insets.top + 64} /> : null}
         <RealisticStage session={realistic} facing={facing} topOffset={insets.top + 16} />
@@ -185,7 +203,7 @@ export default function LiveTryOnScreen() {
           )}
           <View style={styles.garmentText}>
             <Text style={styles.name} numberOfLines={1}>
-              {garment.name}
+              {garments.length > 1 ? t("tryon.live.items_count", { count: garments.length }) : first.name}
             </Text>
             {hasPermission ? (
               <Text style={styles.status} accessibilityLiveRegion="polite">
@@ -206,14 +224,14 @@ export default function LiveTryOnScreen() {
             <Text style={styles.primaryBtnText}>{t("tryon.live.full_tryon")}</Text>
           </Pressable>
         )}
-        {hasPermission && supported ? (
+        {hasPermission && placeable.length > 0 ? (
           <Pressable
             accessibilityRole="button"
             accessibilityHint={t("tryon.live.realistic_hint")}
             accessibilityState={{ disabled: !canGoRealistic }}
             disabled={!canGoRealistic}
             style={[styles.realisticBtn, !canGoRealistic && styles.realisticBtnOff]}
-            onPress={realistic.start}
+            onPress={() => (realisticChoices.length > 1 ? setPicking(true) : realistic.start())}
           >
             <Ionicons name="sparkles-outline" size={18} color={brand} />
             <View style={styles.realisticBtnLabel}>
@@ -225,8 +243,27 @@ export default function LiveTryOnScreen() {
         <Text style={styles.disclaimer}>{t("tryon.live.disclaimer")}</Text>
       </View>
       <RealisticConsentSheet session={realistic} />
+      <RealisticItemPicker
+        visible={picking}
+        items={realisticChoices.map((g) => ({ id: g.id, name: g.name, thumbUri: readyUriOf(g) }))}
+        onPick={(id) => {
+          setPickedId(id);
+          setPicking(false);
+          realistic.start();
+        }}
+        onClose={() => setPicking(false)}
+      />
     </View>
   );
+}
+
+/** The item realistic mode redraws: a dress, else a top, else pants, else the first ready item. */
+function mainRealisticItem(ready: LiveGarment[]): LiveGarment | null {
+  for (const kind of ["dress", "upper", "bottom", "outer"] as const) {
+    const found = ready.find((g) => g.kind === kind);
+    if (found) return found;
+  }
+  return ready.length > 0 ? ready[0] : null;
 }
 
 function CameraButton({

@@ -209,7 +209,7 @@ export default function HomeScreen() {
           loading={planLoading}
           error={planError}
           onOpenOutfit={(id) => router.push(`/outfit/${id}`)}
-          onPlanLook={() => router.push({ pathname: "/(tabs)/outfits", params: { view: "calendar" } })}
+          onPlanLook={() => router.push({ pathname: "/(tabs)/wardrobe", params: { section: "outfits", view: "calendar" } })}
         />
 
         <View style={styles.segment}>
@@ -285,7 +285,7 @@ export default function HomeScreen() {
               title={t("home.wardrobe.title")}
               subtitle={t("home.wardrobe.subtitle")}
               actionLabel={t("home.action.open")}
-              onAction={() => router.push("/(tabs)/discover")}
+              onAction={() => router.push("/(tabs)/wardrobe")}
             />
             {closetLoading && closet.length === 0 ? (
               <View style={styles.hRow}>
@@ -322,7 +322,7 @@ export default function HomeScreen() {
               title={t("home.looks.recent.title")}
               subtitle={t("home.looks.recent.subtitle")}
               actionLabel={t("home.action.all")}
-              onAction={() => router.push("/(tabs)/outfits")}
+              onAction={() => router.push({ pathname: "/(tabs)/wardrobe", params: { section: "outfits" } })}
             />
             {savedLoading ? (
               <SkeletonRow />
@@ -334,7 +334,7 @@ export default function HomeScreen() {
                 message={t("home.looks.recent.empty")}
                 actionLabel={t("home.looks.recent.empty.action")}
                 actionIcon="add"
-                onAction={() => router.push("/(tabs)/outfits")}
+                onAction={() => router.push({ pathname: "/(tabs)/wardrobe", params: { section: "outfits" } })}
               />
             ) : (
               <View style={styles.savedList}>
@@ -550,13 +550,13 @@ function Hero({ pieceCount, lookCount, loading }: { pieceCount: number; lookCoun
         <StatCell
           value={loading ? "–" : String(pieceCount)}
           label={t("home.hero.pieces", { count: pieceCount })}
-          onPress={() => router.push("/(tabs)/discover")}
+          onPress={() => router.push("/(tabs)/wardrobe")}
         />
         <View style={styles.heroStatDivider} />
         <StatCell
           value={loading ? "–" : String(lookCount)}
           label={t("home.hero.looks", { count: lookCount })}
-          onPress={() => router.push("/(tabs)/outfits")}
+          onPress={() => router.push({ pathname: "/(tabs)/wardrobe", params: { section: "outfits" } })}
         />
       </View>
 

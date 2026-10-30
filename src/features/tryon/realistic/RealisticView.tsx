@@ -5,7 +5,9 @@
 //     and "Stop", then the ended / failed / not-set-up message with "Back to
 //     live preview". Camera chrome uses the fixed on-camera colours.
 //   - RealisticConsentSheet is the one-time consent, on the themed Sheet.
-import { RTCView } from "@livekit/react-native-webrtc";
+//   - RealisticItemPicker picks which outfit item Decart redraws, when the
+//     outfit has more than one.
+import { Image } from "expo-image";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Sheet } from "../../../shared/components/Sheet";
@@ -15,6 +17,7 @@ import { makeStyles } from "../../../shared/theme/makeStyles";
 import { CAMERA_BG, ON_CAMERA } from "../ar/cameraChrome";
 import { releasesCamera } from "./session";
 import type { RealisticSession } from "./useRealisticSession";
+import { realtimeDeps } from "./webrtc";
 
 export function RealisticStage({
   session,
@@ -38,11 +41,15 @@ export function RealisticStage({
         ? t("tryon.live.realistic_failed")
         : phase === "not_configured"
           ? t("tryon.live.realistic_not_configured")
-          : null;
+          : phase === "unsupported"
+            ? t("tryon.live.realistic_unsupported")
+            : null;
+  // A remote stream only exists when the WebRTC module loaded.
+  const RTCView = realtimeDeps()?.webrtc.RTCView;
 
   return (
     <View style={styles.stage}>
-      {phase === "live" && remoteStream ? (
+      {phase === "live" && remoteStream && RTCView ? (
         <RTCView
           style={StyleSheet.absoluteFill}
           streamURL={remoteStream.toURL()}
@@ -113,6 +120,40 @@ export function RealisticConsentSheet({ session }: { session: RealisticSession }
   );
 }
 
+export function RealisticItemPicker({
+  visible,
+  items,
+  onPick,
+  onClose,
+}: {
+  visible: boolean;
+  items: { id: string; name: string; thumbUri: string | null }[];
+  onPick: (id: string) => void;
+  onClose: () => void;
+}) {
+  const styles = useStyles();
+  const { t } = useT();
+  return (
+    <Sheet visible={visible} onClose={onClose} title={t("tryon.live.realistic_pick_title")} icon="sparkles-outline">
+      <Text style={styles.consentBody}>{t("tryon.live.realistic_pick_note")}</Text>
+      <View style={styles.pickList}>
+        {items.map((item) => (
+          <Pressable key={item.id} accessibilityRole="button" style={styles.pickRow} onPress={() => onPick(item.id)}>
+            {item.thumbUri ? (
+              <Image source={{ uri: item.thumbUri }} style={styles.pickThumb} contentFit="contain" />
+            ) : (
+              <View style={styles.pickThumb} />
+            )}
+            <Text style={styles.pickName} numberOfLines={1}>
+              {item.name}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+    </Sheet>
+  );
+}
+
 const FILL = { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 } as const;
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -160,6 +201,17 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
   backText: { color: ON_CAMERA, fontWeight: "600", fontSize: 15 },
   consentBody: { ...theme.typography.body, color: theme.colors.text },
+  pickList: { marginTop: theme.spacing.md, gap: theme.spacing.sm },
+  pickRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  pickThumb: { width: 48, height: 48, borderRadius: theme.borderRadius.sm },
+  pickName: { ...theme.typography.body, color: theme.colors.text, flex: 1 },
   acceptBtn: {
     backgroundColor: theme.colors.brand,
     borderRadius: theme.borderRadius.md,

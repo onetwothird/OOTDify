@@ -1,25 +1,38 @@
-import { liveGarmentCandidate } from "../liveGarmentStore";
+import { liveOutfit } from "../liveGarmentStore";
 
 const items = [
-  { id: "a", image_url: "a.jpg" },
-  { id: "b", image_url: null },
+  { id: "top", image_url: "top.jpg", category: "Tops", name: "White tee" },
+  { id: "hat", image_url: "hat.jpg", category: "Accessories", name: "Bucket hat", tags: [] },
+  { id: "noimg", image_url: null, category: "Bottoms", name: "Jeans" },
+  { id: "ring", image_url: "ring.jpg", category: "Accessories", name: "Gold ring" },
+  { id: "anon", image_url: "anon.jpg", category: "Bottoms", name: null },
 ];
 
-describe("liveGarmentCandidate", () => {
-  it("returns the one selected item in the current list", () => {
-    expect(liveGarmentCandidate(new Set(["a"]), items)).toEqual(items[0]);
+describe("liveOutfit", () => {
+  it("keeps the selected items with images, in selection order, with kinds", () => {
+    expect(liveOutfit(["hat", "top"], items, "Item")).toEqual([
+      { id: "hat", imageRef: "hat.jpg", category: "Accessories", name: "Bucket hat", kind: "hat" },
+      { id: "top", imageRef: "top.jpg", category: "Tops", name: "White tee", kind: "upper" },
+    ]);
   });
 
-  it("is null when the selection belongs to another list", () => {
-    expect(liveGarmentCandidate(new Set(["z"]), items)).toBeNull();
+  it("skips ids not in the list and items without an image", () => {
+    expect(liveOutfit(new Set(["zzz", "noimg", "top"]), items, "Item")?.map((g) => g.id)).toEqual(["top"]);
   });
 
-  it("is null for zero or several selected items", () => {
-    expect(liveGarmentCandidate(new Set(), items)).toBeNull();
-    expect(liveGarmentCandidate(new Set(["a", "b"]), items)).toBeNull();
+  it("is null when nothing selected can be placed", () => {
+    expect(liveOutfit(["ring"], items, "Item")).toBeNull();
+    expect(liveOutfit([], items, "Item")).toBeNull();
   });
 
-  it("is null when the item has no image to overlay", () => {
-    expect(liveGarmentCandidate(new Set(["b"]), items)).toBeNull();
+  it("keeps an unplaceable item alongside placeable ones", () => {
+    expect(liveOutfit(["top", "ring"], items, "Item")?.map((g) => [g.id, g.kind])).toEqual([
+      ["top", "upper"],
+      ["ring", null],
+    ]);
+  });
+
+  it("uses the fallback name for an unnamed item", () => {
+    expect(liveOutfit(["anon"], items, "Item")?.[0].name).toBe("Item");
   });
 });

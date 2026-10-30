@@ -1,5 +1,6 @@
 // Turns smoothed MoveNet keypoints into a triangle mesh that a Skia layer warps
 // the garment image onto. Pure and native-free so it can run in a worklet.
+import type { MeshKind } from "./itemKind";
 import { MIN_KEYPOINT_CONFIDENCE, type Keypoint, type Point } from "./overlayGeometry";
 
 /** Garment opaque bounds, normalized 0..1 of the garment image. */
@@ -52,6 +53,12 @@ export function garmentKind(category: string | null): GarmentKind | null {
   if (category == null) return null;
   const key = category.toLowerCase();
   return Object.prototype.hasOwnProperty.call(KINDS, key) ? KINDS[key] : null;
+}
+
+/** The mesh shape for a mesh item kind: outerwear meshes like a top. */
+export function meshGarmentKind(kind: MeshKind): GarmentKind {
+  "worklet";
+  return kind === "outer" ? "upper" : kind;
 }
 
 export function isSupportedCategory(category: string | null): boolean {
@@ -167,6 +174,17 @@ export function bodyMesh(category: string | null, keypoints: Keypoint[], garment
   "worklet";
   const kind = garmentKind(category);
   if (!kind) return { kind: "unsupported" };
+  return fitKind(kind, keypoints, garment);
+}
+
+/** The mesh for an item already classified (itemKind.ts), for the outfit layer. */
+export function meshFit(kind: MeshKind, keypoints: Keypoint[], garment: Bounds): MeshFit {
+  "worklet";
+  return fitKind(meshGarmentKind(kind), keypoints, garment);
+}
+
+function fitKind(kind: GarmentKind, keypoints: Keypoint[], garment: Bounds): MeshFit {
+  "worklet";
 
   const rows = anchorRows(kind, keypoints);
   if (!rows) return { kind: "no_pose" };

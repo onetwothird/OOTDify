@@ -11,6 +11,7 @@ import { CommonResolutions, useFrameOutput, type CameraFrameOutput, type Frame }
 import { useResizer } from "react-native-vision-camera-resizer";
 import { scheduleOnRN } from "react-native-worklets";
 
+import type { ItemKind } from "./itemKind";
 import type { TrackerState } from "./liveStatus";
 import { framingHint, mirrorSides, type FramingHint } from "./framing";
 import { MOVENET_INPUT_SIZE, parseMoveNet } from "./moveNet";
@@ -130,15 +131,15 @@ export function useLiveTracker({
   active,
   facing,
   preview,
-  category,
+  kinds,
 }: {
   /** False skips inference and clears the track (camera inactive, unsupported garment…). */
   active: boolean;
   facing: "front" | "back";
   /** On-screen preview size, for the cover crop between frame and preview. */
   preview: Size | null;
-  /** The garment category, which decides the joints that must be in view. */
-  category: string | null;
+  /** The outfit's item kinds, which decide the joints that must be in view. */
+  kinds: ItemKind[];
 }): LiveTracker {
   // GPU first; one CPU retry if the GPU delegate fails to load. The GPU error
   // object is remembered so the stale error seen right after switching to the
@@ -200,8 +201,11 @@ export function useLiveTracker({
 
   const running = active && !failed && model != null && resizer != null;
 
+  // A stable key, so a new array with the same kinds doesn't rebuild the worklet.
+  const kindsKey = kinds.join(",");
   const onFrame = useMemo(() => {
     const size = preview;
+    const outfitKinds = kindsKey === "" ? [] : (kindsKey.split(",") as ItemKind[]);
     return (frame: Frame) => {
       "worklet";
       let resized: { dispose: () => void; getPixelBuffer: () => ArrayBuffer } | undefined;
@@ -234,7 +238,7 @@ export function useLiveTracker({
           const smoothed = smoothKeypoints(state.smoother, placed, now);
           keypoints.value = smoothed;
           // Left/right are in the user's terms only on the mirrored (front) preview.
-          const framed = framingHint(category, smoothed);
+          const framed = framingHint(outfitKinds, smoothed);
           const hint = frame.isMirrored ? framed : mirrorSides(framed);
           state.errors = 0;
           if ((personSeen !== state.sentSeen || hint !== state.sentHint) && now - state.lastPush >= PUSH_INTERVAL_MS) {
@@ -274,7 +278,7 @@ export function useLiveTracker({
         frame.dispose();
       }
     };
-  }, [running, model, resizer, preview, session, category, keypoints, report, delegateName]);
+  }, [running, model, resizer, preview, session, kindsKey, keypoints, report, delegateName]);
 
   const frameOutput = useFrameOutput({
     targetResolution: CommonResolutions.VGA_16_9,

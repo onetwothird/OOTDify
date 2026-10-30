@@ -336,7 +336,7 @@ export function ProfilePage() {
                   title={t("profile.page.closet.empty")}
                   actionLabel={t("profile.page.closet.action")}
                   actionIcon="add"
-                  onAction={() => router.push("/(tabs)/discover")}
+                  onAction={() => router.push("/(tabs)/wardrobe")}
                 />
               )
             ) : null}
@@ -382,7 +382,7 @@ export function ProfilePage() {
                   title={t("profile.page.looks.empty")}
                   actionLabel={t("profile.page.looks.action")}
                   actionIcon="add"
-                  onAction={() => router.push("/(tabs)/outfits")}
+                  onAction={() => router.push({ pathname: "/(tabs)/wardrobe", params: { section: "outfits" } })}
                 />
               )
             ) : null}

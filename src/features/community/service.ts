@@ -22,6 +22,8 @@ import { supabase } from "../../shared/lib/supabase";
 import { resolveMediaUrl } from "../../shared/lib/storageUrl";
 import { uuid } from "../../shared/lib/uuid";
 import { chatPhotoPath, chatPhotoRef, photoMessageBody } from "./chatMedia";
+import { isMuted } from "./chatSettings";
+import type { ReactionRow } from "./chatThread";
 import { cleanRoomTitle } from "./roomIcons";
 import type {
   ChatMessageEntry,
@@ -29,6 +31,8 @@ import type {
   CommunityPost,
   CommunityRoom,
   ConversationListEntry,
+  ConversationMember,
+  ConversationSettings,
   DirectoryProfile,
   FeedComment,
   FeedPost,
@@ -651,7 +655,7 @@ export async function fetchConversations(): Promise<ConversationListEntry[]> {
   if (!uid) return [];
   const { data: mine, error } = await supabase
     .from("conversation_participants")
-    .select("conversation_id, last_read_at")
+    .select("conversation_id, last_read_at, muted_until")
     .eq("user_id", uid);
   if (error) throw error;
   const rows = mine ?? [];
@@ -700,7 +704,7 @@ export async function fetchConversations(): Promise<ConversationListEntry[]> {
       const [lastMsg, unread] = await Promise.all([
         supabase
           .from("messages")
-          .select("body, created_at")
+          .select("body, created_at, unsent_at")
           .eq("conversation_id", conversationId)
           .order("created_at", { ascending: false })
           .limit(1)
@@ -732,8 +736,10 @@ export async function fetchConversations(): Promise<ConversationListEntry[]> {
         otherName: displayName,
         otherAvatar: isRoom || group ? null : other?.avatar_url ?? null,
         lastMessage: (lastMsg.data?.body as string | null) ?? null,
+        lastMessageUnsent: Boolean(lastMsg.data?.unsent_at),
         lastMessageAt: (lastMsg.data?.created_at as string | null) ?? null,
         unread: unread.count ?? 0,
+        muted: isMuted((row.muted_until as string | null) ?? null, Date.now()),
       } satisfies ConversationListEntry;
     }),
   );
@@ -746,7 +752,23 @@ export async function fetchConversations(): Promise<ConversationListEntry[]> {
 // Messages
 // ---------------------------------------------------------------------------
 
-/** Messages of a conversation, oldest first (max 200), with sender names. */
+type MessageRow = Omit<ChatMessageEntry, "senderName" | "senderAvatar">;
+
+/** A raw messages row with every optional column defaulted. */
+function messageRow(m: MessageRow): MessageRow {
+  return {
+    ...m,
+    image_ref: m.image_ref ?? null,
+    reply_to: m.reply_to ?? null,
+    edited_at: m.edited_at ?? null,
+    unsent_at: m.unsent_at ?? null,
+  };
+}
+
+/**
+ * Messages of a conversation, oldest first (max 200), with sender names.
+ * Messages I removed for myself are left out.
+ */
 export async function fetchMessages(
   conversationId: string,
   limit = 200,
@@ -758,33 +780,33 @@ export async function fetchMessages(
     .order("created_at", { ascending: true })
     .limit(limit);
   if (error) throw error;
-  const rows = (data ?? []) as {
-    id: string;
-    conversation_id: string;
-    sender_id: string;
-    body: string;
-    image_ref?: string | null;
-    created_at: string;
-  }[];
+  const all = ((data ?? []) as MessageRow[]).map(messageRow);
+  if (!all.length) return [];
+  const { data: hidden, error: hErr } = await supabase
+    .from("message_hidden")
+    .select("message_id")
+    .in("message_id", all.map((m) => m.id));
+  if (hErr) throw hErr;
+  const hiddenIds = new Set((hidden ?? []).map((h) => h.message_id as string));
+  const rows = all.filter((m) => !hiddenIds.has(m.id));
   if (!rows.length) return [];
   const directory = await fetchDirectory(rows.map((m) => m.sender_id));
   return rows.map((m) => ({
     ...m,
-    image_ref: m.image_ref ?? null,
     senderName: authorDisplayName(directory.get(m.sender_id)),
     senderAvatar: directory.get(m.sender_id)?.avatar_url ?? null,
   }));
 }
 
-/** Send a message in a conversation the viewer participates in. */
-export async function sendMessage(conversationId: string, body: string): Promise<void> {
+/** Send a message in a conversation the viewer participates in, optionally as a reply. */
+export async function sendMessage(conversationId: string, body: string, replyTo: string | null = null): Promise<void> {
   const uid = await currentUserId();
   if (!uid) throw new Error("Not signed in");
   const trimmed = body.trim();
   if (!trimmed) throw new Error("Message cannot be empty");
   const { error } = await supabase
     .from("messages")
-    .insert({ conversation_id: conversationId, sender_id: uid, body: trimmed });
+    .insert({ conversation_id: conversationId, sender_id: uid, body: trimmed, reply_to: replyTo });
   if (error) throw error;
 }
 
@@ -793,7 +815,12 @@ export async function sendMessage(conversationId: string, body: string): Promise
  * shrunk, uploaded to the private chat bucket, then the message points at it;
  * if the message is refused the upload is removed so nothing is left behind.
  */
-export async function sendPhotoMessage(conversationId: string, photoUri: string, caption = ""): Promise<void> {
+export async function sendPhotoMessage(
+  conversationId: string,
+  photoUri: string,
+  caption = "",
+  replyTo: string | null = null,
+): Promise<void> {
   const uid = await currentUserId();
   if (!uid) throw new Error("Not signed in");
   const small = await shrinkForUpload(photoUri);
@@ -807,11 +834,222 @@ export async function sendPhotoMessage(conversationId: string, photoUri: string,
     sender_id: uid,
     body: photoMessageBody(caption),
     image_ref: chatPhotoRef(path),
+    reply_to: replyTo,
   });
   if (error) {
     await supabase.storage.from("chat").remove([path]);
     throw error;
   }
+}
+
+/** Edit my own text message (a database trigger enforces the 15 minute window). */
+export async function editMessage(messageId: string, body: string): Promise<void> {
+  const trimmed = body.trim();
+  if (!trimmed) throw new Error("Message cannot be empty");
+  const { error } = await supabase.from("messages").update({ body: trimmed }).eq("id", messageId);
+  if (error) throw error;
+}
+
+/**
+ * Unsend my message for everyone. The database wipes its text and photo
+ * reference; the photo file itself is then removed from storage.
+ */
+export async function unsendMessage(message: { id: string; image_ref: string | null }): Promise<void> {
+  const { error } = await supabase
+    .from("messages")
+    .update({ unsent_at: new Date().toISOString() })
+    .eq("id", message.id);
+  if (error) throw error;
+  if (message.image_ref?.startsWith("chat/")) {
+    // Best effort: the message no longer points at the file either way.
+    await supabase.storage.from("chat").remove([message.image_ref.slice("chat/".length)]);
+  }
+}
+
+/** Remove a message from my view of the chat only. */
+export async function hideMessage(messageId: string): Promise<void> {
+  const uid = await currentUserId();
+  if (!uid) throw new Error("Not signed in");
+  const { error } = await supabase.from("message_hidden").insert({ message_id: messageId, user_id: uid });
+  if (error && error.code !== "23505") throw error;
+}
+
+/** Every live reaction in a conversation (removed ones have a null emoji and are skipped). */
+export async function fetchReactions(conversationId: string): Promise<ReactionRow[]> {
+  const { data, error } = await supabase
+    .from("message_reactions")
+    .select("message_id, user_id, emoji, created_at")
+    .eq("conversation_id", conversationId)
+    .not("emoji", "is", null);
+  if (error) throw error;
+  return (data ?? []) as ReactionRow[];
+}
+
+/** Set my reaction on a message, or clear it with null. */
+export async function setReaction(messageId: string, emoji: string | null): Promise<void> {
+  const uid = await currentUserId();
+  if (!uid) throw new Error("Not signed in");
+  const { error } = await supabase
+    .from("message_reactions")
+    .upsert({ message_id: messageId, user_id: uid, emoji }, { onConflict: "message_id,user_id" });
+  if (error) throw error;
+}
+
+/** Live reaction changes in one conversation. Returns an unsubscribe function. */
+export function subscribeToReactions(conversationId: string, onChange: (row: ReactionRow) => void): () => void {
+  const channel = supabase
+    .channel(`community-reactions:${conversationId}`)
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "message_reactions", filter: `conversation_id=eq.${conversationId}` },
+      (payload) => {
+        // Removing a reaction is an UPDATE to a null emoji, so DELETE never matters here.
+        if (payload.eventType === "DELETE") return;
+        const row = payload.new as ReactionRow;
+        onChange({ message_id: row.message_id, user_id: row.user_id, emoji: row.emoji, created_at: row.created_at });
+      },
+    )
+    .subscribe();
+  return () => {
+    void supabase.removeChannel(channel);
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Conversation settings
+// ---------------------------------------------------------------------------
+
+/** Everything the settings screen shows for one conversation. */
+export async function fetchConversationSettings(conversationId: string): Promise<ConversationSettings> {
+  const uid = await currentUserId();
+  if (!uid) throw new Error("Not signed in");
+  const [conv, people, admins] = await Promise.all([
+    supabase
+      .from("conversations")
+      .select("id, title, category, is_public, created_by, chat_theme, icon_url, icon_preset")
+      .eq("id", conversationId)
+      .single(),
+    supabase.from("conversation_participants").select("user_id, muted_until").eq("conversation_id", conversationId),
+    supabase.from("conversation_admins").select("user_id").eq("conversation_id", conversationId),
+  ]);
+  if (conv.error) throw conv.error;
+  if (people.error) throw people.error;
+  if (admins.error) throw admins.error;
+  const row = conv.data as {
+    id: string;
+    title: string | null;
+    category: string | null;
+    is_public: boolean;
+    created_by: string | null;
+    chat_theme: string | null;
+    icon_url: string | null;
+    icon_preset: string | null;
+  };
+  const participants = (people.data ?? []) as { user_id: string; muted_until: string | null }[];
+  const directory = await fetchDirectory(participants.map((p) => p.user_id));
+  const members: ConversationMember[] = participants.map((p) => ({
+    userId: p.user_id,
+    name: authorDisplayName(directory.get(p.user_id)),
+    avatar: directory.get(p.user_id)?.avatar_url ?? null,
+  }));
+  return {
+    id: row.id,
+    isCommunity: row.id === COMMUNITY_ROOM_ID || row.is_public || row.title !== null,
+    title: row.title,
+    category: row.category,
+    createdBy: row.created_by,
+    chatTheme: row.chat_theme,
+    mutedUntil: participants.find((p) => p.user_id === uid)?.muted_until ?? null,
+    members,
+    adminIds: (admins.data ?? []).map((a) => a.user_id as string),
+    iconUrl: row.icon_url,
+    iconPreset: row.icon_preset,
+  };
+}
+
+/** Just the theme key, for the chat screen. */
+export async function fetchChatTheme(conversationId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("conversations")
+    .select("chat_theme")
+    .eq("id", conversationId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data?.chat_theme as string | null) ?? null;
+}
+
+/** The conversation's shared theme (communities: admins only, enforced by a trigger). */
+export async function setChatTheme(conversationId: string, theme: string | null): Promise<void> {
+  const { error } = await supabase.from("conversations").update({ chat_theme: theme }).eq("id", conversationId);
+  if (error) throw error;
+}
+
+/** Mute message notifications until a time, or unmute with null. */
+export async function setConversationMuted(conversationId: string, until: string | null): Promise<void> {
+  const uid = await currentUserId();
+  if (!uid) throw new Error("Not signed in");
+  const { error } = await supabase
+    .from("conversation_participants")
+    .update({ muted_until: until })
+    .eq("conversation_id", conversationId)
+    .eq("user_id", uid);
+  if (error) throw error;
+}
+
+/** Remove someone from a community (admins; never the creator). */
+export async function removeMember(conversationId: string, userId: string): Promise<void> {
+  const { error, count } = await supabase
+    .from("conversation_participants")
+    .delete({ count: "exact" })
+    .eq("conversation_id", conversationId)
+    .eq("user_id", userId);
+  if (error) throw error;
+  if (!count) throw new Error("You can't remove this member");
+}
+
+/** Grant or revoke admin (the community's creator only). */
+export async function setRoomAdmin(conversationId: string, userId: string, admin: boolean): Promise<void> {
+  const { error } = await supabase.rpc("set_room_admin", {
+    p_conversation: conversationId,
+    p_user: userId,
+    p_admin: admin,
+  });
+  if (error) throw error;
+}
+
+/** Leave a conversation. */
+export async function leaveConversation(conversationId: string): Promise<void> {
+  const uid = await currentUserId();
+  if (!uid) throw new Error("Not signed in");
+  const { error } = await supabase
+    .from("conversation_participants")
+    .delete()
+    .eq("conversation_id", conversationId)
+    .eq("user_id", uid);
+  if (error) throw error;
+}
+
+/** Delete a community I created, with all its messages. */
+export async function deleteConversation(conversationId: string): Promise<void> {
+  const { error, count } = await supabase
+    .from("conversations")
+    .delete({ count: "exact" })
+    .eq("id", conversationId);
+  if (error) throw error;
+  if (!count) throw new Error("Only the creator can delete this community");
+}
+
+/** Photos shared in a conversation, newest first (unsent ones no longer have one). */
+export async function fetchChatPhotos(conversationId: string, limit = 60): Promise<{ id: string; image_ref: string }[]> {
+  const { data, error } = await supabase
+    .from("messages")
+    .select("id, image_ref")
+    .eq("conversation_id", conversationId)
+    .not("image_ref", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as { id: string; image_ref: string }[];
 }
 
 /** Mark a conversation read up to now (owner-only via RLS). */
@@ -830,10 +1068,14 @@ export async function markConversationRead(conversationId: string): Promise<void
 // Realtime subscriptions
 // ---------------------------------------------------------------------------
 
-/** Live new messages in one conversation. Returns an unsubscribe function. */
+/**
+ * Live messages in one conversation: new ones, and edits/unsends of existing
+ * ones (onUpdate). Returns an unsubscribe function.
+ */
 export function subscribeToMessages(
   conversationId: string,
   onInsert: (message: ChatMessageEntry) => void,
+  onUpdate?: (message: MessageRow) => void,
 ): () => void {
   const channel = supabase
     .channel(`community-messages:${conversationId}`)
@@ -846,10 +1088,20 @@ export function subscribeToMessages(
         filter: `conversation_id=eq.${conversationId}`,
       },
       (payload) => {
-        const row = payload.new as Omit<ChatMessageEntry, "senderName" | "senderAvatar">;
+        const row = messageRow(payload.new as MessageRow);
         // Sender name/avatar resolve lazily — realtime payloads don't carry joins.
         onInsert({ ...row, senderName: "", senderAvatar: null });
       },
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "UPDATE",
+        schema: "public",
+        table: "messages",
+        filter: `conversation_id=eq.${conversationId}`,
+      },
+      (payload) => onUpdate?.(messageRow(payload.new as MessageRow)),
     )
     .subscribe();
   return () => {

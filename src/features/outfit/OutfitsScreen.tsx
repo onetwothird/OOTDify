@@ -1,10 +1,10 @@
-// C:\OOTDify\src\app\(tabs)\outfits.tsx
+// C:\OOTDify\src\features\outfit\OutfitsScreen.tsx
 // Outfits: your saved outfits (real rows from saved_outfits) + a builder that
 // asks the server for real catalog recommendations, composes a deterministic
 // outfit, and persists it. No mock looks, no hardcoded content.
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -54,7 +54,8 @@ const CONDITIONS = [
   { label: "Cold", key: "cold", tempC: 4 },
 ] as const;
 
-export default function OutfitsScreen() {
+/** The Outfits half of the Wardrobe tab; `switcher` (Closet | Outfits) sits under its header. */
+export function OutfitsScreen({ switcher }: { switcher: ReactNode }) {
   // The tab bar slides away while scrolling down; content clears it at the end.
   const hideOnScroll = useHideOnScroll();
   const tabBarSpace = useTabBarSpace();
@@ -272,6 +273,7 @@ export default function OutfitsScreen() {
                 : t("outfits.subtitle")
           }
         />
+        {!builderMode ? switcher : null}
 
         {!builderMode ? (
           <>
