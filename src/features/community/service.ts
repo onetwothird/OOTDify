@@ -60,7 +60,7 @@ export const COMMUNITY_ROOM_ID = "4f544444-0000-4000-8000-00000000c0de";
 // ---------------------------------------------------------------------------
 // Directory (community_directory view — display_name / first_name / avatar)
 // ---------------------------------------------------------------------------
-async function fetchDirectory(userIds: string[]): Promise<Map<string, DirectoryProfile>> {
+export async function fetchDirectory(userIds: string[]): Promise<Map<string, DirectoryProfile>> {
   const unique = Array.from(new Set(userIds));
   if (!unique.length) return new Map();
   const { data, error } = await supabase
