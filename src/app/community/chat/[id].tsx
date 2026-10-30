@@ -38,6 +38,7 @@ import {
   editMessage,
   fetchChatTheme,
   fetchMessages,
+  fetchPostsByIds,
   fetchReactions,
   fetchRoomMeta,
   fetchUserProfile,
@@ -50,7 +51,9 @@ import {
   subscribeToReactions,
   unsendMessage,
 } from "../../../features/community/service";
-import type { ChatMessageEntry } from "../../../features/community/types";
+import type { ChatMessageEntry, FeedPost } from "../../../features/community/types";
+import { SHARED_POST_BODY } from "../../../features/community/postShare";
+import { SharedPostCard } from "../../../features/community/components/SharedPostCard";
 import { CHAT_EMOJI, showsCaption } from "../../../features/community/chatMedia";
 import { chatTheme } from "../../../features/community/chatSettings";
 import {
@@ -141,6 +144,9 @@ export default function ChatThreadScreen() {
   // Messages that arrived while the viewer was scrolled up.
   const [newCount, setNewCount] = useState(0);
   const [reactions, setReactions] = useState<ReactionRow[]>([]);
+  // Posts sent in this chat, by id (null = deleted), fetched as messages arrive.
+  const [sharedPosts, setSharedPosts] = useState<Map<string, FeedPost | null>>(new Map());
+  const [sharedLoading, setSharedLoading] = useState(false);
   // The long-pressed message and the actions it offered at that moment.
   const [selected, setSelected] = useState<{ message: ChatMessageEntry; actions: MessageAction[] } | null>(null);
   const [replyTo, setReplyTo] = useState<ChatMessageEntry | null>(null);
@@ -380,6 +386,44 @@ export default function ChatThreadScreen() {
       };
     }, [conversationId]),
   );
+
+  // Load the posts carried by messages we haven't resolved yet.
+  const missingPostIds = useMemo(
+    () => [
+      ...new Set(
+        (messages ?? [])
+          .map((m) => m.shared_post_id)
+          .filter((id): id is string => id !== null && !sharedPosts.has(id)),
+      ),
+    ],
+    [messages, sharedPosts],
+  );
+  const missingKey = missingPostIds.join(",");
+  useEffect(() => {
+    if (!missingKey) return;
+    const ids = missingKey.split(",");
+    let alive = true;
+    void Promise.resolve()
+      .then(() => {
+        if (alive) setSharedLoading(true);
+        return fetchPostsByIds(ids);
+      })
+      .then((found) => {
+        if (!alive) return;
+        setSharedPosts((prev) => {
+          const next = new Map(prev);
+          for (const id of ids) next.set(id, found.get(id) ?? null);
+          return next;
+        });
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (alive) setSharedLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [missingKey]);
 
   const byId = useMemo(() => new Map((messages ?? []).map((m) => [m.id, m])), [messages]);
   const reactionsByMessage = useMemo(() => {
@@ -882,6 +926,13 @@ export default function ChatThreadScreen() {
                                 );
                               })()
                             ) : null}
+                            {item.shared_post_id ? (
+                              <SharedPostCard
+                                post={sharedPosts.get(item.shared_post_id)}
+                                loading={sharedLoading}
+                                onOpen={(postId) => router.push({ pathname: "/community/post/[id]", params: { id: postId } })}
+                              />
+                            ) : null}
                             {item.image_ref ? (
                               <SmartImage
                                 source={item.image_ref}
@@ -889,7 +940,8 @@ export default function ChatThreadScreen() {
                                 accessibilityLabel={t("community.chat.photo.a11y")}
                               />
                             ) : null}
-                            {!item.image_ref || showsCaption(item.body) ? (
+                            {(!item.image_ref || showsCaption(item.body)) &&
+                            !(item.shared_post_id && item.body === SHARED_POST_BODY) ? (
                               <Text
                                 style={[
                                   styles.bubbleText,
