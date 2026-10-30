@@ -7,6 +7,7 @@ import Constants from "expo-constants";
 import { Platform } from "react-native";
 
 import { supabase } from "../../shared/lib/supabase";
+import { realtimeTopic } from "../../shared/lib/realtimeTopic";
 import type { DirectoryProfile } from "../community/types";
 import type { InboxRow } from "./inbox";
 import { nativePush } from "./nativePush";
@@ -137,7 +138,7 @@ export async function clearInbox(): Promise<void> {
 /** New rows for this user, the moment the database writes them. */
 export function subscribeToInbox(userId: string, onInsert: (row: InboxRow) => void): () => void {
   const channel = supabase
-    .channel(`notifications:${userId}`)
+    .channel(realtimeTopic(`notifications:${userId}`))
     .on(
       "postgres_changes",
       { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
