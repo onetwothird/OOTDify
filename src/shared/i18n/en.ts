@@ -1051,7 +1051,6 @@ export const en = {
   "community.chat.subtitle.dm": "Direct message",
   "community.chat.default_member_name": "Member",
   "community.chat.back_a11y": "Back",
-  "community.chat.reload_a11y": "Reload messages",
   "community.chat.missing_id": "This chat link is missing its conversation id.",
   "community.chat.empty_thread": "No messages yet — say hello.",
   "community.chat.new_pill.one": "{count} new message",
