@@ -56,6 +56,14 @@ describe("realisticReducer", () => {
     expect(realisticReducer(at("ended"), { type: "error", notConfigured: false })).toEqual(at("ended"));
   });
 
+  it("unsupported (no WebRTC in this build) shows a message without opening a session", () => {
+    expect(realisticReducer(INITIAL_REALISTIC, { type: "unsupported" })).toEqual(at("unsupported"));
+    expect(sessionOpen("unsupported")).toBe(false);
+    // Only from idle: it never relabels an open session.
+    expect(realisticReducer(at("live", 30), { type: "unsupported" })).toEqual(at("live", 30));
+    expect(realisticReducer(at("unsupported"), { type: "back" })).toEqual(at("idle"));
+  });
+
   it("back returns to idle", () => {
     for (const phase of ["consent", "ended", "failed", "not_configured"] as const) {
       expect(realisticReducer(at(phase), { type: "back" })).toEqual(at("idle"));
