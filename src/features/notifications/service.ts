@@ -6,6 +6,7 @@
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 
+import { askInTurn } from "../../shared/lib/permissionGate";
 import { supabase } from "../../shared/lib/supabase";
 import { realtimeTopic } from "../../shared/lib/realtimeTopic";
 import type { DirectoryProfile } from "../community/types";
@@ -223,7 +224,8 @@ export async function registerForPush(): Promise<PushSetup> {
   const current = await Notifications.getPermissionsAsync();
   let granted = current.granted;
   if (!granted && current.canAskAgain) {
-    granted = (await Notifications.requestPermissionsAsync()).granted;
+    // Waits out the welcome and onboarding, and any other open prompt.
+    granted = (await askInTurn(() => Notifications.requestPermissionsAsync())).granted;
   }
   if (!granted) return "denied";
 
