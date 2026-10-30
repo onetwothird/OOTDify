@@ -452,10 +452,11 @@ export function OutfitsScreen({ switcher }: { switcher: ReactNode }) {
             {buildError ? <Text style={styles.errorText}>{buildError}</Text> : null}
             {closetTooSmall ? (
               <View style={styles.closetHint}>
+                <View style={styles.closetHintIcon}>
+                  <Ionicons name="camera-outline" size={22} color={theme.colors.brand} />
+                </View>
                 <Text style={styles.closetHintText}>{t("outfits.builder.error.no_items")}</Text>
-                <Pressable accessibilityRole="button" style={styles.closetHintBtn} onPress={openCapture}>
-                  <Text style={styles.closetHintBtnText}>{t("home.action.capture")}</Text>
-                </Pressable>
+                <AppButton label={t("home.action.capture")} icon="camera-outline" onPress={openCapture} style={styles.closetHintBtn} />
               </View>
             ) : null}
 
@@ -731,15 +732,26 @@ const useStyles = makeStyles((theme: Theme) => ({
   builder: { gap: 12 },
   btnDisabled: { opacity: 0.4 },
   errorText: { color: theme.colors.warning, fontSize: 12.5 },
-  closetHint: { gap: 8, alignItems: "flex-start", marginTop: 8 },
-  closetHintText: { fontSize: 13, color: theme.colors.textMuted, lineHeight: 19 },
-  closetHintBtn: {
-    backgroundColor: theme.colors.brand,
-    borderRadius: theme.borderRadius.pill,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
+  closetHint: {
+    alignItems: "center",
+    gap: 10,
+    padding: 16,
+    marginTop: 4,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
   },
-  closetHintBtnText: { color: theme.colors.onBrand, fontWeight: "600", fontSize: 13 },
+  closetHintIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  closetHintText: { fontSize: 13.5, color: theme.colors.textMuted, lineHeight: 19, textAlign: "center", maxWidth: 300 },
+  closetHintBtn: { alignSelf: "stretch" },
   outfitPreview: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.lg,
