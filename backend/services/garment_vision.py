@@ -154,7 +154,7 @@ def describe_garment(image_path: str | Path) -> GarmentDescription:
         try:
             text = gemini_client.generate_json(
                 turns=[("user", [("image/jpeg", base64.b64decode(_encode(image_path))), PROMPT])],
-                timeout_s=45.0,
+                timeout_s=20.0,
                 max_tokens=1024,
             )
         except gemini_client.GeminiBlocked as exc:
