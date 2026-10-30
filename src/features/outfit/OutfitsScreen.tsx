@@ -451,12 +451,29 @@ export function OutfitsScreen({ switcher }: { switcher: ReactNode }) {
             />
             {buildError ? <Text style={styles.errorText}>{buildError}</Text> : null}
             {closetTooSmall ? (
+              // The look's empty slots, so it's clear what's missing; the camera
+              // link is deliberately lighter than the Compose button above it.
               <View style={styles.closetHint}>
-                <View style={styles.closetHintIcon}>
-                  <Ionicons name="camera-outline" size={22} color={theme.colors.brand} />
+                <View style={styles.slots}>
+                  {(["top", "bottom", "shoes"] as const).map((slot) => (
+                    <View key={slot} style={styles.slot}>
+                      <Ionicons name="add" size={18} color={theme.colors.textMuted} />
+                      <Text style={styles.slotLabel} numberOfLines={1}>
+                        {t(`outfits.builder.slot.${slot}`)}
+                      </Text>
+                    </View>
+                  ))}
                 </View>
                 <Text style={styles.closetHintText}>{t("outfits.builder.error.no_items")}</Text>
-                <AppButton label={t("home.action.capture")} icon="camera-outline" onPress={openCapture} style={styles.closetHintBtn} />
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={openCapture}
+                  hitSlop={6}
+                  style={({ pressed }) => [styles.captureLink, pressed && { opacity: 0.6 }]}
+                >
+                  <Ionicons name="camera-outline" size={17} color={theme.colors.brand} />
+                  <Text style={styles.captureLinkText}>{t("home.action.capture")}</Text>
+                </Pressable>
               </View>
             ) : null}
 
@@ -732,26 +749,33 @@ const useStyles = makeStyles((theme: Theme) => ({
   builder: { gap: 12 },
   btnDisabled: { opacity: 0.4 },
   errorText: { color: theme.colors.warning, fontSize: 12.5 },
-  closetHint: {
-    alignItems: "center",
-    gap: 10,
-    padding: 16,
-    marginTop: 4,
-    borderRadius: theme.borderRadius.lg,
-    borderWidth: 1,
+  closetHint: { gap: 10, marginTop: 6 },
+  slots: { flexDirection: "row", gap: 8 },
+  slot: {
+    flex: 1,
+    aspectRatio: 1,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1.5,
+    borderStyle: "dashed",
     borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-  },
-  closetHintIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: theme.colors.surfaceAlt,
+    gap: 4,
   },
-  closetHintText: { fontSize: 13.5, color: theme.colors.textMuted, lineHeight: 19, textAlign: "center", maxWidth: 300 },
-  closetHintBtn: { alignSelf: "stretch" },
+  slotLabel: { fontSize: 12.5, fontWeight: "600", color: theme.colors.textMuted },
+  closetHintText: { fontSize: 13.5, color: theme.colors.textMuted, lineHeight: 19 },
+  captureLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: theme.borderRadius.pill,
+    borderWidth: 1.5,
+    borderColor: theme.colors.brand,
+  },
+  captureLinkText: { fontSize: 13.5, fontWeight: "700", color: theme.colors.brand },
   outfitPreview: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.lg,
