@@ -66,12 +66,19 @@ const useWardrobeStoreImpl = create<WardrobeState>((set) => ({
   },
   removeItem: async (id) => {
     // Optimistic removal; the DB is authoritative.
+    const removed = useWardrobeStoreImpl.getState().items.find((it) => it.id === id);
     set((state) => ({ items: state.items.filter((it) => it.id !== id) }));
     try {
       await deleteClothingItem(id);
     } catch (e) {
-      // Roll back so the item reappears.
-      set((state) => ({ items: state.items }));
+      // Put the piece back where it was if the delete didn't happen.
+      if (removed) {
+        set((state) =>
+          state.items.some((it) => it.id === id)
+            ? state
+            : { items: [...state.items, removed].sort((a, b) => b.created_at.localeCompare(a.created_at)) },
+        );
+      }
       throw e;
     }
   },
