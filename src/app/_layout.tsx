@@ -21,6 +21,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { clearProfileCache } from "../features/profile/profileCache";
 import { BiometricGate } from "../features/settings/BiometricGate";
 import { BootSplash } from "../shared/components/BootSplash";
 import { PenggiMomentHost, penggi } from "../shared/components/PenggiMoment";
@@ -30,6 +31,7 @@ import { ToastHost } from "../shared/components/ToastHost";
 import { TERMS_VERSION } from "../shared/config/legal";
 import { lightColors } from "../shared/config/theme";
 import { isAuthRedirectHeld } from "../shared/lib/authRedirectHold";
+import { authRedirect } from "../shared/lib/authRoute";
 import { supabase } from "../shared/lib/supabase";
 import { ThemeProvider, useThemeState } from "../shared/theme/ThemeProvider";
 
@@ -101,6 +103,8 @@ function RootLayoutInner() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
+      // The cached profile page belongs to the account that just left.
+      if (event === "SIGNED_OUT") clearProfileCache();
       // Happy Penggi celebrates a sign-in, and once per launch when the app
       // opens already signed in (see nextWelcome). Not while a screen holds
       // the redirects: sign-up's momentary session is not a sign-in, and
@@ -109,6 +113,8 @@ function RootLayoutInner() {
       const next = nextWelcome(event, !!session, welcomedThisLaunch);
       welcomedThisLaunch = next.welcomed;
       if (next.show) {
+        // Held from now, so Home's permission prompts can't slip in first.
+        penggi.expect();
         setTimeout(
           () => penggi.show("welcome", translateNow("penggi.welcome.title"), translateNow("penggi.welcome.message")),
           WELCOME_DELAY_MS,
@@ -135,24 +141,13 @@ function RootLayoutInner() {
     if (!initialized) return;
     // A screen is mid sign-in/sign-out (email sign-up); it navigates itself.
     if (isAuthRedirectHeld()) return;
-    const inAuthGroup = segments[0] === "(auth)";
-    // Terms and Privacy are public reading material: the landing page links to
-    // them before anyone has an account. "privacy/data" is NOT public — it
-    // reads the signed-in user's own data.
-    const isLegalDoc =
-      segments[0] === "privacy" &&
-      (segments[1] === "terms" || segments[1] === "policy");
-    const atConsentGate = segments[0] === "consent" || isLegalDoc;
-    if (!session && !inAuthGroup && !isLegalDoc) {
-      router.push("/(auth)");
-    } else if (session && inAuthGroup) {
-      // Consent check also runs here so email sign-up (which records the
-      // version at signUp) skips the gate while Google sign-ups take it.
-      if (hasCurrentConsent(session)) router.replace("/(tabs)/home");
-      else router.replace("/consent");
-    } else if (session && !hasCurrentConsent(session) && !atConsentGate) {
-      router.replace("/consent");
-    }
+    // Consent is checked on the way out of the auth screens too, so email
+    // sign-up (which records the version at signUp) skips the gate while
+    // Google sign-ups take it.
+    const next = authRedirect(segments, Boolean(session), hasCurrentConsent(session));
+    if (!next) return;
+    if (next.replace) router.replace(next.to);
+    else router.push(next.to);
   }, [session, initialized, segments, router]);
 
   if (!initialized || !themeReady) {
