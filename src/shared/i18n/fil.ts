@@ -460,6 +460,7 @@ export const fil: Record<keyof typeof en, string> = {
   "wardrobe.section.outfits": "Outfits",
   "explore.title": "Tuklasin",
   "explore.subtitle": "Mga ideya ng outfit mula sa mga tao sa OOTDify",
+  "explore.sort.for_you": "Para sa iyo",
   "explore.sort.trending": "Patok",
   "explore.sort.new": "Bago",
   "explore.sort.friends": "Mga kaibigan",
