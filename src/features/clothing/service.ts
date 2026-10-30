@@ -8,6 +8,7 @@ import { formFile } from "../../shared/lib/formFile";
 import { shrinkForUpload } from "../../shared/lib/shrinkImage";
 import { supabase } from "../../shared/lib/supabase";
 import { OutfitPiece, orderPieces } from "./pieces";
+import { wardrobeObjectPath } from "./wardrobePath";
 import { CatalogItem, ClothingItem } from "./types";
 export { uuid } from "../../shared/lib/uuid";
 
@@ -234,9 +235,24 @@ export async function updateClothingItem(
   return data as ClothingItem;
 }
 
+/**
+ * Delete one of my pieces and its photo. RLS silently skips a delete it won't
+ * allow, so the deleted row is read back to be sure it is really gone.
+ */
 export async function deleteClothingItem(itemId: string): Promise<void> {
-  const { error } = await supabase.from("clothing_items").delete().eq("id", itemId);
+  const uid = await currentUserId();
+  if (!uid) throw new Error("Not signed in");
+  const { data, error } = await supabase
+    .from("clothing_items")
+    .delete()
+    .eq("id", itemId)
+    .eq("user_id", uid)
+    .select("id, image_url");
   if (error) throw error;
+  if (!data || data.length === 0) throw new Error("This piece couldn't be deleted. Pull to refresh and try again.");
+  const path = wardrobeObjectPath((data[0].image_url as string | null) ?? null);
+  // The row is gone either way; a photo left behind only costs storage.
+  if (path) await supabase.storage.from("wardrobe").remove([path]).catch(() => {});
 }
 
 // ---------------------------------------------------------------------------
