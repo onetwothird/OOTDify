@@ -89,6 +89,24 @@ describe("framingHint for mixed outfits", () => {
     expect(framingHint(["hat", "earrings"], head)).toBe("good");
   });
 
+  it("single-row outfits skip the body-span check", () => {
+    const arms: Record<string, Pt> = {
+      left_elbow: [0.38, 0.4],
+      right_elbow: [0.62, 0.4],
+      left_wrist: [0.37, 0.5],
+      right_wrist: [0.63, 0.5],
+    };
+    const row = (names: string[], y: number) =>
+      names.map((name, i) => ({ name, x: 0.4 + 0.2 * i, y, confidence: 0.9 }));
+    expect(framingHint(["belt"], row(["left_hip", "right_hip"], 0.55))).toBe("good");
+    expect(framingHint(["bag"], row(["left_hip", "right_hip"], 0.55))).toBe("good");
+    expect(framingHint(["shoes"], row(["left_ankle", "right_ankle"], 0.9))).toBe("good");
+    expect(framingHint(["necklace"], row(["left_shoulder", "right_shoulder"], 0.3))).toBe("good");
+    expect(framingHint(["watch"], pose(arms))).toBe("good");
+    // A garment spanning two body rows still needs the whole torso in view.
+    expect(framingHint(["upper"], row(["left_shoulder", "right_shoulder"], 0.3).concat(row(["left_hip", "right_hip"], 0.4)))).toBe("come_closer");
+  });
+
   it("a watch needs the elbows and wrists", () => {
     expect(framingHint(["watch"], pose())).toBe("step_back");
   });
