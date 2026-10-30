@@ -1,5 +1,6 @@
 // C:\OOTDify\src\app\(auth)\login.tsx
-// Login screen — email/password plus Google and Facebook sign-in.
+// Login screen — email/password plus Google and Facebook sign-in. Penggi
+// (with his key) hops whenever a field gets focus.
 import { router } from "expo-router";
 import { useState } from "react";
 import {
@@ -15,7 +16,6 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppButton } from "../../shared/components/AppButton";
 import { AuthCard, AuthHero } from "../../shared/components/AuthShell";
-import { Pinstripes } from "../../shared/components/ClothesRail";
 import { FormField } from "../../shared/components/FormField";
 import { OAuthButtons } from "../../shared/components/OAuthButtons";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
@@ -35,6 +35,9 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [facebookLoading, setFacebookLoading] = useState(false);
+  // Bumped on each field focus so Penggi reacts to you typing in.
+  const [focusNudge, setFocusNudge] = useState(0);
+  const nudgePenggi = () => setFocusNudge((n) => n + 1);
 
   // One in-flight action at a time: taps during any auth attempt are no-ops.
   const busy = loading || googleLoading || facebookLoading;
@@ -97,7 +100,6 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.screen}>
-      <Pinstripes />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.flex}
@@ -111,6 +113,8 @@ export default function LoginScreen() {
             title={t("auth.login.title")}
             subtitle={t("auth.login.subtitle")}
             onBack={() => router.back()}
+            mascot="signin"
+            nudge={focusNudge}
           />
 
           <AuthCard>
@@ -126,6 +130,7 @@ export default function LoginScreen() {
               autoComplete="email"
               textContentType="emailAddress"
               returnKeyType="next"
+              onFocus={nudgePenggi}
               editable={!busy}
             />
 
@@ -140,6 +145,7 @@ export default function LoginScreen() {
               autoComplete="current-password"
               textContentType="password"
               returnKeyType="done"
+              onFocus={nudgePenggi}
               onSubmitEditing={handleLogin}
               editable={!busy}
             />
@@ -197,7 +203,8 @@ export default function LoginScreen() {
 }
 
 const useStyles = makeStyles((theme: Theme) => ({
-  screen: { flex: 1, backgroundColor: theme.colors.background },
+  // White, so the shell's sheet runs on down to the footer.
+  screen: { flex: 1, backgroundColor: theme.colors.surface },
   flex: { flex: 1 },
   scroll: {
     width: "100%",
