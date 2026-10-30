@@ -1,7 +1,9 @@
 // C:\OOTDify\src\features\wardrobe\WardrobeSwitcher.tsx
-// The Closet | Outfits switch under the Wardrobe tab's header. Same pill
-// segment as Community's switcher.
-import { Pressable, Text, View } from "react-native";
+// The Closet | Outfits page tabs under the Wardrobe tab's header. They are the
+// top level of the page, so they read as tabs (text on a rule, the active one
+// underlined), not as one more pill: pills inside the page stay for filters
+// and views, which sit below the actions.
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { Theme } from "../../shared/config/theme";
 import { useT } from "../../shared/i18n/useT";
@@ -22,32 +24,42 @@ export function WardrobeSwitcher({
     ["outfits", t("wardrobe.section.outfits")],
   ];
   return (
-    <View style={styles.segment} accessibilityRole="tablist">
-      {options.map(([key, label]) => (
-        <Pressable
-          key={key}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: section === key }}
-          onPress={() => onChange(key)}
-          style={[styles.btn, section === key && styles.btnActive]}
-        >
-          <Text style={[styles.text, section === key && styles.textActive]}>{label}</Text>
-        </Pressable>
-      ))}
+    <View style={styles.bar} accessibilityRole="tablist">
+      {options.map(([key, label]) => {
+        const active = section === key;
+        return (
+          <Pressable
+            key={key}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: active }}
+            onPress={() => onChange(key)}
+            hitSlop={{ top: 8, bottom: 4 }}
+            style={({ pressed }) => [styles.tab, pressed && !active && styles.pressed]}
+          >
+            <Text style={[styles.text, active && styles.textActive]} numberOfLines={1}>
+              {label}
+            </Text>
+            <View style={[styles.indicator, active && styles.indicatorActive]} />
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
 
 const useStyles = makeStyles((theme: Theme) => ({
-  segment: { flexDirection: "row", gap: 8, marginTop: theme.spacing.md },
-  btn: {
-    flex: 1,
-    paddingVertical: 9,
-    borderRadius: theme.borderRadius.pill,
-    backgroundColor: theme.colors.surfaceAlt,
-    alignItems: "center",
+  bar: {
+    flexDirection: "row",
+    gap: theme.spacing.lg,
+    marginTop: theme.spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.colors.border,
   },
-  btnActive: { backgroundColor: theme.colors.primary },
-  text: { fontSize: 13, fontWeight: "600", color: theme.colors.textMuted },
-  textActive: { color: theme.colors.onPrimary },
+  tab: { paddingTop: 6 },
+  pressed: { opacity: 0.6 },
+  text: { fontSize: 16, fontWeight: "600", color: theme.colors.textMuted, paddingBottom: 10 },
+  textActive: { color: theme.colors.text, fontWeight: "700" },
+  // Sits on the bar's rule, so the active tab looks connected to the page below.
+  indicator: { height: 3, borderRadius: 2, marginBottom: -StyleSheet.hairlineWidth },
+  indicatorActive: { backgroundColor: theme.colors.text },
 }));
