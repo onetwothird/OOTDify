@@ -103,3 +103,68 @@ def test_garment_block_is_a_vision_error(gemini_on, tmp_path):
     Image.new("RGB", (50, 50), "white").save(photo)
     with pytest.raises(garment_vision.GarmentVisionError):
         garment_vision.describe_garment(photo)
+
+
+class _FakeModels:
+    def __init__(self, outcomes):
+        self.outcomes, self.asked = outcomes, []
+
+    def generate_content(self, *, model, contents, config):
+        self.asked.append(model)
+        outcome = self.outcomes[model]
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+
+def _fake_client(monkeypatch, outcomes):
+    from google import genai
+
+    models = _FakeModels(outcomes)
+    monkeypatch.setattr(genai, "Client", lambda **_: type("C", (), {"models": models})())
+    return models
+
+
+def _reply(text):
+    from google.genai import types
+
+    return types.GenerateContentResponse(
+        candidates=[types.Candidate(content=types.Content(role="model", parts=[types.Part.from_text(text=text)]), finish_reason="STOP")]
+    )
+
+
+def _overloaded():
+    from google.genai import errors
+
+    return errors.ServerError(503, {"error": {"code": 503, "message": "high demand", "status": "UNAVAILABLE"}})
+
+
+def test_an_overloaded_model_falls_back_to_the_lighter_one(monkeypatch):
+    monkeypatch.setattr("config.Config.GEMINI_API_KEY", "k")
+    monkeypatch.setattr("config.Config.GEMINI_MODEL", "main")
+    monkeypatch.setattr("config.Config.GEMINI_FALLBACK_MODEL", "lite")
+    models = _fake_client(monkeypatch, {"main": _overloaded(), "lite": _reply('{"reply": "hi"}')})
+    assert gemini_client.generate_json(turns=[("user", ["hi"])]) == '{"reply": "hi"}'
+    assert models.asked == ["main", "lite"]
+
+
+def test_both_models_overloaded_is_a_failure(monkeypatch):
+    monkeypatch.setattr("config.Config.GEMINI_API_KEY", "k")
+    monkeypatch.setattr("config.Config.GEMINI_MODEL", "main")
+    monkeypatch.setattr("config.Config.GEMINI_FALLBACK_MODEL", "lite")
+    _fake_client(monkeypatch, {"main": _overloaded(), "lite": _overloaded()})
+    with pytest.raises(gemini_client.GeminiFailed):
+        gemini_client.generate_json(turns=[("user", ["hi"])])
+
+
+def test_a_bad_request_does_not_try_the_fallback(monkeypatch):
+    from google.genai import errors
+
+    monkeypatch.setattr("config.Config.GEMINI_API_KEY", "k")
+    monkeypatch.setattr("config.Config.GEMINI_MODEL", "main")
+    monkeypatch.setattr("config.Config.GEMINI_FALLBACK_MODEL", "lite")
+    bad = errors.ClientError(400, {"error": {"code": 400, "message": "bad key", "status": "INVALID_ARGUMENT"}})
+    models = _fake_client(monkeypatch, {"main": bad, "lite": _reply("{}")})
+    with pytest.raises(gemini_client.GeminiFailed):
+        gemini_client.generate_json(turns=[("user", ["hi"])])
+    assert models.asked == ["main"]
