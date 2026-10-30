@@ -533,6 +533,8 @@ export const en = {
   "outfits.action.ai_picker": "AI Picker",
   "outfits.action.build_hint": "Choose the occasion and weather",
   "outfits.action.ai_hint": "Let AI pick from your closet",
+  "outfits.view.list_a11y": "Show as a list",
+  "outfits.view.grid_a11y": "Show as a grid",
   "outfits.tab.looks": "Saved looks",
   "outfits.tab.calendar": "Calendar",
   "outfits.saved.title": "Saved looks",
