@@ -21,8 +21,7 @@ import {
   fetchMyCloset,
   removeItemFavorite,
 } from "../../features/clothing/service";
-import { isSupportedCategory } from "../../features/tryon/ar/bodyMesh";
-import { useLiveGarment } from "../../features/tryon/ar/liveGarmentStore";
+import { liveOutfit, useLiveGarment } from "../../features/tryon/ar/liveGarmentStore";
 import { PHOTO_TRYON_AVAILABLE } from "../../features/tryon/config";
 import { useTryOnSelection } from "../../features/tryon/selectionStore";
 import { useWardrobeStore } from "../../features/wardrobe/store";
@@ -152,8 +151,8 @@ export default function ItemDetailScreen() {
     );
   }
 
-  // The live preview needs an image and a category it knows how to place.
-  const canTryLive = !!item.image_url && isSupportedCategory(item.category);
+  // The live preview needs an image and an item it knows how to place.
+  const liveItem = liveOutfit([item.id], [item], t("scan.item_fallback"));
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
@@ -233,18 +232,13 @@ export default function ItemDetailScreen() {
               }}
             />
           ) : null}
-          {canTryLive ? (
+          {liveItem ? (
             <AppButton
               label={t("scan.tryon.live")}
               icon="body-outline"
               variant={PHOTO_TRYON_AVAILABLE ? "secondary" : undefined}
               onPress={() => {
-                useLiveGarment.getState().set({
-                  id: item.id,
-                  imageRef: item.image_url ?? "",
-                  category: item.category,
-                  name: item.name || t("scan.item_fallback"),
-                });
+                useLiveGarment.getState().set(liveItem);
                 router.push("/tryon/live");
               }}
             />
