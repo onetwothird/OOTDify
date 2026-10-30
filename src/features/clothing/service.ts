@@ -132,14 +132,17 @@ export async function fetchRecentlyViewed(limit = 20): Promise<CatalogItem[]> {
 }
 
 // ---------------------------------------------------------------------------
-// My closet (clothing_items), owner-only via RLS
+// My closet (clothing_items). RLS also lets anyone read public pieces, so
+// every query here filters by user_id itself.
 // ---------------------------------------------------------------------------
 export async function fetchMyCloset(): Promise<ClothingItem[]> {
   const uid = await currentUserId();
   if (!uid) return [];
+  // Other people's public pieces are readable too, so scope to mine here.
   const { data, error } = await supabase
     .from("clothing_items")
     .select("*")
+    .eq("user_id", uid)
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []) as ClothingItem[];
@@ -184,6 +187,8 @@ export async function insertClothingItem(item: {
   occasion?: string[];
   image_url?: string;
   tags?: string[];
+  /** "Show in Discover" on the capture screen. */
+  is_public?: boolean;
 }): Promise<ClothingItem> {
   const uid = await currentUserId();
   if (!uid) throw new Error("Not signed in");
@@ -214,6 +219,7 @@ export async function updateClothingItem(
     season: string | null;
     occasion: string[];
     tags: string[];
+    is_public: boolean;
   }>,
 ): Promise<ClothingItem> {
   const uid = await currentUserId();
@@ -297,6 +303,9 @@ export interface SavedOutfit {
   try_on_id: string | null;
   result_url: string | null;
   created_at: string;
+  /** Set when saved from someone's Discover look: opens that post. */
+  source_post_id?: string | null;
+  source_user_id?: string | null;
 }
 
 export async function fetchSavedOutfits(): Promise<SavedOutfit[]> {
@@ -317,6 +326,8 @@ export async function insertSavedOutfit(outfit: {
   clothing_ids: string[];
   try_on_id?: string | null;
   result_url?: string | null;
+  source_post_id?: string | null;
+  source_user_id?: string | null;
 }): Promise<SavedOutfit> {
   const uid = await currentUserId();
   if (!uid) throw new Error("Not signed in");
@@ -329,6 +340,9 @@ export async function insertSavedOutfit(outfit: {
       clothing_ids: outfit.clothing_ids,
       try_on_id: outfit.try_on_id ?? null,
       result_url: outfit.result_url ?? null,
+      ...(outfit.source_post_id
+        ? { source_post_id: outfit.source_post_id, source_user_id: outfit.source_user_id ?? null }
+        : {}),
     })
     .select("*")
     .single();
