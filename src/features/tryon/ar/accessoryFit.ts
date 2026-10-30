@@ -75,14 +75,24 @@ function unit(a: Point, b: Point): Point {
 }
 
 /**
+ * Perpendicular to `right`, pointing down the frame. `right` runs from the
+ * person's left joint to their right one, which points screen-left on the
+ * back camera (unmirrored), so "down" can't be a fixed quarter turn of it.
+ */
+function downOf(right: Point): Point {
+  "worklet";
+  const d = { x: -right.y, y: right.x };
+  return d.y < 0 || (d.y === 0 && d.x < 0) ? { x: -d.x, y: -d.y } : d;
+}
+
+/**
  * A quad of `width` along `right` (a unit vector), its height from the
- * texture's aspect, with the given edge's centre at `anchor`. "Down" is
- * `right` turned a quarter clockwise.
+ * texture's aspect, with the given edge's centre at `anchor`.
  */
 function quad(anchor: Point, edge: Edge, width: number, right: Point, tex: Bounds, mirror: boolean): Quad {
   "worklet";
   const height = (width * tex.height) / tex.width;
-  const down = { x: -right.y, y: right.x };
+  const down = downOf(right);
   const shift = edge === "top" ? 0 : edge === "center" ? height / 2 : height;
   const tc = { x: anchor.x - down.x * shift, y: anchor.y - down.y * shift };
   const hx = (right.x * width) / 2;
@@ -120,9 +130,10 @@ export function accessoryFit(kind: AccessoryKind, keypoints: Keypoint[], garment
     if (kind === "glasses") return fit([quad(center, "center", GLASSES_WIDTH_PER_EYE * eyeDist, right, garment, false)]);
     const ears = pair(keypoints, "ear");
     const width = ears ? HAT_WIDTH_PER_EAR * dist(ears[0], ears[1]) : HAT_WIDTH_PER_EYE * eyeDist;
-    // Raised along "up" (opposite of down): the eye line turned a quarter anticlockwise.
+    // Raised along "up", away from the face.
     const raise = ears ? HAT_RAISE_PER_EAR * dist(ears[0], ears[1]) : (HAT_RAISE_PER_EAR * width) / HAT_WIDTH_PER_EAR;
-    const anchor = { x: center.x + right.y * raise, y: center.y - right.x * raise };
+    const down = downOf(right);
+    const anchor = { x: center.x - down.x * raise, y: center.y - down.y * raise };
     return fit([quad(anchor, "bottom", width, right, garment, false)]);
   }
 
