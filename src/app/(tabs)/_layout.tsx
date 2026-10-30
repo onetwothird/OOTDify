@@ -119,7 +119,7 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
-          name="discover"
+          name="wardrobe"
           options={{
             title: t("tab.wardrobe"),
             tabBarIcon: ({ focused }) => (
@@ -135,11 +135,11 @@ export default function TabLayout() {
           options={{ tabBarButton: () => null, tabBarItemStyle: { display: "none" } }}
         />
         <Tabs.Screen
-          name="outfits"
+          name="discover"
           options={{
-            title: t("tab.outfits"),
+            title: t("tab.discover"),
             tabBarIcon: ({ focused }) => (
-              <Ionicons name={focused ? "grid" : "grid-outline"} size={24} color={tint(focused)} />
+              <Ionicons name={focused ? "compass" : "compass-outline"} size={24} color={tint(focused)} />
             ),
           }}
         />
