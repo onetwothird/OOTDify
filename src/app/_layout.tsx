@@ -55,8 +55,9 @@ function hasCurrentConsent(session: Session | null): boolean {
   return typeof version === "string" && version === TERMS_VERSION;
 }
 
-// Lets the first screen settle before Penggi celebrates.
-const WELCOME_DELAY_MS = 700;
+// Short, so the white welcome screen covers the hop from sign-in to Home
+// instead of popping up after Home has already shown.
+const WELCOME_DELAY_MS = 150;
 // Module scope so a remount of the root never celebrates twice in one launch.
 let welcomedThisLaunch = false;
 
