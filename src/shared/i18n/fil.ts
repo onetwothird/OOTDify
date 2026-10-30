@@ -1197,6 +1197,7 @@ export const fil: Record<keyof typeof en, string> = {
   "tryon.live.disclaimer": "Preview lang. Sumusunod ang damit sa katawan mo pero hindi ito makatotohanang larawan.",
   "tryon.live.unsupported": "Gumagana ang live preview sa damit, sapatos, bag, sumbrero, salamin, hikaw, kwintas, scarf, relo at sinturon.",
   "tryon.live.cant_show": "Hindi maipakita nang live ang {names}",
+  "tryon.live.items_count": "{count} item",
   "tryon.live.frame.no_person": "Tumayo sa frame",
   "tryon.live.frame.step_back": "Umatras ka",
   "tryon.live.frame.come_closer": "Lumapit ka",
