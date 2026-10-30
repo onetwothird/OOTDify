@@ -39,6 +39,7 @@ import {
   fetchChatTheme,
   subscribeToChatTheme,
   fetchMessages,
+  fetchReadState,
   fetchPostsByIds,
   fetchReactions,
   fetchRoomMeta,
@@ -57,6 +58,7 @@ import { SHARED_POST_BODY } from "../../../features/community/postShare";
 import { SharedPostCard } from "../../../features/community/components/SharedPostCard";
 import { CHAT_EMOJI, showsCaption } from "../../../features/community/chatMedia";
 import { chatTheme } from "../../../features/community/chatSettings";
+import { firstUnreadId, seenState } from "../../../features/community/chatThread";
 import {
   applyReaction,
   mergeMessage,
@@ -104,6 +106,9 @@ function dayKey(iso: string): string {
   return Number.isNaN(t) ? "" : new Date(t).toDateString();
 }
 
+/** How often an open DM re-checks whether the other person has seen my last message. */
+const PEER_READ_POLL_MS = 20_000;
+
 export default function ChatThreadScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -137,6 +142,10 @@ export default function ChatThreadScreen() {
   const [editingIcon, setEditingIcon] = useState(false);
   // The DM peer's id, kept so the header avatar can resolve alongside them.
   const [peerId, setPeerId] = useState<string | null>(null);
+  // Where "Unread messages" goes, fixed when the thread opens; and when the
+  // other person in a DM last read it (for "Seen").
+  const [unreadFromId, setUnreadFromId] = useState<string | null>(null);
+  const [peerReadAt, setPeerReadAt] = useState<string | null>(null);
   // Resolved display names in state, so a late realtime name resolution
   // re-renders instead of sitting invisible behind a ref.
   const [names, setNames] = useState<Record<string, string>>({});
@@ -296,6 +305,13 @@ export default function ChatThreadScreen() {
           nameCache.current.set(m.sender_id, m.senderName);
           rememberAvatar(m.sender_id, m.senderAvatar);
         }
+        // Read my last-read time before marking the thread read, so the
+        // divider shows what was new when I opened it.
+        const { data: session } = await supabase.auth.getSession();
+        const uid = session.session?.user?.id ?? null;
+        const reads = await fetchReadState(conversationId).catch(() => null);
+        if (cancelled) return;
+        setUnreadFromId(reads && uid ? firstUnreadId(rows, reads.get(uid) ?? null, uid) : null);
         setMessages(rows);
         await markConversationRead(conversationId);
       } catch (e) {
@@ -307,6 +323,26 @@ export default function ChatThreadScreen() {
       cancelled = true;
     };
   }, [conversationId, rememberAvatar]);
+
+  // DMs show "Seen" under my last message: re-check the other person's read
+  // time when messages change and every 20s while the thread is open.
+  const messageCount = messages?.length ?? 0;
+  useEffect(() => {
+    if (!conversationId || !peerId) return;
+    let alive = true;
+    const check = () =>
+      void fetchReadState(conversationId)
+        .then((reads) => {
+          if (alive) setPeerReadAt(reads.get(peerId) ?? null);
+        })
+        .catch(() => {});
+    check();
+    const timer = setInterval(check, PEER_READ_POLL_MS);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [conversationId, peerId, messageCount]);
 
   // Live messages: append (dedupe by id) and keep the newest in view.
   useEffect(() => {
@@ -843,10 +879,23 @@ export default function ChatThreadScreen() {
                   borderBottomRightRadius: isLast || !mine ? radius : TUCK_RADIUS,
                 };
 
+                const seen =
+                  peerId && !groupMeta && index === (messages?.length ?? 0) - 1
+                    ? seenState(item, peerReadAt, meId)
+                    : null;
                 return (
                   <View
                     style={isFirst && index > 0 ? styles.msgBlockGap : undefined}
                   >
+                    {item.id === unreadFromId ? (
+                      <View style={styles.unreadRow} accessibilityRole="header">
+                        <View style={[styles.unreadLine, themed?.accentBg]} />
+                        <Text style={[styles.unreadLabel, chatColors ? { color: chatColors.muted } : null]}>
+                          {t("community.chat.unread_divider")}
+                        </Text>
+                        <View style={[styles.unreadLine, themed?.accentBg]} />
+                      </View>
+                    ) : null}
                     {startsNewDay ? (
                       <View style={styles.dayRow}>
                         <View style={[styles.dayLine, themed?.line]} />
@@ -1017,6 +1066,11 @@ export default function ChatThreadScreen() {
                         })()}
                       </View>
                     </View>
+                    {seen ? (
+                      <Text style={[styles.seenText, themed?.muted]}>
+                        {seen === "seen" ? t("community.chat.seen") : t("community.chat.sent")}
+                      </Text>
+                    ) : null}
                   </View>
                 );
               }}
@@ -1197,6 +1251,10 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
   headerSubtitle: { fontSize: 11.5, color: theme.colors.textMuted, marginTop: 1 },
   kav: { flex: 1 },
+  unreadRow: { flexDirection: "row", alignItems: "center", gap: 8, marginVertical: 12 },
+  unreadLine: { flex: 1, height: 1.5, backgroundColor: theme.colors.brand },
+  unreadLabel: { fontSize: 12, fontWeight: "700", color: theme.colors.brand },
+  seenText: { alignSelf: "flex-end", fontSize: 11.5, color: theme.colors.textMuted, marginTop: 3, marginRight: 4 },
   thread: { flex: 1 },
   stateFill: { flex: 1, alignItems: "center", justifyContent: "center" },
   listContent: {
