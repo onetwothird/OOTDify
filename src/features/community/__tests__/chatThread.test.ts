@@ -2,11 +2,13 @@ import {
   EDIT_WINDOW_MS,
   applyReaction,
   canEditMessage,
+  firstUnreadId,
   mergeMessage,
   messageActions,
   nextReaction,
   quoteOf,
   reactionChips,
+  seenState,
   type ReactionRow,
   type ThreadMessage,
 } from "../chatThread";
@@ -117,5 +119,52 @@ describe("mergeMessage", () => {
   it("ignores updates for messages not loaded", () => {
     const list = [named({ id: "a" })];
     expect(mergeMessage(list, msg({ id: "zz" }))).toBe(list);
+  });
+});
+
+describe("firstUnreadId", () => {
+  const at = (min: number) => new Date(NOW - min * 60_000).toISOString();
+  const thread = [
+    msg({ id: "a", sender_id: "peer", created_at: at(30) }),
+    msg({ id: "b", sender_id: ME, created_at: at(20) }),
+    msg({ id: "c", sender_id: "peer", created_at: at(10) }),
+    msg({ id: "d", sender_id: "peer", created_at: at(5) }),
+  ];
+
+  it("marks the first message from someone else after I last read", () => {
+    expect(firstUnreadId(thread, at(15), ME)).toBe("c");
+  });
+
+  it("skips my own messages and unsent ones", () => {
+    const withUnsent = [msg({ id: "x", sender_id: "peer", created_at: at(12), unsent_at: at(11) }), ...thread.slice(2)];
+    expect(firstUnreadId(withUnsent, at(15), ME)).toBe("c");
+    expect(firstUnreadId([thread[1]], at(25), ME)).toBeNull();
+  });
+
+  it("marks everything from others when I never opened the chat", () => {
+    expect(firstUnreadId(thread, null, ME)).toBe("a");
+  });
+
+  it("marks nothing when all is read", () => {
+    expect(firstUnreadId(thread, at(1), ME)).toBeNull();
+  });
+});
+
+describe("seenState", () => {
+  const mine = msg({ sender_id: ME, created_at: new Date(NOW - 60_000).toISOString() });
+
+  it("says Seen once the other person read past my last message", () => {
+    expect(seenState(mine, new Date(NOW).toISOString(), ME)).toBe("seen");
+  });
+
+  it("says Sent until then", () => {
+    expect(seenState(mine, new Date(NOW - 120_000).toISOString(), ME)).toBe("sent");
+    expect(seenState(mine, null, ME)).toBe("sent");
+  });
+
+  it("says nothing when the last message isn't mine or was unsent", () => {
+    expect(seenState(msg({ sender_id: "peer" }), null, ME)).toBeNull();
+    expect(seenState(msg({ sender_id: ME, unsent_at: new Date(NOW).toISOString() }), null, ME)).toBeNull();
+    expect(seenState(undefined, null, ME)).toBeNull();
   });
 });
