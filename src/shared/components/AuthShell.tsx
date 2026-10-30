@@ -22,6 +22,7 @@ import { PolarStage } from "./PolarStage";
 const ART = {
   signin: require("../../../assets/images/signin-penggi.png"),
   signup: require("../../../assets/images/signup-penggi.png"),
+  forgot: require("../../../assets/images/forgot-password-penggi.png"),
   default: require("../../../assets/images/mascot-penggi.png"),
 };
 
