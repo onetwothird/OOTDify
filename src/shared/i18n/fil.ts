@@ -558,6 +558,8 @@ export const fil: Record<keyof typeof en, string> = {
   "outfits.builder.slot.top": "Pang-itaas",
   "outfits.builder.slot.bottom": "Pang-ibaba",
   "outfits.builder.slot.shoes": "Sapatos",
+  "outfits.builder.need_clothes.title": "Magdagdag muna ng damit",
+  "outfits.builder.need_clothes.later": "Mamaya na",
   "outfits.builder.error.no_items": "Kailangan ng closet mo ng pang-itaas, pang-ibaba at sapatos para sa buong look.",
   "outfits.builder.error.generic": "Hindi nabuo ang outfit.",
   "outfits.toast.nothing_to_save.title": "Walang isesave",
