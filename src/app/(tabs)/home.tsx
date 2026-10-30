@@ -584,7 +584,8 @@ function Hero({ pieceCount, lookCount, loading }: { pieceCount: number; lookCoun
           },
         ]}
       >
-        <Mascot size={mascot} />
+        {/* Happy Penggi says the hello; the usual Penggi does the small talk. */}
+        <Mascot size={mascot} mood={tipIndex === 0 ? "happy" : "default"} />
       </Animated.View>
 
       <View style={[styles.heroSpeak, { minHeight: Math.round(mascot * 0.9) }]}>
