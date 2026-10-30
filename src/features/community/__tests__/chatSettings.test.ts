@@ -10,6 +10,7 @@ import {
   muteState,
   muteUntil,
   sortMembers,
+  themeGrid,
 } from "../chatSettings";
 
 const NOW = Date.parse("2026-10-30T12:00:00Z");
@@ -66,6 +67,8 @@ describe("chat themes", () => {
       expect([t.key, contrastRatio(t.onTheirs, t.theirs) >= 4.5]).toEqual([t.key, true]);
       expect([t.key, contrastRatio(t.onAccent, t.accent) >= 4.5]).toEqual([t.key, true]);
       expect([t.key, contrastRatio(t.muted, t.background) >= 4.5]).toEqual([t.key, true]);
+      // The header, composer and input reuse the theirs pair, and typed text sits on the background.
+      expect([t.key, contrastRatio(t.onTheirs, t.background) >= 4.5]).toEqual([t.key, true]);
       // The send button and accents must stand out from the chat background.
       expect([t.key, contrastRatio(t.accent, t.background) >= 3]).toEqual([t.key, true]);
     }
@@ -117,5 +120,27 @@ describe("members", () => {
       { userId: "own", name: "Cy", role: "creator" as const },
     ]);
     expect(sorted.map((m) => m.userId)).toEqual(["own", "adm", "a", "b"]);
+  });
+});
+
+describe("themeGrid", () => {
+  it("fits tiles of at least 72 wide and fills the row exactly", () => {
+    for (const width of [240, 280, 311, 343, 390, 600, 900]) {
+      const { columns, size } = themeGrid(width, 10);
+      expect(size).toBeGreaterThanOrEqual(72);
+      expect(columns * size + (columns - 1) * 10).toBeLessThanOrEqual(width);
+      expect(columns * size + (columns - 1) * 10).toBeGreaterThan(width - columns);
+    }
+  });
+
+  it("uses more columns on wider screens, capped at six", () => {
+    expect(themeGrid(280, 10).columns).toBe(3);
+    expect(themeGrid(343, 10).columns).toBe(4);
+    expect(themeGrid(2000, 10).columns).toBe(6);
+  });
+
+  it("still shows at least two columns before the layout is measured", () => {
+    expect(themeGrid(0, 10).columns).toBe(2);
+    expect(themeGrid(0, 10).size).toBe(0);
   });
 });
