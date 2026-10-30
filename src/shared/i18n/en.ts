@@ -555,6 +555,8 @@ export const en = {
   "outfits.builder.slot.top": "Top",
   "outfits.builder.slot.bottom": "Bottom",
   "outfits.builder.slot.shoes": "Shoes",
+  "outfits.builder.need_clothes.title": "Add clothes first",
+  "outfits.builder.need_clothes.later": "Not now",
   "outfits.builder.error.no_items": "Your closet needs a top, a bottom and shoes for a full look.",
   "outfits.builder.error.generic": "Could not build an outfit.",
   "outfits.toast.nothing_to_save.title": "Nothing to save",
