@@ -1,18 +1,17 @@
 // C:\OOTDify\src\features\profile\LogOutSheet.tsx
 // "Log out?" confirmation, shared by Home's back button, the profile photo
-// sheet and Settings. Penggi waves goodbye once as it opens (the only motion,
-// skipped with reduce motion), the account being left is shown so there is no
-// doubt which one it is, and staying signed in is the prominent, safe choice.
-// Logging out lands on the sign-in screen from every entry point.
+// sheet and Settings. The account being left is shown so there is no doubt
+// which one it is, and staying signed in is the prominent, safe choice.
+// Logging out covers the app with Penggi's farewell (crying on a white
+// screen) and lands on the sign-in screen underneath it from every entry point.
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Animated, Easing, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
 import { AppButton } from "../../shared/components/AppButton";
-import { Mascot } from "../../shared/components/Mascot";
+import { penggi } from "../../shared/components/PenggiMoment";
 import { Sheet } from "../../shared/components/Sheet";
-import { useReduceMotion } from "../../shared/hooks/useReduceMotion";
 import { useT } from "../../shared/i18n/useT";
 import { withAuthRedirectHeld } from "../../shared/lib/authRedirectHold";
 import { supabase } from "../../shared/lib/supabase";
@@ -22,18 +21,20 @@ import { unregisterPush } from "../notifications/service";
 import { useAvatarStore } from "./avatarStore";
 import { ProfileAvatar } from "./ProfileAvatar";
 
-const PENGGI = 104;
+// The modal's fade-out, then the farewell's white fade-in.
+const SHEET_GONE_MS = 320;
+const FAREWELL_COVERED_MS = 260;
+
+const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 export function LogOutSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const styles = useStyles();
   const theme = useAppTheme();
   const router = useRouter();
   const { t } = useT();
-  const reduceMotion = useReduceMotion();
   const avatarRef = useAvatarStore((s) => s.ref);
   const [email, setEmail] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [wave] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     if (!visible) return;
@@ -46,43 +47,29 @@ export function LogOutSheet({ visible, onClose }: { visible: boolean; onClose: (
     };
   }, [visible]);
 
-  // One goodbye wave: tilt right, left, right, settle.
-  useEffect(() => {
-    if (!visible || reduceMotion) return;
-    wave.setValue(0);
-    const anim = Animated.timing(wave, {
-      toValue: 1,
-      duration: 1100,
-      delay: 220,
-      easing: Easing.inOut(Easing.quad),
-      useNativeDriver: true,
-    });
-    anim.start();
-    return () => anim.stop();
-  }, [visible, reduceMotion, wave]);
-
   const logOut = () => {
     if (busy) return;
     setBusy(true);
+    // The sheet is a native modal, which draws above everything, so it goes
+    // away first; then the farewell covers the app and the switch to sign-in
+    // happens out of sight behind it.
+    onClose();
     // Straight to sign-in; the hold keeps the root gate from also pushing the
     // landing page on the signed-out session.
     void withAuthRedirectHeld(async () => {
       try {
+        await wait(SHEET_GONE_MS);
+        penggi.show("farewell", t("penggi.farewell.title"), t("penggi.farewell.message"));
+        await wait(FAREWELL_COVERED_MS);
         // This phone stops getting the account's notifications first.
         await unregisterPush().catch(() => {});
         await supabase.auth.signOut();
-        onClose();
         router.replace("/login");
       } finally {
         setBusy(false);
       }
     });
   };
-
-  const rotate = wave.interpolate({
-    inputRange: [0, 0.2, 0.45, 0.7, 1],
-    outputRange: ["0deg", "9deg", "-7deg", "5deg", "0deg"],
-  });
 
   return (
     <Sheet
@@ -108,9 +95,6 @@ export function LogOutSheet({ visible, onClose }: { visible: boolean; onClose: (
       }
     >
       <View style={styles.body}>
-        <Animated.View style={[styles.penggi, { transform: [{ rotate }] }]}>
-          <Mascot size={PENGGI} mood="sad" />
-        </Animated.View>
         <Text style={styles.message}>{t("auth.exit.message")}</Text>
 
         {email ? (
@@ -131,8 +115,6 @@ export function LogOutSheet({ visible, onClose }: { visible: boolean; onClose: (
 
 const useStyles = makeStyles((theme) => ({
   body: { alignItems: "center", gap: 14, paddingTop: 4 },
-  // Pivot near Penggi's feet so the wave reads as a lean, not a spin.
-  penggi: { width: PENGGI, height: PENGGI, transformOrigin: "50% 90%" },
   message: {
     ...theme.typography.body,
     color: theme.colors.textMuted,
