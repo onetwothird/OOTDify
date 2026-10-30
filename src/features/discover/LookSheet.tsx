@@ -2,14 +2,14 @@
 // One look, opened from Discover. Unlike a Community post card it is about the
 // outfit, not the conversation: the pieces large and swipeable, who put it
 // together (tap through to their profile, or add them as a friend), a like,
-// and saving it into your own Saved looks. Comments stay in Community. Your
-// own look can be taken off Discover (deletes the share).
+// saving it into your own Saved looks, and its comments. Your own look can be
+// taken off Discover (deletes the share).
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { deleteSavedOutfit } from "../clothing/service";
-import { deletePost, likePost, unlikePost } from "../community/service";
+import { addComment, deleteComment, deletePost, fetchComments, likePost, unlikePost } from "../community/service";
 import { displayName } from "../community/socialService";
 import type { FeedPost } from "../community/types";
 import { ProfileAvatar } from "../profile/ProfileAvatar";
@@ -21,6 +21,7 @@ import { toast } from "../../shared/lib/toast";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import type { FriendState } from "./pieces";
+import { CommentThread } from "./CommentThread";
 import { FriendButton } from "./PieceViews";
 import { saveLook } from "./service";
 
@@ -36,6 +37,8 @@ interface Props {
   onSavedChanged: (postId: string, outfitId: string | null) => void;
   friend: FriendState;
   onFriendChanged: (userId: string, next: FriendState) => void;
+  /** A comment was posted (+1) or deleted (-1). */
+  onCommentsChanged: (postId: string, delta: number) => void;
 }
 
 export function LookSheet({
@@ -49,6 +52,7 @@ export function LookSheet({
   onSavedChanged,
   friend,
   onFriendChanged,
+  onCommentsChanged,
 }: Props) {
   const styles = useStyles();
   const theme = useAppTheme();
@@ -233,6 +237,15 @@ export function LookSheet({
           </View>
 
           {look.caption ? <Text style={styles.caption}>{look.caption}</Text> : null}
+
+          <CommentThread
+            key={look.id}
+            ownerId={look.user_id}
+            load={() => fetchComments(look.id)}
+            send={(body) => addComment(look.id, body)}
+            remove={deleteComment}
+            onCountChange={(delta) => onCommentsChanged(look.id, delta)}
+          />
         </View>
       ) : null}
     </Sheet>
