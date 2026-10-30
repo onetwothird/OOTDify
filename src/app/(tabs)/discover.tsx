@@ -248,6 +248,10 @@ export default function DiscoverScreen() {
 
   const onLikeChanged = (postId: string, likedByMe: boolean, likeCount: number) =>
     setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, likedByMe, like_count: likeCount } : p)));
+  const onCommentsChanged = (postId: string, delta: number) =>
+    setPosts((prev) =>
+      prev.map((p) => (p.id === postId ? { ...p, comment_count: Math.max(0, p.comment_count + delta) } : p)),
+    );
   const onRemoved = (postId: string) => setPosts((prev) => prev.filter((p) => p.id !== postId));
   const openCreator = (userId: string) =>
     router.push({ pathname: "/community/profile/[userId]", params: { userId } });
@@ -445,6 +449,7 @@ export default function DiscoverScreen() {
         onSavedChanged={onSavedChanged}
         friend={open ? friendState(open.user_id, friendOverview) : "unknown"}
         onFriendChanged={onFriendChanged}
+        onCommentsChanged={onCommentsChanged}
       />
       <PieceSheet
         piece={openPiece}
