@@ -83,7 +83,10 @@ export function Sheet({
   const close = () => {
     if (!busy) onClose();
   };
-  const bottomPad = Math.max(insets.bottom, 16);
+  // On phones with a home indicator and rounded screen corners (iPhone), the
+  // safe area alone leaves the last button's outline grazing the curved corner
+  // and the indicator, so add breathing room above it.
+  const bottomPad = insets.bottom > 0 ? insets.bottom + 14 : 16;
 
   return (
     <Modal
