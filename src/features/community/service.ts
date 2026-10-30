@@ -1221,6 +1221,16 @@ export async function fetchChatPhotos(conversationId: string, limit = 60): Promi
   return (data ?? []) as { id: string; image_ref: string }[];
 }
 
+/** When each participant last read this conversation (participants can see each other's). */
+export async function fetchReadState(conversationId: string): Promise<Map<string, string | null>> {
+  const { data, error } = await supabase
+    .from("conversation_participants")
+    .select("user_id, last_read_at")
+    .eq("conversation_id", conversationId);
+  if (error) throw error;
+  return new Map((data ?? []).map((r) => [r.user_id as string, (r.last_read_at as string | null) ?? null]));
+}
+
 /** Mark a conversation read up to now (owner-only via RLS). */
 export async function markConversationRead(conversationId: string): Promise<void> {
   const uid = await currentUserId();
