@@ -16,10 +16,12 @@
 // Errors are thrown raw (PostgrestError / Error) per the app-wide convention;
 // screens surface them through ErrorState/toast.
 
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { formFile } from "../../shared/lib/formFile";
 import { shrinkForUpload } from "../../shared/lib/shrinkImage";
 import { supabase } from "../../shared/lib/supabase";
 import { realtimeTopic } from "../../shared/lib/realtimeTopic";
+import { sharedSubscriptions } from "../../shared/lib/sharedSubscription";
 import { resolveMediaUrl } from "../../shared/lib/storageUrl";
 import { uuid } from "../../shared/lib/uuid";
 import { chatPhotoPath, chatPhotoRef, photoMessageBody } from "./chatMedia";
@@ -1095,6 +1097,56 @@ export async function setChatTheme(conversationId: string, theme: string | null)
   if (error) throw error;
   // RLS silently filters an update it doesn't allow, so check it landed.
   if (!data || data.length === 0) throw new Error("You can't change this chat's theme.");
+  await announceChatTheme(conversationId);
+}
+
+// Theme changes are announced on a broadcast topic both people share, so an
+// open thread repaints without waiting to be reopened. Listeners re-read the
+// theme from the database; the broadcast itself carries nothing to trust.
+const THEME_EVENT = "theme";
+const themeTopic = (conversationId: string) => `chat-theme:${conversationId}`;
+// A channel being removed still answers to its topic until unsubscribe
+// resolves, so a reopen waits for that first.
+const closingTopics = new Map<string, Promise<unknown>>();
+
+const themeChannels = sharedSubscriptions((topic, emit) => {
+  let channel: RealtimeChannel | null = null;
+  let closed = false;
+  void (closingTopics.get(topic) ?? Promise.resolve()).then(() => {
+    if (closed) return;
+    channel = supabase
+      .channel(topic)
+      .on("broadcast", { event: THEME_EVENT }, () => emit(null))
+      .subscribe();
+  });
+  return () => {
+    closed = true;
+    if (!channel) return;
+    const done = supabase.removeChannel(channel).finally(() => {
+      if (closingTopics.get(topic) === done) closingTopics.delete(topic);
+    });
+    closingTopics.set(topic, done);
+  };
+});
+
+/** Calls onChange whenever someone changes this conversation's theme. Returns unsubscribe. */
+export function subscribeToChatTheme(conversationId: string, onChange: () => void): () => void {
+  return themeChannels.listen(themeTopic(conversationId), onChange);
+}
+
+/** Tells everyone with the thread open that the theme changed. Best effort: they also re-read it on focus. */
+async function announceChatTheme(conversationId: string): Promise<void> {
+  const topic = themeTopic(conversationId);
+  // Reuse the thread's own channel when it's open; otherwise borrow one and drop it after.
+  const borrowed = !supabase.getChannels().some((c) => c.topic === `realtime:${topic}`);
+  const channel = supabase.channel(topic);
+  try {
+    await channel.httpSend(THEME_EVENT, { at: Date.now() });
+  } catch {
+    // Realtime being down must not fail the theme change itself.
+  } finally {
+    if (borrowed) void supabase.removeChannel(channel);
+  }
 }
 
 /** Mute message notifications until a time, or unmute with null. */
