@@ -28,6 +28,7 @@ import { makeStyles } from "../../shared/theme/makeStyles";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import type { Theme } from "../../shared/config/theme";
 import { useT } from "../../shared/i18n/useT";
+import { penggi } from "../../shared/components/PenggiMoment";
 import { toast } from "../../shared/lib/toast";
 
 export default function ItemDetailScreen() {
@@ -120,6 +121,7 @@ export default function ItemDetailScreen() {
       await useWardrobeStore.getState().removeItem(item.id);
       setDeleteOpen(false);
       router.back();
+      penggi.show("deleted", t("penggi.deleted.title"), item.name ?? undefined);
     } catch (e) {
       setDeleting(false);
       toast.error(
