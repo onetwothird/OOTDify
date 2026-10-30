@@ -1215,6 +1215,8 @@ export const fil: Record<keyof typeof en, string> = {
   "tryon.live.grant": "Payagan ang camera",
   "tryon.live.go_realistic": "Gawing makatotohanan",
   "tryon.live.realistic_hint": "Tingnan ang makatotohanang live preview (hanggang 1 minuto)",
+  "tryon.live.realistic_pick_title": "Pumili ng isang item",
+  "tryon.live.realistic_pick_note": "Ginuguhit muli ng AI ang video mo sa realistic mode. Hindi ito 3D at puwedeng magbago ang ilang detalye.",
   "tryon.live.realistic_consent": "Ipinapadala ng realistic mode ang video ng camera mo sa partner naming Decart, na muling gumuguhit sa iyo na suot ang item na ito. Maaaring gamitin ng Decart ang video para pagbutihin ang AI nito. Tumatakbo ito nang hanggang 1 minuto. Hindi kailanman umaalis sa phone mo ang karaniwang preview.",
   "tryon.live.realistic_connecting": "Sinisimulan ang realistic mode…",
   "tryon.live.realistic_seconds": "{seconds}s na lang",
