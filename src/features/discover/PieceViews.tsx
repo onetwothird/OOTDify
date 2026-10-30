@@ -227,7 +227,7 @@ export function PieceSheet({
             key={piece.id}
             ownerId={piece.user_id}
             load={() => fetchPieceComments(piece.id)}
-            send={(body) => addPieceComment(piece.id, body)}
+            send={(body, parentId) => addPieceComment(piece.id, body, parentId)}
             remove={deletePieceComment}
             onCountChange={(delta) => onChanged({ ...piece, comment_count: Math.max(0, piece.comment_count + delta) })}
           />
