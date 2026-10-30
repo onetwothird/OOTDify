@@ -1,4 +1,4 @@
-import { hotScore, lookOfTheWeek, sortLooks, splitColumns, topCreators, type Look } from "../rank";
+import { hotScore, lookOfTheWeek, outfitLooks, sortLooks, splitColumns, topCreators, type Look } from "../rank";
 
 const NOW = Date.parse("2026-10-30T12:00:00Z");
 const HOUR = 3_600_000;
@@ -7,6 +7,7 @@ function look(id: string, over: Partial<Look> = {}): Look {
   return {
     id,
     user_id: "u1",
+    saved_outfit_id: "o1",
     image_urls: ["a.jpg"],
     like_count: 0,
     comment_count: 0,
@@ -99,5 +100,17 @@ describe("splitColumns", () => {
     const [left, right] = splitColumns([single("a"), multi("b"), multi("c"), single("d")]);
     expect(left.map((p) => p.id)).toEqual(["a", "d"]);
     expect(right.map((p) => p.id)).toEqual(["b", "c"]);
+  });
+});
+
+describe("outfitLooks", () => {
+  it("keeps only posts shared from a saved outfit that have images", () => {
+    const posts = [
+      look("outfit"),
+      look("plain-photo", { saved_outfit_id: null }),
+      look("caption-only", { saved_outfit_id: null, image_urls: [] }),
+      look("outfit-no-image", { image_urls: [] }),
+    ];
+    expect(outfitLooks(posts).map((p) => p.id)).toEqual(["outfit"]);
   });
 });
