@@ -391,7 +391,28 @@ export default function ChatThreadScreen() {
     }
     return map;
   }, [reactions]);
-  const bubbleTheme = chatTheme(themeKey);
+  const chatColors = chatTheme(themeKey);
+  // The chat theme repaints the thread: background, both sides' bubbles, the
+  // accent and the muted text on the background. Null keeps the app's colours.
+  const themed = useMemo(() => {
+    const c = chatColors;
+    if (!c) return null;
+    return {
+      thread: { backgroundColor: c.background },
+      muted: { color: c.muted },
+      line: { backgroundColor: c.muted, opacity: 0.35 },
+      mine: { backgroundColor: c.mine, borderColor: c.mine },
+      onMine: { color: c.onMine },
+      theirs: { backgroundColor: c.theirs, borderColor: c.theirs },
+      onTheirs: { color: c.onTheirs },
+      accentBg: { backgroundColor: c.accent },
+      accentBorder: { borderColor: c.accent },
+      unsent: { backgroundColor: c.background, borderColor: c.muted },
+      quoteMine: { borderLeftColor: c.onMine },
+      quoteTheirs: { borderLeftColor: c.accent, backgroundColor: c.background },
+      chip: { backgroundColor: c.theirs, borderColor: c.theirs },
+    };
+  }, [chatColors]);
 
   const jumpToBottom = useCallback((animated: boolean) => {
     atBottomRef.current = true;
@@ -670,7 +691,7 @@ export default function ChatThreadScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={0}
       >
-        <View style={styles.thread}>
+        <View style={[styles.thread, themed?.thread]}>
           {!conversationId ? (
             <View style={styles.stateFill}>
               <ErrorState message={t("community.chat.missing_id")} />
@@ -713,7 +734,7 @@ export default function ChatThreadScreen() {
                     size={34}
                     color={theme.colors.textMuted}
                   />
-                  <Text style={styles.emptyText}>{t("community.chat.empty_thread")}</Text>
+                  <Text style={[styles.emptyText, themed?.muted]}>{t("community.chat.empty_thread")}</Text>
                 </View>
               }
               renderItem={({ item, index }) => {
@@ -765,9 +786,9 @@ export default function ChatThreadScreen() {
                   >
                     {startsNewDay ? (
                       <View style={styles.dayRow}>
-                        <View style={styles.dayLine} />
-                        <Text style={styles.dayText}>{dayLabel(item.created_at)}</Text>
-                        <View style={styles.dayLine} />
+                        <View style={[styles.dayLine, themed?.line]} />
+                        <Text style={[styles.dayText, themed?.muted]}>{dayLabel(item.created_at)}</Text>
+                        <View style={[styles.dayLine, themed?.line]} />
                       </View>
                     ) : null}
 
@@ -781,7 +802,7 @@ export default function ChatThreadScreen() {
                       ) : null}
                       <View style={[styles.msgCol, { maxWidth: maxBubbleWidth }]}>
                         {!mine && isFirst ? (
-                          <Text style={styles.msgName} numberOfLines={1}>
+                          <Text style={[styles.msgName, themed?.muted]} numberOfLines={1}>
                             {displayName}
                           </Text>
                         ) : null}
@@ -791,17 +812,17 @@ export default function ChatThreadScreen() {
                             accessibilityHint={t("community.chat.actions_hint")}
                             onLongPress={() => openActions(item)}
                             delayLongPress={280}
-                            style={[styles.bubble, styles.bubbleUnsent, bubbleRadius]}
+                            style={[styles.bubble, styles.bubbleUnsent, themed?.unsent, bubbleRadius]}
                           >
                             <View style={styles.unsentRow}>
-                              <Ionicons name="arrow-undo-outline" size={14} color={theme.colors.textMuted} />
-                              <Text style={styles.unsentText}>
+                              <Ionicons name="arrow-undo-outline" size={14} color={chatColors?.muted ?? theme.colors.textMuted} />
+                              <Text style={[styles.unsentText, themed?.muted]}>
                                 {mine
                                   ? t("community.chat.unsent.mine")
                                   : t("community.chat.unsent.theirs", { name: displayName })}
                               </Text>
                             </View>
-                            {isLast ? <Text style={styles.bubbleClock}>{clockLabel(item.created_at)}</Text> : null}
+                            {isLast ? <Text style={[styles.bubbleClock, themed?.muted]}>{clockLabel(item.created_at)}</Text> : null}
                           </Pressable>
                         ) : (
                           <Pressable
@@ -813,9 +834,7 @@ export default function ChatThreadScreen() {
                               styles.bubble,
                               bubbleRadius,
                               mine && styles.bubbleMine,
-                              mine && bubbleTheme
-                                ? { backgroundColor: bubbleTheme.bubble, borderColor: bubbleTheme.bubble }
-                                : null,
+                              themed ? (mine ? themed.mine : themed.theirs) : null,
                               highlightId === item.id && styles.bubbleHighlight,
                             ]}
                           >
@@ -838,11 +857,11 @@ export default function ChatThreadScreen() {
                                       name: original ? nameOf(original) : "",
                                     })}
                                     onPress={() => item.reply_to && jumpTo(item.reply_to)}
-                                    style={[styles.quote, mine && styles.quoteMine]}
+                                    style={[styles.quote, mine && styles.quoteMine, themed ? (mine ? themed.quoteMine : themed.quoteTheirs) : null]}
                                   >
                                     {original ? (
                                       <Text
-                                        style={[styles.quoteName, mine && styles.quoteTextMine, mine && bubbleTheme ? { color: bubbleTheme.onBubble } : null]}
+                                        style={[styles.quoteName, mine && styles.quoteTextMine, themed ? (mine ? themed.onMine : themed.onTheirs) : null]}
                                         numberOfLines={1}
                                       >
                                         {nameOf(original)}
@@ -852,7 +871,7 @@ export default function ChatThreadScreen() {
                                       style={[
                                         styles.quoteText,
                                         mine && styles.quoteTextMine,
-                                        mine && bubbleTheme ? { color: bubbleTheme.onBubble } : null,
+                                        themed ? [mine ? themed.onMine : themed.onTheirs, styles.clockOnTheme] : null,
                                         quote.kind !== "text" && quote.kind !== "photo" && styles.quoteGone,
                                       ]}
                                       numberOfLines={2}
@@ -875,7 +894,7 @@ export default function ChatThreadScreen() {
                                 style={[
                                   styles.bubbleText,
                                   mine && styles.bubbleTextMine,
-                                  mine && bubbleTheme ? { color: bubbleTheme.onBubble } : null,
+                                  themed ? (mine ? themed.onMine : themed.onTheirs) : null,
                                 ]}
                               >
                                 {item.body}
@@ -886,7 +905,7 @@ export default function ChatThreadScreen() {
                                 style={[
                                   styles.bubbleClock,
                                   mine && styles.bubbleClockMine,
-                                  mine && bubbleTheme ? [{ color: bubbleTheme.onBubble }, styles.clockOnTheme] : null,
+                                  themed ? [mine ? themed.onMine : themed.onTheirs, styles.clockOnTheme] : null,
                                 ]}
                               >
                                 {[item.edited_at ? t("community.chat.edited") : null, isLast ? clockLabel(item.created_at) : null]
@@ -911,10 +930,15 @@ export default function ChatThreadScreen() {
                                     count: chip.count,
                                   })}
                                   onPress={() => void react(item, chip.emoji)}
-                                  style={({ pressed }) => [styles.chip, chip.mine && styles.chipMine, pressed && { opacity: 0.7 }]}
+                                  style={({ pressed }) => [
+                                    styles.chip,
+                                    themed?.chip,
+                                    chip.mine && (themed ? themed.accentBorder : styles.chipMine),
+                                    pressed && { opacity: 0.7 },
+                                  ]}
                                 >
                                   <Text style={styles.chipEmoji}>{chip.emoji}</Text>
-                                  {chip.count > 1 ? <Text style={styles.chipCount}>{chip.count}</Text> : null}
+                                  {chip.count > 1 ? <Text style={[styles.chipCount, themed?.onTheirs]}>{chip.count}</Text> : null}
                                 </Pressable>
                               ))}
                             </View>
@@ -952,7 +976,7 @@ export default function ChatThreadScreen() {
             <Ionicons
               name={editing ? "create-outline" : "arrow-undo-outline"}
               size={18}
-              color={theme.colors.brand}
+              color={chatColors?.accent ?? theme.colors.brand}
             />
             <View style={styles.contextTexts}>
               <Text style={styles.contextTitle} numberOfLines={1}>
@@ -1032,12 +1056,12 @@ export default function ChatThreadScreen() {
             accessibilityLabel={editing ? t("community.chat.save_edit_a11y") : t("community.chat.send_a11y")}
             disabled={!draft.trim() || sending}
             onPress={() => void send()}
-            style={[styles.sendBtn, (!draft.trim() || sending) && styles.sendBtnDisabled]}
+            style={[styles.sendBtn, themed?.accentBg, (!draft.trim() || sending) && styles.sendBtnDisabled]}
           >
             {sending ? (
-              <ActivityIndicator size="small" color={theme.colors.onBrand} />
+              <ActivityIndicator size="small" color={chatColors?.onAccent ?? theme.colors.onBrand} />
             ) : (
-              <Ionicons name={editing ? "checkmark" : "send"} size={18} color={theme.colors.onBrand} />
+              <Ionicons name={editing ? "checkmark" : "send"} size={18} color={chatColors?.onAccent ?? theme.colors.onBrand} />
             )}
           </Pressable>
         </View>
