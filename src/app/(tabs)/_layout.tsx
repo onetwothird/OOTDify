@@ -9,6 +9,7 @@ import { NotificationsHost } from "../../features/notifications/NotificationsHos
 import { CreateMenu } from "../../features/capture/CreateMenu";
 import { useAvatarStore } from "../../features/profile/avatarStore";
 import { ProfileAvatar } from "../../features/profile/ProfileAvatar";
+import { loadProfilePage } from "../../features/profile/profileData";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import type { Theme } from "../../shared/config/theme";
@@ -19,6 +20,8 @@ import { TAB_BAR_CONTENT, useTabBarHeight } from "../../shared/navigation/useTab
 
 // Gap between the tab bar and the floating Create (+) button.
 const FAB_GAP = 16;
+// Long enough for Home's own requests to go first.
+const PROFILE_PRELOAD_MS = 1500;
 
 export default function TabLayout() {
   const { t } = useT();
@@ -27,6 +30,11 @@ export default function TabLayout() {
   const barHeight = useTabBarHeight();
   // Signed in and in the app: let friends see the green dot.
   usePresenceHeartbeat();
+  // Preload the Profile tab once Home has had its turn, so it opens filled in.
+  useEffect(() => {
+    const id = setTimeout(() => void loadProfilePage().catch(() => {}), PROFILE_PRELOAD_MS);
+    return () => clearTimeout(id);
+  }, []);
   const bottomInset = barHeight - TAB_BAR_CONTENT - 6;
 
   // The tab bar (and the floating Create stack with it) slides away while a
