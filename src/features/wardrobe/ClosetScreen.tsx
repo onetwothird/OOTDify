@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
-import { memo, useCallback, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Pressable,
   ScrollView,
@@ -35,7 +35,8 @@ import { useHideOnScroll, useTabBarSpace } from "../../shared/navigation/useTabC
 
 const GRID_PAGE = 24;
 
-export default function WardrobeScreen() {
+/** The Closet half of the Wardrobe tab; `switcher` (Closet | Outfits) sits under its header. */
+export function ClosetScreen({ switcher }: { switcher: ReactNode }) {
   // The tab bar slides away while scrolling down; content clears it at the end.
   const hideOnScroll = useHideOnScroll();
   const tabBarSpace = useTabBarSpace();
@@ -129,6 +130,7 @@ export default function WardrobeScreen() {
             />
           }
         />
+        {switcher}
 
         <View style={styles.searchBox}>
           <Ionicons name="search-outline" size={17} color={theme.colors.textMuted} />
