@@ -1,5 +1,5 @@
-"""Gemini (Google AI Studio key): one JSON-reply call shared by Ask Penggi and
-garment vision.
+"""Gemini (Google AI Studio key): a JSON-reply call shared by Ask Penggi and
+garment vision, and an image call for photo try-on.
 
 When GEMINI_API_KEY is set, those features use Gemini instead of Claude (see
 `use_gemini`). Errors are mapped to three kinds the callers turn into their own
@@ -130,3 +130,77 @@ def generate_json(
         logger.error("Gemini returned no text (finish_reason=%s)", finish or "unknown")
         raise GeminiFailed("Gemini returned no text.")
     return text
+
+
+def generate_image(parts: list[Part], *, timeout_s: float = 90.0) -> bytes:
+    """Send one user turn of `parts` to the image model; return the image bytes.
+
+    Tries GEMINI_IMAGE_MODEL, then GEMINI_IMAGE_FALLBACK_MODEL when the first is
+    busy, out of quota or slow. Errors map to the same three kinds as
+    generate_json.
+    """
+    import httpx
+    from google import genai
+    from google.genai import errors, types
+
+    client = genai.Client(
+        api_key=Config.GEMINI_API_KEY,
+        http_options=types.HttpOptions(
+            timeout=int(timeout_s * 1000),
+            retry_options=types.HttpRetryOptions(
+                attempts=2, initial_delay=2.0, max_delay=5.0, http_status_codes=list(OVERLOADED)
+            ),
+        ),
+    )
+    contents = [
+        types.Content(
+            role="user",
+            parts=[
+                types.Part.from_text(text=p) if isinstance(p, str) else types.Part.from_bytes(data=p[1], mime_type=p[0])
+                for p in parts
+            ],
+        )
+    ]
+    config = types.GenerateContentConfig(
+        response_modalities=["IMAGE"],
+        image_config=types.ImageConfig(aspect_ratio="3:4"),
+    )
+    models = [Config.GEMINI_IMAGE_MODEL]
+    if Config.GEMINI_IMAGE_FALLBACK_MODEL and Config.GEMINI_IMAGE_FALLBACK_MODEL != Config.GEMINI_IMAGE_MODEL:
+        models.append(Config.GEMINI_IMAGE_FALLBACK_MODEL)
+    for i, model in enumerate(models):
+        has_fallback = i + 1 < len(models)
+        try:
+            response = client.models.generate_content(model=model, contents=contents, config=config)
+            break
+        except errors.APIError as exc:
+            if (exc.code in OVERLOADED or exc.code == 429) and has_fallback:
+                logger.warning("Gemini image %s unavailable (status %s); trying %s", model, exc.code, models[i + 1])
+                continue
+            if exc.code == 429:
+                raise GeminiRateLimited(str(exc)) from exc
+            logger.exception("Gemini image request failed (status %s)", exc.code)
+            raise GeminiFailed(str(exc)) from exc
+        except httpx.TimeoutException as exc:
+            if has_fallback:
+                logger.warning("Gemini image %s timed out; trying %s", model, models[i + 1])
+                continue
+            raise GeminiFailed(str(exc)) from exc
+        except Exception as exc:
+            logger.exception("Gemini image request failed")
+            raise GeminiFailed(str(exc)) from exc
+
+    feedback = getattr(response, "prompt_feedback", None)
+    if feedback is not None and getattr(feedback, "block_reason", None):
+        raise GeminiBlocked(str(feedback.block_reason))
+    candidates = response.candidates or []
+    finish = getattr(candidates[0].finish_reason, "name", "") if candidates and candidates[0].finish_reason else ""
+    if finish in BLOCKED_FINISH:
+        raise GeminiBlocked(finish)
+    for candidate in candidates:
+        for part in getattr(candidate.content, "parts", None) or []:
+            data = getattr(getattr(part, "inline_data", None), "data", None)
+            if data:
+                return data
+    logger.error("Gemini returned no image (finish_reason=%s)", finish or "unknown")
+    raise GeminiFailed("Gemini returned no image.")
