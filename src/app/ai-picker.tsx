@@ -23,7 +23,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { insertSavedOutfit } from "../features/clothing/service";
 import { OCCASIONS } from "../features/clothing/types";
 import { Chip } from "../shared/components/Chip";
-import { Mascot } from "../shared/components/Mascot";
+import { AppButton } from "../shared/components/AppButton";
+import { PenggiHeader, PenggiStatusShade } from "../shared/components/PenggiHeader";
 import { ClothingCard } from "../shared/components/ClothingCard";
 import { EmptyState, ErrorState } from "../shared/components/StateViews";
 import { SectionHeader } from "../shared/components/SectionHeader";
@@ -172,54 +173,33 @@ export default function AiPickerScreen() {
   const pool = result?.pool ?? 0;
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top + 8 }]}>
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
+      <PenggiStatusShade />
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* -------------------------------- Header */}
-        <View style={styles.headerRow}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t("ai_picker.back_a11y")}
-            hitSlop={8}
-            onPress={() => router.back()}
-            style={styles.backBtn}
-          >
-            <Ionicons name="arrow-back" size={20} color={theme.colors.text} />
-          </Pressable>
-          <Text style={styles.headerTitle} accessibilityRole="header">
-            {t("ai_picker.title")}
-          </Text>
-        </View>
-
-        {/* -------------------------------- Hero: Penggi and the one main action */}
-        <View style={styles.hero}>
-          <View style={styles.heroText}>
-            <Text style={styles.heroName}>{t("home.hero.badge")}</Text>
-            <Text style={styles.heroTitle}>{t("ai_picker.hero_title")}</Text>
-            <Text style={styles.heroSubtitle}>{t("ai_picker.subtitle")}</Text>
-            <Pressable
-              accessibilityRole="button"
-              disabled={loading}
+        {/* -------------------------------- Header: the same sky as the tabs */}
+        <PenggiHeader
+          image={require("../../assets/images/headers/ai-picker-penggi.png")}
+          penggiLabel={t("header.penggi_a11y")}
+          tips={[t("header.tips.picker.1"), t("header.tips.picker.2"), t("header.tips.picker.3")]}
+          title={t("ai_picker.hero_title")}
+          subtitle={t("ai_picker.subtitle")}
+          onBack={() => router.back()}
+          backLabel={t("common.back")}
+          right={
+            <AppButton
+              variant="secondary"
+              size="md"
+              icon="sparkles"
+              loading={loading}
+              label={loading ? t("outfits.builder.composing") : t("ai_picker.recompose")}
               onPress={() => void generate(Math.floor(Math.random() * 1_000_000))}
-              style={({ pressed }) => [styles.heroBtn, (pressed || loading) && styles.dim]}
-            >
-              {loading ? (
-                <ActivityIndicator size="small" color={theme.colors.feature} />
-              ) : (
-                <Ionicons name="sparkles" size={16} color={theme.colors.feature} />
-              )}
-              <Text style={styles.heroBtnText}>
-                {loading ? t("outfits.builder.composing") : t("ai_picker.recompose")}
-              </Text>
-            </Pressable>
-          </View>
-          <View style={styles.heroMascot} accessibilityElementsHidden importantForAccessibility="no">
-            <Mascot size={92} />
-          </View>
-        </View>
+            />
+          }
+        />
 
         {/* -------------------------------- Controls */}
         <View style={styles.controls}>
@@ -453,66 +433,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   content: { paddingHorizontal: theme.spacing.page, paddingBottom: 48 },
 
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingVertical: theme.spacing.sm,
-  },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: theme.colors.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.colors.border,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: 22,
-    fontWeight: "700",
-    color: theme.colors.text,
-    letterSpacing: -0.3,
-  },
 
-  // Dark denim card: Penggi on the right, the compose action on the left.
-  hero: {
-    marginTop: theme.spacing.sm,
-    flexDirection: "row",
-    alignItems: "flex-end",
-    borderRadius: theme.borderRadius.lg,
-    backgroundColor: theme.colors.feature,
-    paddingVertical: 18,
-    paddingLeft: 18,
-    paddingRight: 8,
-    overflow: "hidden",
-  },
-  heroText: { flex: 1, minWidth: 0 },
-  heroName: { fontSize: 12.5, fontWeight: "600", color: theme.colors.onFeatureMuted },
-  heroTitle: {
-    fontSize: 20,
-    lineHeight: 25,
-    fontWeight: "700",
-    letterSpacing: -0.3,
-    color: theme.colors.onFeature,
-    marginTop: 2,
-  },
-  heroSubtitle: { fontSize: 13, lineHeight: 18, color: theme.colors.onFeatureMuted, marginTop: 4 },
-  heroBtn: {
-    alignSelf: "flex-start",
-    marginTop: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
-    minHeight: 42,
-    paddingHorizontal: 18,
-    borderRadius: theme.borderRadius.pill,
-    backgroundColor: theme.colors.onFeature,
-  },
-  heroBtnText: { fontSize: 14, fontWeight: "600", color: theme.colors.feature },
-  heroMascot: { marginLeft: 4, marginBottom: -6 },
   dim: { opacity: 0.7 },
 
   controls: {
