@@ -79,6 +79,39 @@ No change.
   existing `require_consent`, and the consent and privacy texts name Google
   for photo try-on (en + fil).
 
+## 4b. Looks good and stays accurate
+
+The user asked for a picture that is visually appealing and accurate to the
+real garments. That changes four things:
+
+- **Better model by default.** `GEMINI_IMAGE_MODEL` defaults to
+  `gemini-3-pro-image-preview` (sharper, follows garment details and text
+  closely; ~$0.13/image at 1K). `GEMINI_IMAGE_FALLBACK_MODEL` defaults to
+  `gemini-2.5-flash-image`, used only when the pro model is overloaded.
+  Output is a 3:4 portrait.
+- **Clean, labelled garment inputs.** Each garment is sent as its cutout on
+  white (via `garment_isolation`, falling back to the stored image), each
+  preceded by a text label built from its row: category, name, color,
+  description (`clothing_items` / `clothing`). Example: "Garment 2 —
+  bottom: wide-leg denim jeans, light blue, raw hem." The prompt says to copy
+  each garment's exact color, pattern, print, logos, length and fit, and not
+  to add or drop any item.
+- **Editorial look.** The prompt asks for a photorealistic fashion photo:
+  soft natural light, sharp focus, true-to-life skin, flattering but natural
+  framing that shows the whole outfit head to toe. Whole-body photos keep the
+  user's pose and setting, lit to match. Face-only photos get a full-body
+  editorial shot of the same person in a clean, softly lit setting, with face
+  and identity preserved.
+- **Accuracy check, one retry.** After generating, a Gemini text call
+  (`generate_json`, existing model) sees the result plus the garment cutouts
+  and answers `{"matches": bool, "issues": [str]}`: is every garment
+  present with the right color and pattern, is the face the same person.
+  On `matches=false` the image is regenerated once with the issues appended to
+  the prompt. The better of the two is kept: the second if it passes,
+  otherwise the first. The check never blocks a result on its own; if the
+  check call fails, the image is kept. At most 2 images per job, so a job
+  costs at most about $0.27.
+
 ## 5. App
 
 - `PHOTO_TRYON_AVAILABLE = true`; the existing scan-tab photo flow shows.
