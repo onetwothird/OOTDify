@@ -34,6 +34,10 @@ import { Chip } from "../../shared/components/Chip";
 import { ClothingCard } from "../../shared/components/ClothingCard";
 import { SkeletonGrid, SkeletonRow } from "../../shared/components/LoadingState";
 import { SwappingMascot } from "../../shared/components/Mascot";
+import { QuickActions } from "../../features/notifications/QuickActions";
+import { PenggiFace } from "../../shared/components/PenggiFace";
+import { PenggiStatusShade, useHeaderSky } from "../../shared/components/PenggiHeader";
+import { PolarStage, type Star } from "../../shared/components/PolarStage";
 import { SectionHeader } from "../../shared/components/SectionHeader";
 import { EmptyState } from "../../shared/components/StateViews";
 import { Skeleton } from "../../shared/components/Skeleton";
@@ -201,7 +205,8 @@ export default function HomeScreen() {
   const openCapture = useCaptureModalStore((s) => s.open);
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top + 8 }]}>
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
+      <PenggiStatusShade />
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
         showsVerticalScrollIndicator={false}
@@ -212,6 +217,7 @@ export default function HomeScreen() {
           avatarRef={avatarRef}
           loading={greetingLoading}
           onOpenProfile={() => setPhotoSheetOpen(true)}
+          onOpenPenggi={() => router.push("/stylist")}
         />
 
         <Hero
@@ -385,22 +391,30 @@ function greetingFor(hour: number, t: any): string {
 }
 
 /**
- * Home header. OOTD is the outfit of the *day*, so the header opens with
- * today's date on the app's hang tag, then the greeting and where you are,
- * with your photo on the right.
+ * Home header: Penggi (tap him to chat), then the greeting and where you
+ * are, with your photo on the right.
  */
+/** Stars along the top, left of the bell + gear and above the greeting. */
+const HOME_STARS: Star[] = [
+  { x: 0.08, y: 0.12, r: 3 },
+  { x: 0.3, y: 0.2, r: 2.5 },
+  { x: 0.52, y: 0.1, r: 3.5 },
+];
+
 function HomeTopBar({
   nickname,
   avatarRef,
   loading,
   onOpenProfile,
+  onOpenPenggi,
 }: {
   nickname: string | null;
   avatarRef: string | null;
   loading: boolean;
   onOpenProfile: () => void;
+  onOpenPenggi: () => void;
 }) {
-  const { t, locale } = useT();
+  const { t } = useT();
   const theme = useAppTheme();
   const styles = useStyles();
   const [now, setNow] = useState(() => new Date());
@@ -419,6 +433,8 @@ function HomeTopBar({
   const shortName = nickname?.trim().split(/\s+/)[0] ?? null;
   const place = useCurrentPlace();
   const [enter] = useState(() => new Animated.Value(0));
+  const sky = useHeaderSky();
+  const [band, setBand] = useState({ w: 0, h: 0 });
 
   useEffect(() => {
     const entrance = Animated.timing(enter, {
@@ -431,11 +447,25 @@ function HomeTopBar({
     return () => entrance.stop();
   }, [enter]);
 
-  const day = now.toLocaleDateString(locale, { day: "numeric" });
-  const month = now.toLocaleDateString(locale, { month: "short" }).replace(".", "");
-  const fullDate = now.toLocaleDateString(locale, { weekday: "long", month: "long", day: "numeric" });
 
   return (
+    // The same sky band as every tab's header, edge to edge; the greeting
+    // fades up inside it.
+    <View
+      style={styles.topBand}
+      onLayout={(e) => setBand({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}
+    >
+      <PolarStage
+        width={band.w}
+        height={band.h}
+        floorY={band.h + 40}
+        floeWidth={0}
+        centerX={0.12}
+        sky={sky.sky}
+        glowScale={0.3}
+        glowAlpha={sky.dark ? "40" : "66"}
+        stars={HOME_STARS}
+      />
     <Animated.View
       style={[
         styles.topBar,
@@ -445,16 +475,20 @@ function HomeTopBar({
         },
       ]}
     >
+      {/* Notifications and Settings, above the greeting like on every tab. */}
+      <View style={styles.actionsRow}>
+        <QuickActions tone="header" />
+      </View>
       <View style={styles.topRow}>
-        <View style={styles.dateTag} accessible accessibilityLabel={fullDate}>
-          <View style={styles.dateTagHole} />
-          <Text style={styles.dateDay}>{day}</Text>
-          <Text style={styles.dateMonth}>{month}</Text>
-        </View>
+        {/* Penggi greets you; tap him for a spin, then he opens the chat. */}
+        <PenggiFace size={52} accessibilityLabel={t("home.header.penggi_a11y")} onPress={onOpenPenggi} />
 
         <View style={styles.greetingBody}>
           <Text
-            style={[styles.greetingTitle, { fontSize: greetingSize, lineHeight: Math.round(greetingSize * 1.22) }]}
+            style={[
+              styles.greetingTitle,
+              { color: sky.ink, fontSize: greetingSize, lineHeight: Math.round(greetingSize * 1.22) },
+            ]}
             numberOfLines={1}
             adjustsFontSizeToFit
             minimumFontScale={0.8}
@@ -471,9 +505,9 @@ function HomeTopBar({
             <Ionicons
               name={place.status === "blocked" ? "location-outline" : "location"}
               size={13}
-              color={theme.colors.textMuted}
+              color={sky.inkMuted}
             />
-            <Text style={styles.greetingPlace} numberOfLines={1}>
+            <Text style={[styles.greetingPlace, { color: sky.inkMuted }]} numberOfLines={1}>
               {place.status === "loading"
                 ? t("home.location.finding")
                 : place.status === "ready"
@@ -489,6 +523,7 @@ function HomeTopBar({
         </View>
       </View>
     </Animated.View>
+    </View>
   );
 }
 
@@ -688,12 +723,6 @@ function Hero({
           <View style={styles.bubble}>
             <View style={styles.bubbleHead}>
               <Text style={styles.bubbleName}>{t("home.hero.badge")}</Text>
-              {line.tip ? (
-                <View style={styles.bubbleTipPill}>
-                  <Ionicons name="bulb-outline" size={11} color={theme.colors.onPrimary} />
-                  <Text style={styles.bubbleTipText}>{t("home.hero.dialogue.label")}</Text>
-                </View>
-              ) : null}
               <View style={styles.bubbleSpacer} />
               {line.route ? (
                 <Pressable
@@ -711,6 +740,12 @@ function Hero({
               )}
             </View>
             <Text style={styles.bubbleText} numberOfLines={3}>
+              {/* "Tip" leads the line itself, in the brand colour. */}
+              {line.tip ? (
+                <Text style={styles.bubbleTipInline}>
+                  <Ionicons name="bulb" size={12} color={theme.colors.brand} /> {t("home.hero.dialogue.label")}:{" "}
+                </Text>
+              ) : null}
               {typedText}
               <Animated.Text style={[styles.bubbleCaret, { opacity: caret }]}>▍</Animated.Text>
             </Text>
@@ -788,33 +823,17 @@ function SavedLookRow({ outfit, onPress }: { outfit: SavedOutfit; onPress: () =>
 const useStyles = makeStyles((theme: Theme) => ({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   content: { paddingHorizontal: theme.spacing.page, paddingBottom: 40 },
-  topBar: { marginTop: theme.spacing.sm, marginBottom: theme.spacing.xs },
+  topBand: {
+    marginHorizontal: -theme.spacing.page,
+    paddingHorizontal: theme.spacing.page,
+    paddingBottom: 20,
+    marginBottom: theme.spacing.sm,
+    overflow: "hidden",
+  },
+  topBar: { paddingTop: 2 },
+  // Clear air between the bell + gear and the profile photo under it.
+  actionsRow: { alignItems: "flex-end", paddingTop: 4, marginBottom: 14 },
   topRow: { flexDirection: "row", alignItems: "center", gap: 14 },
-  // Today's hang tag: squared top, rounded bottom, punched hole — the same
-  // silhouette as ScreenHeader's, carrying the date instead of an icon.
-  dateTag: {
-    width: 54,
-    height: 66,
-    borderTopLeftRadius: 7,
-    borderTopRightRadius: 7,
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
-    backgroundColor: theme.colors.primary,
-    alignItems: "center",
-    justifyContent: "flex-end",
-    paddingBottom: 8,
-    transform: [{ rotate: "-4deg" }],
-  },
-  dateTagHole: {
-    position: "absolute",
-    top: 7,
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: theme.colors.background,
-  },
-  dateDay: { fontSize: 24, lineHeight: 26, fontWeight: "700", letterSpacing: -0.8, color: theme.colors.onPrimary },
-  dateMonth: { fontSize: 12, lineHeight: 14, fontWeight: "600", color: theme.colors.onPrimaryMuted },
   greetingBody: { flex: 1, minWidth: 0 },
   greetingTitle: { fontWeight: "700", letterSpacing: -0.5, color: theme.colors.text },
   avatarRing: {
@@ -838,16 +857,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   bubbleHead: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6 },
   // Penggi's name, like a sender name in a chat.
   bubbleName: { fontSize: 13, fontWeight: "700", color: theme.colors.brand },
-  bubbleTipPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: theme.borderRadius.pill,
-    backgroundColor: theme.colors.primary,
-  },
-  bubbleTipText: { fontSize: 11, fontWeight: "600", color: theme.colors.onPrimary },
+  bubbleTipInline: { fontWeight: "800", color: theme.colors.brand },
   bubbleSpacer: { flex: 1 },
   askBtn: {
     flexDirection: "row",
@@ -861,7 +871,8 @@ const useStyles = makeStyles((theme: Theme) => ({
     borderColor: theme.colors.brand,
   },
   askText: { fontSize: 14.5, fontWeight: "700", color: theme.colors.brand },
-  bubbleHighlight: { fontWeight: "800", color: theme.colors.brand },
+  // Copper, so a highlighted word never reads as Penggi's (blue) name.
+  bubbleHighlight: { fontWeight: "800", color: theme.colors.accent },
   bubbleGo: { flexDirection: "row", alignItems: "center", gap: 3 },
   bubbleGoText: { fontSize: 12, fontWeight: "700", color: theme.colors.brand },
   bubbleText: { fontSize: 12.5, lineHeight: 18, fontWeight: "600", color: theme.colors.text, minHeight: 54 },
