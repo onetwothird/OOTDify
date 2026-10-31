@@ -29,7 +29,8 @@ import { CreatorsRow, LookCard, Spotlight } from "../../features/discover/LookVi
 import { likedCreators, lookOfTheWeek, outfitLooks, sortLooks, splitColumns, topCreators, type LookSort } from "../../features/discover/rank";
 import { Chip } from "../../shared/components/Chip";
 import { SkeletonGrid } from "../../shared/components/LoadingState";
-import { ScreenHeader } from "../../shared/components/ScreenHeader";
+import { QuickActions } from "../../features/notifications/QuickActions";
+import { PenggiHeader, PenggiStatusShade } from "../../shared/components/PenggiHeader";
 import { EmptyState, ErrorState } from "../../shared/components/StateViews";
 import type { Theme } from "../../shared/config/theme";
 import { useT } from "../../shared/i18n/useT";
@@ -265,7 +266,8 @@ export default function DiscoverScreen() {
   ];
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top + 8 }]}>
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
+      <PenggiStatusShade />
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
         showsVerticalScrollIndicator={false}
@@ -280,7 +282,15 @@ export default function DiscoverScreen() {
           else if (view === "looks" && lookLimit < wall.length) setLookLimit((n) => showMore(n, wall.length, LOOKS_PAGE));
         }}
       >
-        <ScreenHeader variant="tab" icon="compass" title={t("explore.title")} subtitle={t("explore.subtitle")} />
+        <PenggiHeader
+          corner={<QuickActions tone="header" />}
+          inset={GUTTER}
+          image={require("../../../assets/images/headers/discover-penggi.png")}
+          penggiLabel={t("header.penggi_a11y")}
+          tips={[t("header.tips.discover.1"), t("header.tips.discover.2"), t("header.tips.discover.3")]}
+          title={t("explore.title")}
+          subtitle={t("explore.subtitle")}
+        />
 
         <View style={styles.views} accessibilityRole="tablist">
           {views.map(([key, label]) => (
