@@ -16,7 +16,7 @@ import {
   removeItemFavorite,
 } from "../../features/clothing/service";
 import { liveOutfit, useLiveGarment } from "../../features/tryon/ar/liveGarmentStore";
-import { PHOTO_TRYON_AVAILABLE } from "../../features/tryon/config";
+import { PHOTO_TRYON_AVAILABLE, TRYON_UNDER_MAINTENANCE } from "../../features/tryon/config";
 import { useTryOnSelection } from "../../features/tryon/selectionStore";
 import { WardrobeStore, useWardrobeStore } from "../../features/wardrobe/store";
 import { AppButton } from "../../shared/components/AppButton";
@@ -242,7 +242,7 @@ export default function ItemDetailScreen() {
               }}
             />
           ) : null}
-          {liveItem ? (
+          {liveItem && !TRYON_UNDER_MAINTENANCE ? (
             <AppButton
               label={t("scan.tryon.live")}
               icon="body-outline"
