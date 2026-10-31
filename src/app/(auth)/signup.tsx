@@ -15,14 +15,13 @@ import { useState } from "react";
 import {
   Animated,
   Easing,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   pickAvatarPhoto,
@@ -248,7 +247,7 @@ export default function SignupScreen() {
   return (
     <View style={styles.screen}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior="padding"
         style={styles.flex}
       >
         <ScrollView
