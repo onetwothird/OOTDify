@@ -1,7 +1,9 @@
 // C:\OOTDify\src\app\outfit\[id].tsx
 // Saved outfit detail: pulls the real row from saved_outfits, hydrates the
-// garment ids from the catalog, and shows the try-on result image (private
-// bucket → signed URL) when one exists.
+// garment ids from the catalog, and offers "See it worn": a preset model or
+// the user's own photo dressed in these pieces by the AI (OutfitTryOn), with
+// any picture already kept on the outfit shown there (private bucket → signed
+// URL).
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -16,6 +18,7 @@ import {
   fetchSavedOutfits,
   SavedOutfit,
 } from "../../features/clothing/service";
+import { OutfitTryOn } from "../../features/tryon/OutfitTryOn";
 import { ConfirmSheet } from "../../shared/components/ConfirmSheet";
 import { SmartImage } from "../../shared/components/SmartImage";
 import { ErrorState } from "../../shared/components/StateViews";
@@ -131,12 +134,15 @@ export default function OutfitDetailScreen() {
             {new Date(outfit.created_at).toLocaleDateString()}
           </Text>
 
-          {heroUri ? (
-            <View style={styles.heroWrap}>
-              <Image source={{ uri: heroUri }} style={styles.heroImage} contentFit="cover" transition={150} />
-              <Text style={styles.heroLabel}>{t("outfit.detail.tryon_label")}</Text>
-            </View>
-          ) : outfit.try_on_id ? (
+          <OutfitTryOn
+            key={heroUri ?? "none"}
+            outfitId={outfit.id}
+            clothingIds={outfit.clothing_ids ?? []}
+            pieceImages={items.map((it) => it.image_url)}
+            savedResultUri={heroUri}
+            onSaved={(resultUrl) => setOutfit((o) => (o ? { ...o, result_url: resultUrl } : o))}
+          />
+          {!heroUri && outfit.try_on_id && !outfit.result_url ? (
             <Text style={styles.missingResult}>
               {t("outfit.detail.missing_result")}
             </Text>
