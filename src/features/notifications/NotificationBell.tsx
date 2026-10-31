@@ -1,7 +1,7 @@
 // C:\OOTDify\src\features\notifications\NotificationBell.tsx
-// The bell in the floating stack, above Settings and +. Its badge is the
-// unread count (99+ past 99), and it gives a small ring when a new
-// notification arrives. Sized and lifted to match the Settings button.
+// The notifications bell, shown in the header's quick actions beside the
+// Settings gear. Its badge is the unread count (99+ past 99), and it gives a
+// small ring when a new notification arrives.
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -13,7 +13,20 @@ import { makeStyles } from "../../shared/theme/makeStyles";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import { useNotificationsStore } from "./store";
 
-export function NotificationBell({ size = 44 }: { size?: number }) {
+export function NotificationBell({
+  size = 44,
+  flat = false,
+  color,
+  badgeRing,
+}: {
+  size?: number;
+  /** Inside a container that already draws the surface (the quick actions pill). */
+  flat?: boolean;
+  /** Icon colour; the text colour by default. */
+  color?: string;
+  /** The badge's outline, matching whatever the bell sits on. */
+  badgeRing?: string;
+}) {
   const styles = useStyles();
   const theme = useAppTheme();
   const router = useRouter();
@@ -55,16 +68,16 @@ export function NotificationBell({ size = 44 }: { size?: number }) {
       hitSlop={6}
       onPress={() => router.push("/notifications")}
       style={({ pressed }) => [
-        styles.bell,
+        flat ? styles.flat : styles.bell,
         { width: size, height: size, borderRadius: size / 2 },
         pressed && { opacity: 0.8 },
       ]}
     >
       <Animated.View style={[styles.icon, { transform: [{ rotate }] }]}>
-        <Ionicons name={unread ? "notifications" : "notifications-outline"} size={21} color={theme.colors.text} />
+        <Ionicons name={unread ? "notifications" : "notifications-outline"} size={21} color={color ?? theme.colors.text} />
       </Animated.View>
       {unread > 0 ? (
-        <View style={styles.badge}>
+        <View style={[styles.badge, badgeRing ? { borderColor: badgeRing } : null]}>
           <Text style={styles.badgeText}>{label}</Text>
         </View>
       ) : null}
@@ -85,6 +98,7 @@ const useStyles = makeStyles((theme) => ({
     shadowRadius: 6,
     elevation: 4,
   },
+  flat: { alignItems: "center", justifyContent: "center" },
   // Swings from the top, like a real bell.
   icon: { transformOrigin: "50% 15%" },
   badge: {
