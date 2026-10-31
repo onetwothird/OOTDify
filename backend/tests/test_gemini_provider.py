@@ -168,3 +168,62 @@ def test_a_bad_request_does_not_try_the_fallback(monkeypatch):
     with pytest.raises(gemini_client.GeminiFailed):
         gemini_client.generate_json(turns=[("user", ["hi"])])
     assert models.asked == ["main"]
+
+
+def test_a_rate_limited_model_falls_back_to_the_lighter_one(monkeypatch):
+    from google.genai import errors
+
+    monkeypatch.setattr("config.Config.GEMINI_API_KEY", "k")
+    monkeypatch.setattr("config.Config.GEMINI_MODEL", "main")
+    monkeypatch.setattr("config.Config.GEMINI_FALLBACK_MODEL", "lite")
+    quota = errors.ClientError(429, {"error": {"code": 429, "message": "quota", "status": "RESOURCE_EXHAUSTED"}})
+    models = _fake_client(monkeypatch, {"main": quota, "lite": _reply('{"reply": "hi"}')})
+    assert gemini_client.generate_json(turns=[("user", ["hi"])]) == '{"reply": "hi"}'
+    assert models.asked == ["main", "lite"]
+
+
+def test_a_timed_out_model_falls_back_to_the_lighter_one(monkeypatch):
+    import httpx
+
+    monkeypatch.setattr("config.Config.GEMINI_API_KEY", "k")
+    monkeypatch.setattr("config.Config.GEMINI_MODEL", "main")
+    monkeypatch.setattr("config.Config.GEMINI_FALLBACK_MODEL", "lite")
+    models = _fake_client(monkeypatch, {"main": httpx.ReadTimeout("slow"), "lite": _reply('{"reply": "hi"}')})
+    assert gemini_client.generate_json(turns=[("user", ["hi"])]) == '{"reply": "hi"}'
+    assert models.asked == ["main", "lite"]
+
+
+def test_both_models_rate_limited_is_rate_limited(monkeypatch):
+    from google.genai import errors
+
+    monkeypatch.setattr("config.Config.GEMINI_API_KEY", "k")
+    monkeypatch.setattr("config.Config.GEMINI_MODEL", "main")
+    monkeypatch.setattr("config.Config.GEMINI_FALLBACK_MODEL", "lite")
+    quota = errors.ClientError(429, {"error": {"code": 429, "message": "quota", "status": "RESOURCE_EXHAUSTED"}})
+    _fake_client(monkeypatch, {"main": quota, "lite": quota})
+    with pytest.raises(gemini_client.GeminiRateLimited):
+        gemini_client.generate_json(turns=[("user", ["hi"])])
+
+
+class _RecordingModels(_FakeModels):
+    def generate_content(self, *, model, contents, config):
+        self.configs = getattr(self, "configs", []) + [config]
+        return super().generate_content(model=model, contents=contents, config=config)
+
+
+def test_quick_replies_turn_thinking_off_on_2_5_models(monkeypatch):
+    from google import genai
+
+    monkeypatch.setattr("config.Config.GEMINI_API_KEY", "k")
+    monkeypatch.setattr("config.Config.GEMINI_MODEL", "gemini-2.5-flash")
+    models = _RecordingModels({"gemini-2.5-flash": _reply("{}")})
+    monkeypatch.setattr(genai, "Client", lambda **_: type("C", (), {"models": models})())
+    gemini_client.generate_json(turns=[("user", ["hi"])], quick=True)
+    assert models.configs[0].thinking_config.thinking_budget == 0
+
+
+def test_chat_asks_for_a_quick_reply(gemini_on):
+    respond, calls = gemini_on
+    respond(json.dumps({"reply": "hi", "piece_ids": []}))
+    stylist_chat.chat([ChatTurn("user", "hi")], CLOSET, {}, {})
+    assert calls[0]["quick"] is True
