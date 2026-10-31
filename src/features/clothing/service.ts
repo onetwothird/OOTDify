@@ -338,6 +338,15 @@ export async function fetchSavedOutfits(): Promise<SavedOutfit[]> {
   return (data ?? []) as SavedOutfit[];
 }
 
+/** Keep a try-on picture on a saved outfit (owner-only via RLS). */
+export async function attachTryOnToOutfit(outfitId: string, tryOnId: string, resultUrl: string): Promise<void> {
+  const { error } = await supabase
+    .from("saved_outfits")
+    .update({ try_on_id: tryOnId, result_url: resultUrl })
+    .eq("id", outfitId);
+  if (error) throw error;
+}
+
 export async function insertSavedOutfit(outfit: {
   name?: string | null;
   occasion?: string | null;
