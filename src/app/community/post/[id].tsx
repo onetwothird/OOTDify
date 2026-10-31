@@ -4,7 +4,8 @@
 // caption, likes, and the comments already open with the box to add one.
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, View } from "react-native";
+import { View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PostCard } from "../../../features/community/components/PostCard";
@@ -51,10 +52,7 @@ export default function PostScreen() {
   const update = (post: FeedPost) => setLoad({ status: "ready", post });
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.screen, { paddingTop: insets.top + 8 }]}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
+    <View style={[styles.screen, { paddingTop: insets.top + 8 }]}>
       <View style={styles.pad}>
         <ScreenHeader title={t("community.post.page_title")} onBack={() => router.back()} backLabel={t("community.chat.back_a11y")} />
       </View>
@@ -71,7 +69,8 @@ export default function PostScreen() {
           <EmptyState icon="document-outline" title={t("community.post.gone.title")} message={t("community.post.gone.message")} />
         </View>
       ) : (
-        <ScrollView
+        <KeyboardAwareScrollView
+          bottomOffset={16}
           contentContainerStyle={[styles.pad, styles.content, { paddingBottom: insets.bottom + 32 }]}
           keyboardShouldPersistTaps="handled"
         >
@@ -92,9 +91,9 @@ export default function PostScreen() {
                 .catch((e: unknown) => toast.error(t("community.post.delete_error"), communityErrorMessage(e)))
             }
           />
-        </ScrollView>
+        </KeyboardAwareScrollView>
       )}
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
