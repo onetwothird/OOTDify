@@ -1,51 +1,32 @@
 // C:\OOTDify\src\features\capture\CreateMenu.tsx
-// The floating (+) above the tab bar, with the Settings gear just above it
-// and the notifications bell above that. Tapping + turns it into an × and fans
-// out the three ways to make something:
-// add a piece, pick an outfit, or try one on. Rendered once by the tabs
-// layout, over every tab, and slides down with the tab bar while scrolling.
+// The Create (+) button that sits last in the tab bar, after Profile, and the menu
+// it opens. Tapping + turns it into an × and fans out the three ways to make
+// something above the tab bar: add a piece, pick an outfit, or try one on.
+// The button is the tab bar's item; the menu is drawn over the page once by
+// the tabs layout. Both read useCreateMenuStore.
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Easing, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 
 import { useReduceMotion } from "../../shared/hooks/useReduceMotion";
 import { useT } from "../../shared/i18n/useT";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
-import { NotificationBell } from "../notifications/NotificationBell";
 import { useCaptureModalStore } from "./captureModalStore";
+import { useCreateMenuStore } from "./createMenuStore";
 
-const FAB = 58;
+const PLUS_W = 54;
+const PLUS_H = 40;
 const SMALL = 46;
 const GAP = 12;
-const FAB_TOP_MARGIN = 4;
-/** From the stack's bottom to the Settings slot, where the choices begin. */
-const SETTINGS_LIFT = FAB + FAB_TOP_MARGIN + GAP;
-/** How far Settings drops to land on the centre of +. */
-const TUCK = SETTINGS_LIFT + SMALL / 2 - FAB / 2;
-/** The bell sits one slot higher, so it drops one slot further. */
-const BELL_TUCK = TUCK + SMALL + GAP;
 
 type Action = { key: string; icon: keyof typeof Ionicons.glyphMap; label: string; run: () => void };
 
-export function CreateMenu({
-  bottom,
-  slide,
-}: {
-  bottom: number;
-  /** How far the tab bar has slid down; the stack follows it. */
-  slide: Animated.AnimatedInterpolation<number>;
-}) {
-  const styles = useStyles();
-  const theme = useAppTheme();
-  const router = useRouter();
-  const { t } = useT();
+/** 0 → 1 as the menu opens; shared by the button's turn and the fan-out. */
+function useMenuProgress(open: boolean) {
   const reduceMotion = useReduceMotion();
-  const openCapture = useCaptureModalStore((s) => s.open);
-  const [open, setOpen] = useState(false);
-  const [progress] = useState(() => new Animated.Value(0));
-
+  const [progress] = useState(() => new Animated.Value(open ? 1 : 0));
   useEffect(() => {
     if (reduceMotion) {
       progress.setValue(open ? 1 : 0);
@@ -60,6 +41,62 @@ export function CreateMenu({
     anim.start();
     return () => anim.stop();
   }, [open, progress, reduceMotion]);
+  return progress;
+}
+
+/** The (+) tab bar item. It opens the menu instead of switching tabs. */
+export function CreateTabButton({ style }: { style?: StyleProp<ViewStyle> }) {
+  const styles = useStyles();
+  const theme = useAppTheme();
+  const { t } = useT();
+  const open = useCreateMenuStore((s) => s.open);
+  const toggle = useCreateMenuStore((s) => s.toggle);
+  const progress = useMenuProgress(open);
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={open ? t("common.close") : t("tab.create")}
+      accessibilityState={{ expanded: open }}
+      onPress={toggle}
+      style={[style, styles.tabItem]}
+    >
+      {({ pressed }) => (
+        <>
+          <View style={[styles.plus, pressed && styles.pressed]}>
+            <Animated.View
+              style={{
+                transform: [{ rotate: progress.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "45deg"] }) }],
+              }}
+            >
+              <Ionicons name="add" size={30} color={theme.colors.onBrand} />
+            </Animated.View>
+          </View>
+          <Text style={styles.tabLabel}>{t("tab.create")}</Text>
+        </>
+      )}
+    </Pressable>
+  );
+}
+
+/** The fanned-out choices and the scrim behind them. */
+export function CreateMenu({
+  bottom,
+  slide,
+}: {
+  /** Where the lowest choice sits, measured from the screen's bottom. */
+  bottom: number;
+  /** How far the tab bar has slid down; the choices follow it. */
+  slide: Animated.AnimatedInterpolation<number>;
+}) {
+  const styles = useStyles();
+  const theme = useAppTheme();
+  const router = useRouter();
+  const { t } = useT();
+  const openCapture = useCaptureModalStore((s) => s.open);
+  const open = useCreateMenuStore((s) => s.open);
+  const close = useCreateMenuStore((s) => s.close);
+  const progress = useMenuProgress(open);
 
   const actions: Action[] = [
     { key: "piece", icon: "camera-outline", label: t("create_menu.add_piece"), run: openCapture },
@@ -68,7 +105,7 @@ export function CreateMenu({
   ];
 
   const choose = (action: Action) => {
-    setOpen(false);
+    close();
     action.run();
   };
 
@@ -81,22 +118,20 @@ export function CreateMenu({
       >
         <Pressable
           style={StyleSheet.absoluteFill}
-          onPress={() => setOpen(false)}
+          onPress={close}
           accessibilityRole="button"
           accessibilityLabel={t("common.close")}
         />
       </Animated.View>
 
-      {/* The choices sit where Settings was, rising out of + one after another,
-          nearest first. A sibling of the stack (not a child) so every row stays
-          inside a touchable parent on Android. */}
+      {/* The choices rise out of the tab bar one after another, nearest first. */}
       <Animated.View
-        style={[styles.actions, { bottom: bottom + SETTINGS_LIFT, transform: [{ translateY: slide }] }]}
+        style={[styles.actions, { bottom, transform: [{ translateY: slide }] }]}
         pointerEvents="box-none"
       >
         {actions.map((action, i) => {
-          const fromFab = actions.length - 1 - i;
-          const start = fromFab * 0.15;
+          const fromBar = actions.length - 1 - i;
+          const start = fromBar * 0.15;
           const enter = { inputRange: [start, start + 0.55], extrapolate: "clamp" as const };
           return (
             <Animated.View
@@ -105,7 +140,7 @@ export function CreateMenu({
               style={{
                 opacity: progress.interpolate({ ...enter, outputRange: [0, 1] }),
                 transform: [
-                  { translateY: progress.interpolate({ ...enter, outputRange: [18 + fromFab * 14, 0] }) },
+                  { translateY: progress.interpolate({ ...enter, outputRange: [18 + fromBar * 14, 0] }) },
                   { scale: progress.interpolate({ ...enter, outputRange: [0.85, 1] }) },
                 ],
               }}
@@ -124,85 +159,29 @@ export function CreateMenu({
           );
         })}
       </Animated.View>
-
-      <Animated.View style={[styles.stack, { bottom, transform: [{ translateY: slide }] }]} pointerEvents="box-none">
-        {/* The bell tucks away with Settings, a beat ahead, so the choices have
-            the column to themselves. */}
-        <Animated.View
-          pointerEvents={open ? "none" : "auto"}
-          style={[
-            styles.slot,
-            {
-              opacity: progress.interpolate({ inputRange: [0, 0.4], outputRange: [1, 0], extrapolate: "clamp" }),
-              transform: [
-                { translateY: progress.interpolate({ inputRange: [0, 0.6], outputRange: [0, BELL_TUCK], extrapolate: "clamp" }) },
-                { scale: progress.interpolate({ inputRange: [0, 0.6], outputRange: [1, 0.4], extrapolate: "clamp" }) },
-              ],
-            },
-          ]}
-        >
-          <NotificationBell size={SMALL} />
-        </Animated.View>
-
-        {/* Settings tucks into + while the menu is open: it drops onto the
-            button, spins a quarter turn and shrinks away, then returns. */}
-        <Animated.View
-          pointerEvents={open ? "none" : "auto"}
-          style={{
-            opacity: progress.interpolate({ inputRange: [0, 0.5], outputRange: [1, 0], extrapolate: "clamp" }),
-            transform: [
-              { translateY: progress.interpolate({ inputRange: [0, 0.6], outputRange: [0, TUCK], extrapolate: "clamp" }) },
-              { rotate: progress.interpolate({ inputRange: [0, 0.6], outputRange: ["0deg", "-90deg"], extrapolate: "clamp" }) },
-              { scale: progress.interpolate({ inputRange: [0, 0.6], outputRange: [1, 0.4], extrapolate: "clamp" }) },
-            ],
-          }}
-        >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t("home.settings_a11y")}
-            onPress={() => router.push("/settings/general")}
-            style={({ pressed }) => [styles.settingsBtn, pressed && styles.pressed]}
-          >
-            <Ionicons name="settings-outline" size={21} color={theme.colors.text} />
-          </Pressable>
-        </Animated.View>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={open ? t("common.close") : t("tab.create")}
-          accessibilityState={{ expanded: open }}
-          onPress={() => setOpen((o) => !o)}
-          style={({ pressed }) => [styles.fab, pressed && styles.pressed]}
-        >
-          <Animated.View
-            style={{
-              transform: [{ rotate: progress.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "45deg"] }) }],
-            }}
-          >
-            <Ionicons name="add" size={32} color={theme.colors.onBrand} />
-          </Animated.View>
-        </Pressable>
-      </Animated.View>
     </View>
   );
 }
 
 const useStyles = makeStyles((theme) => ({
   scrim: { backgroundColor: theme.colors.background },
-  stack: {
-    position: "absolute",
-    right: theme.spacing.page,
-    alignItems: "flex-end",
-    gap: GAP,
+  pressed: { opacity: 0.8 },
+  tabItem: { flex: 1, alignItems: "center", justifyContent: "center" },
+  plus: {
+    width: PLUS_W,
+    height: PLUS_H,
+    borderRadius: PLUS_H / 2,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.brand,
   },
+  tabLabel: { fontSize: 10, fontWeight: "500", marginTop: 1, color: theme.colors.textMuted },
   actions: {
     position: "absolute",
     right: theme.spacing.page,
     alignItems: "flex-end",
     gap: GAP,
   },
-  pressed: { opacity: 0.8 },
-  slot: { marginRight: (FAB - SMALL) / 2 },
   action: {
     flexDirection: "row",
     alignItems: "center",
@@ -216,42 +195,11 @@ const useStyles = makeStyles((theme) => ({
   actionIcon: {
     width: SMALL,
     height: SMALL,
-    marginRight: (FAB - SMALL) / 2,
     borderRadius: SMALL / 2,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: theme.colors.surface,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: theme.colors.border,
-  },
-  settingsBtn: {
-    width: SMALL,
-    height: SMALL,
-    marginRight: (FAB - SMALL) / 2,
-    borderRadius: SMALL / 2,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: theme.colors.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.colors.border,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  fab: {
-    width: FAB,
-    height: FAB,
-    borderRadius: FAB / 2,
-    marginTop: FAB_TOP_MARGIN,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: theme.colors.brand,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
   },
 }));
