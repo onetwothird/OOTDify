@@ -178,6 +178,11 @@ class Config:
     GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
     # Used when GEMINI_MODEL is busy, out of quota or times out; empty to disable.
     GEMINI_FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-flash-lite-latest")
+    # Photo try-on pictures. The fallback is tried when the first is busy.
+    GEMINI_IMAGE_MODEL = os.getenv("GEMINI_IMAGE_MODEL", "gemini-3-pro-image-preview")
+    GEMINI_IMAGE_FALLBACK_MODEL = os.getenv("GEMINI_IMAGE_FALLBACK_MODEL", "gemini-2.5-flash-image")
+    # Try-on pictures one user may start per 24 hours (each costs real money).
+    TRYON_DAILY_LIMIT = int(os.getenv("TRYON_DAILY_LIMIT", "10"))
 
     # ------------------------------ Decart ---------------------------------
     # "Go realistic" live try-on. The key stays server-side; the app only ever
