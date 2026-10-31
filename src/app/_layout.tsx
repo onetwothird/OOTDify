@@ -20,6 +20,7 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { clearProfileCache } from "../features/profile/profileCache";
 import { BiometricGate } from "../features/settings/BiometricGate";
@@ -165,31 +166,34 @@ function RootLayoutInner() {
 
   return (
     <SafeAreaProvider>
-      {/* Follow the app's own Appearance setting, not just the OS one. */}
-      <StatusBar style={scheme === "dark" ? "light" : "dark"} />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: activeTheme.colors.background },
-        }}
-      >
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="ai-picker" />
-        <Stack.Screen name="catalog/[id]" />
-        <Stack.Screen name="item/[id]" />
-        <Stack.Screen name="outfit/[id]" />
-        <Stack.Screen name="consent" />
-        <Stack.Screen name="privacy/data" />
-        {/* Always light (see LegalDocument), so no dark flash during the transition. */}
-        <Stack.Screen name="privacy/policy" options={{ contentStyle: { backgroundColor: lightColors.background } }} />
-        <Stack.Screen name="privacy/terms" options={{ contentStyle: { backgroundColor: lightColors.background } }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <PenggiMomentHost />
-      <ToastHost />
-      {/* Last, so the lock covers every screen and toast. */}
-      <BiometricGate signedIn={Boolean(session)} />
+      {/* Tracks the keyboard everywhere, including inside Modals on Android. */}
+      <KeyboardProvider>
+        {/* Follow the app's own Appearance setting, not just the OS one. */}
+        <StatusBar style={scheme === "dark" ? "light" : "dark"} />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: activeTheme.colors.background },
+          }}
+        >
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="ai-picker" />
+          <Stack.Screen name="catalog/[id]" />
+          <Stack.Screen name="item/[id]" />
+          <Stack.Screen name="outfit/[id]" />
+          <Stack.Screen name="consent" />
+          <Stack.Screen name="privacy/data" />
+          {/* Always light (see LegalDocument), so no dark flash during the transition. */}
+          <Stack.Screen name="privacy/policy" options={{ contentStyle: { backgroundColor: lightColors.background } }} />
+          <Stack.Screen name="privacy/terms" options={{ contentStyle: { backgroundColor: lightColors.background } }} />
+          <Stack.Screen name="+not-found" />
+        </Stack>
+        <PenggiMomentHost />
+        <ToastHost />
+        {/* Last, so the lock covers every screen and toast. */}
+        <BiometricGate signedIn={Boolean(session)} />
+      </KeyboardProvider>
     </SafeAreaProvider>
   );
 }
