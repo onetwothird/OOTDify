@@ -18,9 +18,9 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
-  useWindowDimensions,
   View,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PostCard } from "../../features/community/components/PostCard";
@@ -44,7 +44,8 @@ import {
 import type { CommunityRoom, ConversationListEntry, FeedPost } from "../../features/community/types";
 import { ProfileAvatar } from "../../features/profile/ProfileAvatar";
 import { AppButton } from "../../shared/components/AppButton";
-import { ScreenHeader } from "../../shared/components/ScreenHeader";
+import { QuickActions } from "../../features/notifications/QuickActions";
+import { PenggiHeader, PenggiStatusShade } from "../../shared/components/PenggiHeader";
 import { EmptyState, ErrorState } from "../../shared/components/StateViews";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
@@ -72,14 +73,6 @@ export default function CommunityScreen() {
   const { t } = useT();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { width } = useWindowDimensions();
-  // Header action responsiveness. The full "Share a look" button needs roughly
-  // 150pt, the title + subtitle about 170pt, plus the gutter (2×20) and the
-  // header's own gap (16) — about 376pt before anything has room to breathe.
-  // A 380pt line therefore still compresses on 380–420pt phones, especially at
-  // larger font scales, so collapse to the icon button at 430pt instead: the
-  // label is never squeezed, and the title keeps a comfortable column.
-  const condensed = width < 430;
 
   const [tab, setTab] = useState<Tab>("feed");
   // Notifications open a specific tab (?tab=friends); follow it whenever it
@@ -307,41 +300,29 @@ export default function CommunityScreen() {
   // fixed everyone-room has its own pinned row — so both are excluded here.
   const chatRows = (conversations ?? []).filter((c) => !c.isRoom && !c.isGroup);
 
-  return (
-    <View style={[styles.screen, { paddingTop: insets.top + 8 }]}>
-      {/* Header is the one element rendered outside the lists, so it supplies
-          its own horizontal inset — the same 20pt the segment row and list
-          content use, keeping title, subtitle and action on one aligned rail. */}
-      <View style={styles.headerWrap}>
-        <ScreenHeader
-          variant="tab"
-          icon="people"
+  // The header and the switcher scroll away with each list, like every other
+  // tab. Inside a list (20pt padding) the band bleeds back to the edges.
+  const top = (
+    <View style={styles.top}>
+        <PenggiHeader
+          corner={<QuickActions tone="header" />}
+          inset={0}
+          gutter={GUTTER}
+          image={require("../../../assets/images/headers/community-penggi.png")}
+          penggiLabel={t("header.penggi_a11y")}
+          tips={[t("header.tips.community.1"), t("header.tips.community.2"), t("header.tips.community.3")]}
           title={t("community.title")}
           subtitle={t("community.subtitle")}
           right={
-            condensed ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t("community.share")}
-                hitSlop={8}
-                onPress={() => setShareOpen(true)}
-                style={({ pressed }) => [styles.shareIconBtn, pressed && { opacity: 0.7 }]}
-              >
-                <Ionicons name="create-outline" size={20} color={theme.colors.onBrand} />
-              </Pressable>
-            ) : (
-              <AppButton
-                label={t("community.share")}
-                icon="create-outline"
-                size="md"
-                onPress={() => setShareOpen(true)}
-              />
-            )
+            <AppButton
+              variant="secondary"
+              label={t("community.share")}
+              icon="create-outline"
+              size="md"
+              onPress={() => setShareOpen(true)}
+            />
           }
         />
-      </View>
-
-      {/* ------------------------------------------------ Segmented switcher */}
       <View style={styles.segment}>
         {(["feed", "chats", "friends"] as Tab[]).map((key) => (
           <Pressable
@@ -361,20 +342,38 @@ export default function CommunityScreen() {
           </Pressable>
         ))}
       </View>
+    </View>
+  );
 
+  return (
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
+      <PenggiStatusShade />
       {tab === "friends" ? (
-        <FriendsPanel bottomSpace={tabBarSpace} onScroll={hideOnScroll.onScroll} />
+        <FriendsPanel header={top} bottomSpace={tabBarSpace} onScroll={hideOnScroll.onScroll} />
       ) : tab === "feed" ? (
         posts === null && !feedError ? (
-          <FlyingPreloader size={88} style={styles.centered} />
+          <View style={styles.padded}>
+            {top}
+            <FlyingPreloader size={88} style={styles.centered} />
+          </View>
         ) : feedError ? (
-          <ErrorState message={feedError} onRetry={() => void loadFeed()} />
+          <View style={styles.padded}>
+            {top}
+            <ErrorState message={feedError} onRetry={() => void loadFeed()} />
+          </View>
         ) : (
           <FlatList
             data={posts ?? []}
             keyExtractor={(p) => p.id}
             renderItem={renderFeedItem}
-            ListHeaderComponent={<MyDayTray />}
+            // Comments open inline: keep the focused comment box above the keyboard.
+            renderScrollComponent={(props) => <KeyboardAwareScrollView {...props} bottomOffset={16} />}
+            ListHeaderComponent={
+              <View>
+                {top}
+                <MyDayTray />
+              </View>
+            }
             contentContainerStyle={[styles.listContent, { paddingBottom: tabBarSpace }]}
             {...hideOnScroll}
             showsVerticalScrollIndicator={false}
@@ -398,9 +397,15 @@ export default function CommunityScreen() {
           />
         )
       ) : conversations === null && !chatsError ? (
-        <FlyingPreloader size={88} style={styles.centered} />
+        <View style={styles.padded}>
+          {top}
+          <FlyingPreloader size={88} style={styles.centered} />
+        </View>
       ) : chatsError ? (
-        <ErrorState message={chatsError} onRetry={() => void loadChats()} />
+        <View style={styles.padded}>
+          {top}
+          <ErrorState message={chatsError} onRetry={() => void loadChats()} />
+        </View>
       ) : (
         <FlatList
           data={chatRows}
@@ -416,7 +421,9 @@ export default function CommunityScreen() {
             />
           }
           ListHeaderComponent={
-            <View style={styles.chatSections}>
+            <View>
+              {top}
+              <View style={styles.chatSections}>
               {/* The shared everyone-room is pinned at the top of the list. */}
               <Pressable
                 accessibilityRole="button"
@@ -509,6 +516,7 @@ export default function CommunityScreen() {
                   <Text style={styles.sectionTitle}>{t("community.chat.dms")}</Text>
                 </View>
               ) : null}
+              </View>
             </View>
           }
           ListEmptyComponent={
@@ -608,10 +616,9 @@ export default function CommunityScreen() {
 const useStyles = makeStyles((theme) => ({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   centered: { marginTop: 48 },
-  headerWrap: {
-    paddingHorizontal: GUTTER,
-    paddingTop: theme.spacing.sm,
-  },
+  // Cancels the list's 20pt padding so the header band runs edge to edge.
+  top: { marginHorizontal: -GUTTER, marginBottom: theme.spacing.sm },
+  padded: { flex: 1, paddingHorizontal: GUTTER },
   segment: {
     flexDirection: "row",
     gap: 8,
@@ -629,7 +636,7 @@ const useStyles = makeStyles((theme) => ({
   segmentBtnActive: { backgroundColor: theme.colors.primary },
   segmentText: { fontSize: 13, fontWeight: "600", color: theme.colors.textMuted },
   segmentTextActive: { color: theme.colors.onPrimary },
-  listContent: { paddingHorizontal: GUTTER, paddingTop: 4, paddingBottom: 32, gap: 14 },
+  listContent: { paddingHorizontal: GUTTER, paddingBottom: 32, gap: 14 },
   shareIconBtn: {
     width: 44,
     height: 44,
