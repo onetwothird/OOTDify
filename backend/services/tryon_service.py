@@ -113,8 +113,9 @@ class TryOnJobStore:
     def create(
         self,
         user_id: str,
-        body_photo_id: str,
+        body_photo_id: Optional[str],
         clothing_ids: List[str],
+        model_preset: Optional[str] = None,
     ) -> dict:
         row = (
             self._client.table("try_on_jobs")
@@ -122,6 +123,7 @@ class TryOnJobStore:
                 {
                     "user_id": user_id,
                     "body_photo_id": body_photo_id,
+                    "model_preset": model_preset,
                     "clothing_ids": clothing_ids,
                     "status": "queued",
                 }
@@ -129,6 +131,18 @@ class TryOnJobStore:
             .execute()
         )
         return row.data[0]
+
+    def count_since(self, user_id: str, since: datetime) -> int:
+        """How many jobs the user created since `since` (for the daily cap)."""
+        rows = (
+            self._client.table("try_on_jobs")
+            .select("id")
+            .eq("user_id", user_id)
+            .gte("created_at", since.isoformat())
+            .execute()
+            .data
+        )
+        return len(rows or [])
 
     def get(self, job_id: str) -> Optional[dict]:
         rows = self._client.table("try_on_jobs").select("*").eq("id", job_id).limit(1).execute().data
@@ -253,9 +267,20 @@ def _resolve_image_bytes(image_ref: str) -> bytes:
     return resp.content
 
 
+def default_provider() -> VTONProvider:
+    """Gemini when its key is set, else the local-model boundary (honest failure)."""
+    from services import gemini_client
+
+    if gemini_client.use_gemini():
+        from services.gemini_tryon import GeminiTryOnProvider
+
+        return GeminiTryOnProvider()
+    return VTONProvider(Config.TRYON_MODEL_PATH)
+
+
 class TryOnPipeline:
     def __init__(self, provider: Optional[VTONProvider] = None) -> None:
-        self.provider = provider or VTONProvider(Config.TRYON_MODEL_PATH)
+        self.provider = provider or default_provider()
         self.store = TryOnJobStore()
 
     def run(self, job: dict) -> None:
@@ -287,7 +312,12 @@ class TryOnPipeline:
     # ------------------------------------------------------------ internals
     @staticmethod
     def _resolve_clothing_refs(user_id: str, clothing_ids: List[str]) -> List[str]:
-        """Return the image reference (storage path or URL) for each clothing id.
+        """The image reference (storage path or URL) of each clothing id."""
+        return [row["image_url"] for row in TryOnPipeline._resolve_clothing_rows(user_id, clothing_ids)]
+
+    @staticmethod
+    def _resolve_clothing_rows(user_id: str, clothing_ids: List[str]) -> List[dict]:
+        """Image reference plus name, category and color of each clothing id.
 
         Ids may reference:
           * public.clothing            (shared catalog, image_url column)
@@ -295,38 +325,44 @@ class TryOnPipeline:
         Ownership of clothing_items is verified here (user_id filter), so a
         user can never feed another user's wardrobe item into their try-on.
         """
-        refs: List[str] = []
+        rows: List[dict] = []
         if not clothing_ids:
-            return refs
+            return rows
 
         catalog_rows = (
             get_supabase()
             .table("clothing")
-            .select("id, image_url")
+            .select("id, image_url, name, category, color")
             .in_("id", clothing_ids)
             .execute()
             .data
         )
-        catalog_map = {str(r["id"]): r["image_url"] for r in catalog_rows if r.get("image_url")}
+        catalog_map = {str(r["id"]): r for r in catalog_rows if r.get("image_url")}
         for cid in clothing_ids:
             if cid in catalog_map:
-                refs.append(catalog_map[cid])
+                rows.append(catalog_map[cid])
 
         item_rows = (
             get_supabase()
             .table("clothing_items")
-            .select("id, image_url")
+            .select("id, image_url, name, category, color")
             .in_("id", clothing_ids)
             .eq("user_id", user_id)
             .execute()
             .data
         )
-        item_map = {str(r["id"]): r["image_url"] for r in item_rows if r.get("image_url")}
+        item_map = {str(r["id"]): r for r in item_rows if r.get("image_url")}
         for cid in clothing_ids:
             if cid in item_map:
-                refs.append(item_map[cid])
+                rows.append(item_map[cid])
 
-        return list(dict.fromkeys(refs))
+        seen: set = set()
+        unique: List[dict] = []
+        for row in rows:
+            if row["image_url"] not in seen:
+                seen.add(row["image_url"])
+                unique.append(row)
+        return unique
 
     def _run_inner(self, job: dict, user_id: str, workdir: Path) -> None:
         from services.body_analysis import analyze_body_image
@@ -336,53 +372,87 @@ class TryOnPipeline:
         if not self.provider.is_configured():
             self.provider.generate({})  # raises VtonNotConfiguredError
 
-        body_photo_id = job.get("body_photo_id")
-        if not body_photo_id:
-            raise TryOnError("Try-on job has no body photo.")
+        from services.gemini_tryon import garment_label, is_preset, photo_kind
+        from services.selfie_check import FACE_KEYPOINTS, KEYPOINT_CONFIDENCE, MIN_FACE_KEYPOINTS
 
-        # 1) Load the body photo row (owner == job.user_id is guaranteed by
-        #    the store: job was created with that user's id).
-        body = (
-            get_supabase()
-            .table("body_photos")
-            .select("*")
-            .eq("id", body_photo_id)
-            .eq("user_id", user_id)
-            .limit(1)
-            .execute()
-            .data
-        )
-        if not body:
-            raise TryOnError("Body photo no longer exists.")
-        body = body[0]
+        preset = job.get("model_preset")
+        person_img: Optional[Path] = None
+        analysis: dict = {}
+        if preset:
+            # A described, made-up person: no photo of anyone is used.
+            if not is_preset(preset):
+                raise TryOnError("That model isn't available anymore. Pick another one.")
+            kind = "preset"
+        else:
+            body_photo_id = job.get("body_photo_id")
+            if not body_photo_id:
+                raise TryOnError("Try-on job has no body photo.")
 
-        # 2) Re-verify the person is actually present (defense in depth).
-        person_img = workdir / "person.jpg"
-        person_img.write_bytes(_resolve_image_bytes(body["storage_path"]))
-        analysis = analyze_body_image(str(person_img))
-        logger.info("Try-on job %s: body re-verified (person=%s)", job["id"], analysis.get("personDetected"))
-        if not analysis.get("personDetected"):
-            raise TryOnError("No person detected in the body photo — try another photo.")
+            # 1) Load the body photo row (owner == job.user_id is guaranteed by
+            #    the store: job was created with that user's id).
+            body = (
+                get_supabase()
+                .table("body_photos")
+                .select("*")
+                .eq("id", body_photo_id)
+                .eq("user_id", user_id)
+                .limit(1)
+                .execute()
+                .data
+            )
+            if not body:
+                raise TryOnError("Body photo no longer exists.")
+            body = body[0]
 
-        # 3) Gather clothing images (resolve each id to its image reference).
+            # 2) Re-verify someone is there (defense in depth). A close face
+            #    photo may not count as a "person" to the detector, so clear
+            #    facial keypoints are enough.
+            person_img = workdir / "person.jpg"
+            person_img.write_bytes(_resolve_image_bytes(body["storage_path"]))
+            analysis = analyze_body_image(str(person_img))
+            pose = analysis.get("pose") or {}
+            face_points = {
+                kp.get("name")
+                for kp in pose.get("keypoints") or []
+                if kp.get("name") in FACE_KEYPOINTS and (kp.get("confidence") or 0) >= KEYPOINT_CONFIDENCE
+            }
+            logger.info(
+                "Try-on job %s: photo re-verified (person=%s, face points=%d)",
+                job["id"],
+                analysis.get("personDetected"),
+                len(face_points),
+            )
+            if not analysis.get("personDetected") and len(face_points) < MIN_FACE_KEYPOINTS:
+                raise TryOnError("No person found in this photo. Try one that shows your face clearly.")
+            kind = photo_kind(pose)
+
+        # 3) Gather clothing images, each with a label built from its row.
         clothing_ids: List[str] = job.get("clothing_ids") or []
-        refs = self._resolve_clothing_refs(user_id, clothing_ids)
+        rows = self._resolve_clothing_rows(user_id, clothing_ids)
         clothing_paths: List[str] = []
-        for ref in refs:
+        labels: List[str] = []
+        for i, row in enumerate(rows, start=1):
             dest = workdir / f"clothing_{uuid.uuid4().hex}.jpg"
-            dest.write_bytes(_resolve_image_bytes(ref))
+            dest.write_bytes(_resolve_image_bytes(row["image_url"]))
             clothing_paths.append(str(dest))
+            labels.append(garment_label(i, row))
         if not clothing_paths:
             raise TryOnError("No clothing images found for this try-on.")
-        logger.info("Try-on job %s: %d clothing image(s) fetched; generating", job["id"], len(clothing_paths))
+        logger.info(
+            "Try-on job %s: %d clothing image(s) fetched; generating (%s)", job["id"], len(clothing_paths), kind
+        )
 
         # 4) The integration boundary — real model or honest failure.
         result_path = self.provider.generate(
             {
-                "person_image_path": str(person_img),
+                "person_image_path": str(person_img) if person_img else None,
                 "person_mask_path": None,
+                "model_preset": preset,
+                "photo_kind": kind,
                 "clothing_image_paths": clothing_paths,
+                "garment_labels": labels,
                 "body_measurements": analysis,
+                "output_dir": str(workdir),
             }
         )
         result_path = Path(result_path)
@@ -397,6 +467,7 @@ class TryOnPipeline:
             job["id"],
             status="completed",
             result_url=storage_path,
+            photo_kind=kind,
             error=None,
         )
         logger.info("Try-on job %s completed -> %s", job["id"], storage_path)

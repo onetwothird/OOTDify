@@ -12,6 +12,7 @@ body photo used to create a job must belong to the same user.
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 from flask import Blueprint, jsonify, request
@@ -22,6 +23,7 @@ from services.auth_service import require_auth, require_user
 from services.consent import require_consent
 from services.ratelimit import default_limits, upload_limits
 from services.supabase_client import get_supabase
+from services.gemini_tryon import is_preset
 from services.tryon_service import TryOnJobStore
 
 logger = logging.getLogger(__name__)
@@ -64,31 +66,30 @@ def _public_job(job: dict) -> dict:
 def create_tryon():
     user = require_user()
     payload = request.get_json(silent=True) or {}
-    body_photo_id = str(payload.get("body_photo_id") or "").strip()
+    body_photo_id = str(payload.get("body_photo_id") or "").strip() or None
+    model_preset = str(payload.get("model_preset") or "").strip() or None
     clothing_ids: List[str] = [
         str(c).strip() for c in (payload.get("clothing_ids") or []) if str(c).strip()
     ]
 
-    if not body_photo_id or not clothing_ids:
+    # The wearer is the user's own photo or a preset model, never both.
+    if not clothing_ids or bool(body_photo_id) == bool(model_preset):
         return (
-            jsonify(success=False, error="body_photo_id and clothing_ids are required."),
+            jsonify(success=False, error="clothing_ids and one of body_photo_id or model_preset are required."),
             400,
         )
     if len(clothing_ids) > 10:
         return jsonify(success=False, error="Too many clothing items (max 10)."), 400
+    if model_preset and not is_preset(model_preset):
+        return jsonify(success=False, error="Unknown model."), 400
+
+    # Each picture costs real money: a per-user cap over the last 24 hours.
+    since = datetime.now(timezone.utc) - timedelta(hours=24)
+    if _store().count_since(user["id"], since) >= Config.TRYON_DAILY_LIMIT:
+        return jsonify(success=False, error="You've used today's try-ons. Come back tomorrow."), 429
 
     # Ownership: the body photo must belong to the authenticated user.
-    body_rows = (
-        get_supabase()
-        .table("body_photos")
-        .select("id")
-        .eq("id", body_photo_id)
-        .eq("user_id", user["id"])
-        .limit(1)
-        .execute()
-        .data
-    )
-    if not body_rows:
+    if body_photo_id and not _owns_body_photo(user["id"], body_photo_id):
         return jsonify(success=False, error="Body photo not found."), 404
 
     # Validate clothing ids exist (catalog OR user's own wardrobe items).
@@ -103,8 +104,14 @@ def create_tryon():
             400,
         )
 
-    job = _store().create(user["id"], body_photo_id, clothing_ids)
-    logger.info("Try-on job %s queued for user %s (%d item(s))", job["id"], user["id"], len(clothing_ids))
+    job = _store().create(user["id"], body_photo_id, clothing_ids, model_preset=model_preset)
+    logger.info(
+        "Try-on job %s queued for user %s (%d item(s), %s)",
+        job["id"],
+        user["id"],
+        len(clothing_ids),
+        "preset" if model_preset else "own photo",
+    )
     return jsonify(success=True, job=_public_job(job)), 201
 
 
@@ -165,6 +172,20 @@ def delete_tryon(job_id: str):
 
 
 # --------------------------------------------------------------------------
+def _owns_body_photo(user_id: str, body_photo_id: str) -> bool:
+    rows = (
+        get_supabase()
+        .table("body_photos")
+        .select("id")
+        .eq("id", body_photo_id)
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+        .data
+    )
+    return bool(rows)
+
+
 def _validate_clothing_ids(user_id: str, clothing_ids: List[str]) -> List[str]:
     """Return the subset of ids that do NOT exist / do not belong to the user."""
     found = set()

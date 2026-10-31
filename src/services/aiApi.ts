@@ -124,6 +124,10 @@ export interface TryOnJob {
   id: string;
   user_id: string;
   body_photo_id: string | null;
+  /** Preset model id when no photo of the user was used. */
+  model_preset?: string | null;
+  /** What the picture is: the user's whole body, a body the AI drew from a face photo, or a preset model. */
+  photo_kind?: "whole_body" | "face_only" | "preset" | null;
   clothing_ids: string[];
   status: TryOnStatus;
   result_url: string | null;
@@ -544,8 +548,10 @@ export async function deleteAccount(): Promise<void> {
 // ---------------------------------------------------------------------------
 // Try-on jobs
 // ---------------------------------------------------------------------------
+/** The wearer is the user's own photo (bodyPhotoId) or a preset model (modelPreset), never both. */
 export interface CreateTryOnJobInput {
-  bodyPhotoId: string;
+  bodyPhotoId?: string;
+  modelPreset?: string;
   clothingIds: string[];
 }
 
@@ -563,7 +569,7 @@ export async function createTryOnJob(input: CreateTryOnJobInput): Promise<TryOnJ
     {
       method: "POST",
       body: JSON.stringify({
-        body_photo_id: input.bodyPhotoId,
+        ...(input.modelPreset ? { model_preset: input.modelPreset } : { body_photo_id: input.bodyPhotoId }),
         clothing_ids: input.clothingIds,
       }),
     },

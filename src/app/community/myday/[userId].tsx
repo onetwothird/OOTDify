@@ -17,8 +17,6 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -26,6 +24,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { communityErrorMessage } from "../../../features/community/service";
@@ -252,7 +251,7 @@ export default function MyDayViewerScreen() {
   const hearted = hearts.has(post.id);
 
   return (
-    <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+    <KeyboardAvoidingView style={styles.screen} behavior="padding">
       <SmartImage source={post.image_ref} style={StyleSheet.absoluteFill} contentFit="contain" />
 
       {/* Tap left for back, right for next; hold anywhere to pause. */}

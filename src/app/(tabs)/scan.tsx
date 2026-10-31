@@ -34,7 +34,8 @@ import { insertSavedOutfit } from "../../features/clothing/service";
 import { itemKind } from "../../features/tryon/ar/itemKind";
 import { liveOutfit, useLiveGarment } from "../../features/tryon/ar/liveGarmentStore";
 import { toggleOutfitItem } from "../../features/tryon/ar/outfit";
-import { PHOTO_TRYON_AVAILABLE } from "../../features/tryon/config";
+import { PHOTO_TRYON_AVAILABLE, TRYON_UNDER_MAINTENANCE } from "../../features/tryon/config";
+import { TryOnMaintenance } from "../../features/tryon/TryOnMaintenance";
 import { useTryOnSelection } from "../../features/tryon/selectionStore";
 import { TryOnEmptyState } from "../../features/tryon/TryOnEmptyState";
 import { useWardrobeStore } from "../../features/wardrobe/store";
@@ -67,7 +68,11 @@ const CONSENT_KEY = "ootdify.tryon.consent.v1";
 
 type CameraMode = "idle" | "camera" | "preview";
 
-export default function ScanScreen() {
+export default function ScanRoute() {
+  return TRYON_UNDER_MAINTENANCE ? <TryOnMaintenance /> : <ScanScreen />;
+}
+
+function ScanScreen() {
   // The tab bar slides away while scrolling down; content clears it at the end.
   const hideOnScroll = useHideOnScroll();
   const tabBarSpace = useTabBarSpace();

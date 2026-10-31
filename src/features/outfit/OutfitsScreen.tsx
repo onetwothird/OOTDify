@@ -1,12 +1,11 @@
 // C:\OOTDify\src\features\outfit\OutfitsScreen.tsx
-// Outfits: your saved outfits (real rows from saved_outfits) + a builder that
-// asks the server for real catalog recommendations, composes a deterministic
-// outfit, and persists it. No mock looks, no hardcoded content.
+// Outfits: your saved outfits (real rows from saved_outfits) + a builder where
+// you pick every piece yourself from your own closet (ManualOutfitBuilder).
+// No mock looks, no hardcoded content.
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,46 +15,30 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { useCaptureModalStore } from "../../features/capture/captureModalStore";
-import { OutfitPiece, pieceHref } from "../../features/clothing/pieces";
-import { CatalogItem, OCCASIONS } from "../../features/clothing/types";
+import { OutfitPiece } from "../../features/clothing/pieces";
 import {
   deleteSavedOutfit,
   fetchOutfitPieces,
   fetchSavedOutfits,
-  insertSavedOutfit,
   SavedOutfit,
 } from "../../features/clothing/service";
-import { generateOutfit } from "../../features/outfit/generator";
 import { lookThumbnails, savedLookTarget } from "../../features/outfit/savedLooks";
 import { fetchDirectory } from "../../features/community/service";
 import { displayName } from "../../features/community/socialService";
-import { Outfit } from "../../features/outfit/types";
+import { ManualOutfitBuilder } from "../../features/outfit/components/ManualOutfitBuilder";
 import { OutfitCalendar } from "../../features/outfit/components/OutfitCalendar";
-import { AppButton } from "../../shared/components/AppButton";
-import { Chip } from "../../shared/components/Chip";
 import { ConfirmSheet } from "../../shared/components/ConfirmSheet";
-import { Sheet } from "../../shared/components/Sheet";
 import { SmartImage } from "../../shared/components/SmartImage";
-import { ClothingCard } from "../../shared/components/ClothingCard";
 import { EmptyState, ErrorState } from "../../shared/components/StateViews";
 import { LoadingState } from "../../shared/components/LoadingState";
-import { ScreenHeader } from "../../shared/components/ScreenHeader";
+import { QuickActions } from "../notifications/QuickActions";
+import { PenggiHeader, PenggiStatusShade } from "../../shared/components/PenggiHeader";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import type { Theme } from "../../shared/config/theme";
 import { useT } from "../../shared/i18n/useT";
 import { useHideOnScroll, useTabBarSpace } from "../../shared/navigation/useTabChrome";
-import type { TranslationKey } from "../../shared/i18n/translate";
 import { toast } from "../../shared/lib/toast";
-import { recommendCatalog } from "../../services/aiApi";
-
-const CONDITIONS = [
-  { label: "Sunny", key: "sunny", tempC: 28 },
-  { label: "Mild", key: "mild", tempC: 18 },
-  { label: "Rainy", key: "rainy", tempC: 12 },
-  { label: "Cold", key: "cold", tempC: 4 },
-] as const;
 
 /** The Outfits half of the Wardrobe tab; `switcher` (Closet | Outfits) sits under its header. */
 export function OutfitsScreen({ switcher }: { switcher: ReactNode }) {
@@ -66,7 +49,7 @@ export function OutfitsScreen({ switcher }: { switcher: ReactNode }) {
   const router = useRouter();
   const theme = useAppTheme();
   const styles = useStyles();
-  const { t, tl } = useT();
+  const { t } = useT();
   const { width: winWidth } = useWindowDimensions();
   // Two-column grid, one column on very narrow screens (<360dp content width).
   const gridCardWidth =
@@ -97,16 +80,6 @@ export function OutfitsScreen({ switcher }: { switcher: ReactNode }) {
     setPrevViewParam(requestedView);
     if (requestedView === "calendar") setView("calendar");
   }
-  const [occasion, setOccasion] = useState<string>("Casual");
-  const [condition, setCondition] = useState<(typeof CONDITIONS)[number]>(CONDITIONS[0]);
-  const [pool, setPool] = useState<CatalogItem[]>([]);
-  const [building, setBuilding] = useState(false);
-  const [buildError, setBuildError] = useState<string | null>(null);
-  const [closetTooSmall, setClosetTooSmall] = useState(false);
-  const openCapture = useCaptureModalStore((s) => s.open);
-  const [outfit, setOutfit] = useState<Outfit | null>(null);
-  const [saving, setSaving] = useState(false);
-
   // Core loader — effect-safe (no synchronous setState); state starts as loading.
   // Names for looks saved from someone else's Discover post ("Saved from …").
   const [sourceNames, setSourceNames] = useState<Record<string, string>>({});
@@ -183,72 +156,6 @@ export function OutfitsScreen({ switcher }: { switcher: ReactNode }) {
     };
   }, [saved]);
 
-  const build = async () => {
-    setBuilding(true);
-    setBuildError(null);
-    setClosetTooSmall(false);
-    setOutfit(null);
-    try {
-      const { recommendations } = await recommendCatalog({
-        occasion,
-        limit: 14,
-      });
-      const next = generateOutfit(recommendations, {
-        occasion,
-        weather: {
-          tempC: condition.tempC,
-          condition: condition.label.toLowerCase(),
-        },
-        seed: Math.floor(Date.now() / 60000), // changes at most once a minute
-      });
-      if (!next) {
-        setClosetTooSmall(true);
-      } else {
-        setPool(recommendations);
-        setOutfit(next);
-      }
-    } catch (e) {
-      setBuildError(e instanceof Error ? e.message : t("outfits.builder.error.generic"));
-    } finally {
-      setBuilding(false);
-    }
-  };
-
-  const saveOutfit = async () => {
-    if (!outfit) return;
-    setSaving(true);
-    try {
-      const clothingIds = outfit.items.map((e) => e.id);
-      if (!clothingIds.length) {
-        toast.info(t("outfits.toast.nothing_to_save.title"), t("outfits.toast.nothing_to_save.message"));
-        setSaving(false);
-        return;
-      }
-      const saved = await insertSavedOutfit({
-        name: outfit.occasion
-          ? t("home.looks.occasion_look", { occasion: outfit.occasion })
-          : `Outfit ${new Date().toLocaleDateString()}`,
-        occasion: outfit.occasion ?? null,
-        clothing_ids: clothingIds,
-        try_on_id: null,
-      });
-      setOutfit(null);
-      setBuilderMode(false);
-      await loadSaved();
-      toast.success(t("outfits.toast.saved.title"), t("outfits.toast.saved.message"), {
-        label: t("outfits.toast.view"),
-        onPress: () => router.push(`/outfit/${saved.id}`),
-      });
-    } catch (e) {
-      toast.error(
-        t("outfits.toast.save_error.title"),
-        e instanceof Error ? e.message : t("outfits.toast.save_error.message"),
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const removeOutfit = (outfitId: string) => {
     setDeleteTarget(saved.find((o) => o.id === outfitId) ?? null);
   };
@@ -271,7 +178,8 @@ export function OutfitsScreen({ switcher }: { switcher: ReactNode }) {
   };
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top + 8 }]}>
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
+      <PenggiStatusShade />
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
         showsVerticalScrollIndicator={false}
@@ -279,24 +187,26 @@ export function OutfitsScreen({ switcher }: { switcher: ReactNode }) {
         {...hideOnScroll}
       >
         {builderMode ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t("outfits.builder.back_a11y")}
-            onPress={() => setBuilderMode(false)}
-            hitSlop={8}
-            style={({ pressed }) => [styles.builderBack, pressed && { opacity: 0.6 }]}
-          >
-            <Ionicons name="chevron-back" size={18} color={theme.colors.brand} />
-            <Text style={styles.builderBackText}>{t("outfits.builder.back")}</Text>
-          </Pressable>
-        ) : null}
-
-        <ScreenHeader
-          variant="tab"
-          icon={builderMode ? "construct" : "layers"}
-          title={builderMode ? t("outfits.builder.title") : t("outfits.title")}
-          subtitle={builderMode ? t("outfits.builder.subtitle") : t("outfits.subtitle")}
-        />
+          <PenggiHeader
+            corner={<QuickActions tone="header" />}
+            image={require("../../../assets/images/headers/build-outfit-penggi.png")}
+            penggiLabel={t("header.penggi_a11y")}
+            tips={[t("header.tips.builder.1"), t("header.tips.builder.2"), t("header.tips.builder.3")]}
+            title={t("outfits.builder.title")}
+            subtitle={t("outfits.manual.subtitle")}
+            onBack={() => setBuilderMode(false)}
+            backLabel={t("outfits.builder.back")}
+          />
+        ) : (
+          <PenggiHeader
+            corner={<QuickActions tone="header" />}
+            image={require("../../../assets/images/headers/wardrobe-penggi.png")}
+            penggiLabel={t("header.penggi_a11y")}
+            tips={[t("header.tips.outfits.1"), t("header.tips.outfits.2"), t("header.tips.outfits.3")]}
+            title={t("outfits.title")}
+            subtitle={t("outfits.subtitle")}
+          />
+        )}
         {!builderMode ? switcher : null}
 
         {!builderMode ? (
@@ -442,146 +352,19 @@ export function OutfitsScreen({ switcher }: { switcher: ReactNode }) {
             )}
           </>
         ) : (
-          <View style={styles.builder}>
-            <Text style={styles.sectionLabel}>{t("outfits.builder.occasion")}</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.chips}
-            >
-              {OCCASIONS.map((occ) => (
-                <Chip
-                  key={occ}
-                  label={tl("occasion", occ)}
-                  active={occ === occasion}
-                  onPress={() => setOccasion(occ)}
-                />
-              ))}
-            </ScrollView>
-
-            <Text style={styles.sectionLabel}>{t("outfits.builder.condition")}</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.chips}
-            >
-              {CONDITIONS.map((c) => (
-                <Chip
-                  key={c.label}
-                  label={t(`condition.${c.key}` as TranslationKey)}
-                  active={c.label === condition.label}
-                  onPress={() => setCondition(c)}
-                />
-              ))}
-            </ScrollView>
-
-            <AppButton
-              label={building ? t("outfits.builder.composing") : t("outfits.builder.compose")}
-              icon="sparkles-outline"
-              loading={building}
-              onPress={build}
-              style={building ? styles.btnDisabled : undefined}
-            />
-            {buildError ? <Text style={styles.errorText}>{buildError}</Text> : null}
-
-            {outfit ? (
-              <View style={styles.outfitPreview}>
-                <Text style={styles.previewTitle}>
-                  {t("outfits.builder.preview.title", {
-                    occasion: outfit.occasion ?? t("outfits.builder.preview.default_occasion"),
-                    condition: t(`condition.${condition.key}` as TranslationKey),
-                  })}
-                </Text>
-                <Text style={styles.scoreLine}>
-                  {t("outfits.builder.compatibility", { score: outfit.score })}
-                </Text>
-                <View style={styles.previewGrid}>
-                  {outfit.items.map((entry) => (
-                    <ClothingCard
-                      key={entry.id}
-                      item={entry.item}
-                      width={150}
-                      onPress={() =>
-                        router.push(
-                          pieceHref({ id: entry.id, source: entry.source === "catalog" ? "catalog" : "closet" }),
-                        )
-                      }
-                    />
-                  ))}
-                </View>
-                <View style={styles.previewActions}>
-                  <Pressable
-                    accessibilityRole="button"
-                    style={styles.ghostBtn}
-                    onPress={() => setOutfit(null)}
-                  >
-                    <Text style={styles.ghostBtnText}>{t("outfits.builder.discard")}</Text>
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    style={styles.saveBtn}
-                    onPress={saveOutfit}
-                    disabled={saving}
-                  >
-                    {saving ? (
-                      <ActivityIndicator color={theme.colors.onBrand} />
-                    ) : (
-                      <Text style={styles.saveBtnText}>{t("outfits.builder.save")}</Text>
-                    )}
-                  </Pressable>
-                </View>
-              </View>
-            ) : null}
-
-            {pool.length > 0 ? (
-              <Text style={styles.poolHint}>
-                {t("outfits.builder.pool_hint", { count: pool.length, occasion: tl("occasion", occasion) })}
-              </Text>
-            ) : null}
-          </View>
+          <ManualOutfitBuilder
+            onSaved={(savedId) => {
+              setBuilderMode(false);
+              void loadSaved();
+              toast.success(t("outfits.toast.saved.title"), t("outfits.toast.saved.message"), {
+                label: t("outfits.toast.view"),
+                onPress: () => router.push(`/outfit/${savedId}`),
+              });
+            }}
+          />
         )}
       </ScrollView>
 
-      {/* Composing needs clothes: an empty closet asks for a capture first. */}
-      <Sheet
-        visible={closetTooSmall}
-        onClose={() => setClosetTooSmall(false)}
-        icon="camera-outline"
-        title={t("outfits.builder.need_clothes.title")}
-        scroll={false}
-        footer={
-          <View style={styles.needActions}>
-            <AppButton
-              label={t("home.action.capture")}
-              icon="camera-outline"
-              onPress={() => {
-                setClosetTooSmall(false);
-                openCapture();
-              }}
-            />
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setClosetTooSmall(false)}
-              style={({ pressed }) => [styles.needLater, pressed && { opacity: 0.6 }]}
-            >
-              <Text style={styles.needLaterText}>{t("outfits.builder.need_clothes.later")}</Text>
-            </Pressable>
-          </View>
-        }
-      >
-        {/* The look's empty slots, so it's clear what the closet is missing. */}
-        <View style={styles.slots}>
-          {(["top", "bottom", "shoes"] as const).map((slot) => (
-            <View key={slot} style={styles.slot}>
-              <Ionicons name="add" size={18} color={theme.colors.textMuted} />
-              <Text style={styles.slotLabel} numberOfLines={1}>
-                {t(`outfits.builder.slot.${slot}`)}
-              </Text>
-            </View>
-          ))}
-        </View>
-        <Text style={styles.needText}>{t("outfits.builder.error.no_items")}</Text>
-      </Sheet>
       <ConfirmSheet
         visible={deleteTarget !== null}
         onClose={() => !deleting && setDeleteTarget(null)}
@@ -844,17 +627,6 @@ const useStyles = makeStyles((theme: Theme) => ({
     paddingHorizontal: 22,
   },
   ghostBtnText: { color: theme.colors.text, fontWeight: "600", fontSize: 14 },
-  builderBack: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 2,
-    alignSelf: "flex-start",
-    marginTop: 2,
-    marginLeft: -4,
-    paddingVertical: 6,
-    paddingRight: 12,
-  },
-  builderBackText: { color: theme.colors.brand, fontWeight: "600", fontSize: 14 },
   deleteHero: {
     width: 84,
     height: 112,

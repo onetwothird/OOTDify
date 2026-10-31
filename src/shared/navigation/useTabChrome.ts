@@ -1,6 +1,6 @@
 // C:\OOTDify\src\shared\navigation\useTabChrome.ts
 // Hooks for tab screens: report scrolling so the tab bar can slide away, and
-// pad content so its end clears the floating tab bar and Create (+) stack.
+// pad content so its end clears the floating tab bar.
 import { useCallback, useRef } from "react";
 import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -9,8 +9,8 @@ import { nextChromeHidden, useTabChromeStore } from "./scrollChrome";
 
 /** Icon (24) + label + gaps. */
 export const TAB_BAR_CONTENT = 52;
-/** Room the Create (+) button needs above the tab bar. */
-const FAB_LANE = 84;
+/** Breathing room between the last row and the floating tab bar. */
+const FAB_LANE = 20;
 
 /** Full tab bar height, home-indicator inset included. */
 export function useTabBarHeight(): number {

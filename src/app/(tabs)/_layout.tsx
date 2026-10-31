@@ -6,7 +6,8 @@ import CaptureClothesModal from "../../features/capture/CaptureClothesModal";
 import { LogOutSheet } from "../../features/profile/LogOutSheet";
 import { usePresenceHeartbeat } from "../../features/community/usePresenceHeartbeat";
 import { NotificationsHost } from "../../features/notifications/NotificationsHost";
-import { CreateMenu } from "../../features/capture/CreateMenu";
+import { CreateMenu, CreateTabButton } from "../../features/capture/CreateMenu";
+import { useCreateMenuStore } from "../../features/capture/createMenuStore";
 import { useAvatarStore } from "../../features/profile/avatarStore";
 import { ProfileAvatar } from "../../features/profile/ProfileAvatar";
 import { loadProfilePage } from "../../features/profile/profileData";
@@ -18,8 +19,8 @@ import { useReduceMotion } from "../../shared/hooks/useReduceMotion";
 import { useTabChromeStore } from "../../shared/navigation/scrollChrome";
 import { TAB_BAR_CONTENT, useTabBarHeight } from "../../shared/navigation/useTabChrome";
 
-// Gap between the tab bar and the floating Create (+) button.
-const FAB_GAP = 16;
+// Gap between the tab bar and the Create menu that floats above it.
+const FLOAT_GAP = 12;
 // Long enough for Home's own requests to go first.
 const PROFILE_PRELOAD_MS = 1500;
 
@@ -68,17 +69,29 @@ export default function TabLayout() {
   // makes it true even on Home.
   const pathname = usePathname();
   const [logOutOpen, setLogOutOpen] = useState(false);
+  const menuOpen = useCreateMenuStore((s) => s.open);
+  const closeMenu = useCreateMenuStore((s) => s.close);
   useEffect(() => {
     setChromeHidden(false);
-  }, [pathname, setChromeHidden]);
+    closeMenu();
+  }, [pathname, setChromeHidden, closeMenu]);
+  // An open Create menu is a layer over the page; back closes it first.
   useEffect(() => {
-    if (pathname !== "/home") return;
+    if (!menuOpen) return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      closeMenu();
+      return true;
+    });
+    return () => sub.remove();
+  }, [menuOpen, closeMenu]);
+  useEffect(() => {
+    if (pathname !== "/home" || menuOpen) return;
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
       setLogOutOpen(true);
       return true;
     });
     return () => sub.remove();
-  }, [pathname]);
+  }, [pathname, menuOpen]);
   // Same colors as tabBarActive/InactiveTintColor below. Derived here because
   // SDK 58 types the tab bar's `color` as ColorValue (string | number | null),
   // which Ionicons' `color` prop does not accept.
@@ -135,13 +148,6 @@ export default function TabLayout() {
             ),
           }}
         />
-        {/* Create opens from the floating (+), not the menu. It is not `href: null`:
-            SDK 58 turns that into `hidden`, and a hidden tab that gets focus is
-            redirected to Home. Its bar item is collapsed instead. */}
-        <Tabs.Screen
-          name="scan"
-          options={{ tabBarButton: () => null, tabBarItemStyle: { display: "none" } }}
-        />
         <Tabs.Screen
           name="discover"
           options={{
@@ -171,12 +177,20 @@ export default function TabLayout() {
             tabBarIcon: ({ focused }) => <TabAvatar focused={focused} />,
           }}
         />
+        {/* The (+), last in the bar, after Profile. Its bar item opens the Create menu instead of
+            switching tabs; the try-on screen behind it opens from that menu.
+            It is not `href: null`: SDK 58 turns that into `hidden`, and a
+            hidden tab that gets focus is redirected to Home. */}
+        <Tabs.Screen
+          name="scan"
+          options={{
+            title: t("tab.create"),
+            tabBarButton: (props) => <CreateTabButton style={props.style} />,
+          }}
+        />
       </Tabs>
 
-      {/* Hidden on Create itself, where it would only lead back to the same screen. */}
-      {pathname !== "/scan" ? (
-        <CreateMenu bottom={barHeight + FAB_GAP} slide={slideDown} />
-      ) : null}
+      <CreateMenu bottom={barHeight + FLOAT_GAP} slide={slideDown} />
 
       {/* Capture modal is mounted once here so any tab can open it. */}
       <NotificationsHost />

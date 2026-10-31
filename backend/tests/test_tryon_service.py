@@ -188,3 +188,95 @@ class TestResolveClothingItem:
     def test_own_row_with_foreign_or_external_ref_is_none(self, fake_client, ref):
         fake_client.responses = [[], [{"id": "i1", "image_url": ref, "category": "tops"}]]
         assert tryon_service.resolve_clothing_item("user-1", "i1") is None
+
+
+class TestPhotoTryOnPipeline:
+    """The Gemini-era pipeline: preset models, photo kind, garment labels."""
+
+    class _Provider(VTONProvider):
+        def __init__(self, tmp_path):
+            super().__init__("")
+            self.inputs = None
+            self.tmp_path = tmp_path
+
+        def is_configured(self):
+            return True
+
+        def generate(self, inputs):
+            self.inputs = inputs
+            out = self.tmp_path / "out.jpg"
+            out.write_bytes(b"jpeg")
+            return out
+
+    @pytest.fixture
+    def wired(self, monkeypatch, tmp_path):
+        provider = self._Provider(tmp_path)
+        pipeline = _pipeline(provider, monkeypatch)
+        monkeypatch.setattr(tryon_service, "_resolve_image_bytes", lambda ref: b"img")
+        monkeypatch.setattr(
+            TryOnPipeline,
+            "_resolve_clothing_rows",
+            staticmethod(lambda user_id, ids: [{"image_url": "clothing/c1.jpg", "category": "top", "name": "Tee", "color": "white"}]),
+        )
+        monkeypatch.setattr(tryon_service.storage_service, "upload_file", lambda *a, **k: "tryons/user-1/r.jpg")
+        return pipeline, provider
+
+    def test_preset_job_needs_no_body_photo(self, wired, monkeypatch, tmp_path):
+        pipeline, provider = wired
+        monkeypatch.setattr(
+            tryon_service, "get_supabase", lambda: (_ for _ in ()).throw(AssertionError("no body photo lookup"))
+        )
+        pipeline._run_inner(
+            {"id": "j", "user_id": "user-1", "body_photo_id": None, "model_preset": "ava", "clothing_ids": ["c1"]},
+            "user-1",
+            tmp_path,
+        )
+        assert provider.inputs["photo_kind"] == "preset"
+        assert provider.inputs["model_preset"] == "ava"
+        assert provider.inputs["garment_labels"] == ["Garment 1 — top: Tee, white."]
+        fields = pipeline.store.updates[-1][1]
+        assert fields["status"] == "completed"
+        assert fields["photo_kind"] == "preset"
+
+    def test_unknown_preset_fails_honestly(self, wired, tmp_path):
+        pipeline, _ = wired
+        with pytest.raises(TryOnError):
+            pipeline._run_inner(
+                {"id": "j", "user_id": "user-1", "body_photo_id": None, "model_preset": "nobody", "clothing_ids": ["c1"]},
+                "user-1",
+                tmp_path,
+            )
+
+    def test_face_only_photo_is_accepted_and_labelled(self, wired, monkeypatch, tmp_path, fake_client):
+        pipeline, provider = wired
+        fake_client.responses = [[{"id": "bp-1", "storage_path": "users/user-1/p.jpg"}]]
+        face = {"keypoints": [{"name": n, "x": 1, "y": 1, "confidence": 0.9} for n in ("nose", "left_eye", "right_eye")]}
+        monkeypatch.setattr(
+            "services.body_analysis.analyze_body_image",
+            lambda path: {"personDetected": False, "pose": face},
+        )
+        pipeline._run_inner(
+            {"id": "j", "user_id": "user-1", "body_photo_id": "bp-1", "clothing_ids": ["c1"]}, "user-1", tmp_path
+        )
+        assert provider.inputs["photo_kind"] == "face_only"
+        assert pipeline.store.updates[-1][1]["photo_kind"] == "face_only"
+
+    def test_photo_with_no_person_or_face_still_fails(self, wired, monkeypatch, tmp_path, fake_client):
+        pipeline, _ = wired
+        fake_client.responses = [[{"id": "bp-1", "storage_path": "users/user-1/p.jpg"}]]
+        monkeypatch.setattr(
+            "services.body_analysis.analyze_body_image", lambda path: {"personDetected": False, "pose": {"keypoints": []}}
+        )
+        with pytest.raises(TryOnError):
+            pipeline._run_inner(
+                {"id": "j", "user_id": "user-1", "body_photo_id": "bp-1", "clothing_ids": ["c1"]}, "user-1", tmp_path
+            )
+
+
+def test_default_provider_is_gemini_when_key_set(monkeypatch):
+    from services.gemini_tryon import GeminiTryOnProvider
+
+    monkeypatch.setattr("config.Config.GEMINI_API_KEY", "k")
+    assert isinstance(tryon_service.default_provider(), GeminiTryOnProvider)
+    monkeypatch.setattr("config.Config.GEMINI_API_KEY", "")
+    assert type(tryon_service.default_provider()) is VTONProvider

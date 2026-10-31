@@ -24,7 +24,8 @@ import { useWardrobeStore } from "../../features/wardrobe/store";
 import { AppButton } from "../../shared/components/AppButton";
 import { Chip } from "../../shared/components/Chip";
 import { SkeletonGrid } from "../../shared/components/LoadingState";
-import { ScreenHeader } from "../../shared/components/ScreenHeader";
+import { QuickActions } from "../notifications/QuickActions";
+import { PenggiHeader, PenggiStatusShade } from "../../shared/components/PenggiHeader";
 import { EmptyState } from "../../shared/components/StateViews";
 import { SmartImage } from "../../shared/components/SmartImage";
 import { makeStyles } from "../../shared/theme/makeStyles";
@@ -107,21 +108,25 @@ export function ClosetScreen({ switcher }: { switcher: ReactNode }) {
   );
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top + 8 }]}>
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
+      <PenggiStatusShade />
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         {...hideOnScroll}
       >
-        <ScreenHeader
-          variant="tab"
-          icon="shirt"
+        <PenggiHeader
+          corner={<QuickActions tone="header" />}
+          image={require("../../../assets/images/headers/wardrobe-penggi.png")}
+          penggiLabel={t("header.penggi_a11y")}
+          tips={[t("header.tips.wardrobe.1"), t("header.tips.wardrobe.2"), t("header.tips.wardrobe.3")]}
           title={t("discover.wardrobe.title")}
           subtitle={t("discover.wardrobe.subtitle")}
           meta={closet.length > 0 ? t("discover.wardrobe.count", { count: closet.length }) : undefined}
           right={
             <AppButton
+              variant="secondary"
               label={t("discover.wardrobe.add")}
               size="md"
               icon="add"

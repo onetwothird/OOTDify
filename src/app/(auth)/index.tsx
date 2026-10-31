@@ -9,16 +9,14 @@
 // different shell on purpose (see AuthShell.tsx).
 // Always drawn light — see (auth)/_layout.tsx.
 import { Ionicons } from "@expo/vector-icons";
-import { Image } from "expo-image";
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
-import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Animated, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppButton } from "../../shared/components/AppButton";
+import { PenggiFace } from "../../shared/components/PenggiFace";
 import { awningBottom, BoutiqueBackdrop } from "../../shared/components/BoutiqueBackdrop";
 import { Rail, useSwing } from "../../shared/components/ClothesRail";
 import { PRIVACY_ROUTE, TERMS_ROUTE } from "../../shared/config/legal";
-import { useReduceMotion } from "../../shared/hooks/useReduceMotion";
 import { useAppTheme } from "../../shared/theme/ThemeProvider";
 import { makeStyles } from "../../shared/theme/makeStyles";
 import type { Theme } from "../../shared/config/theme";
@@ -75,7 +73,7 @@ export default function LandingScreen() {
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
-        <PenggiFace />
+        <PenggiFace size={64} accessibilityLabel={t("home.hero.mascot.a11y")} style={styles.face} />
 
         <Text style={styles.display} accessibilityRole="header">
           {t("auth.landing.display")}
@@ -131,72 +129,6 @@ export default function LandingScreen() {
   );
 }
 
-const FACE = 64;
-/** Pause between Penggi's idle head tilts. */
-const TILT_EVERY_MS = 3600;
-
-/**
- * Penggi's face in place of the wordmark. Drops in with a little spin, tilts
- * his head every few seconds, and on a tap does a full spin with a pop.
- */
-function PenggiFace() {
-  const styles = useStyles();
-  const { t } = useT();
-  const reduceMotion = useReduceMotion();
-  const [drop] = useState(() => new Animated.Value(0));
-  const [tilt] = useState(() => new Animated.Value(0));
-  const [spin] = useState(() => new Animated.Value(0));
-
-  useEffect(() => {
-    if (reduceMotion) return;
-    const intro = Animated.spring(drop, { toValue: 1, friction: 5, tension: 70, delay: 120, useNativeDriver: true });
-    const idle = Animated.loop(
-      Animated.sequence([
-        Animated.delay(TILT_EVERY_MS),
-        Animated.timing(tilt, { toValue: 1, duration: 260, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-        Animated.timing(tilt, { toValue: -0.6, duration: 300, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-        Animated.spring(tilt, { toValue: 0, friction: 4, tension: 90, useNativeDriver: true }),
-      ]),
-    );
-    intro.start();
-    idle.start();
-    return () => {
-      intro.stop();
-      idle.stop();
-    };
-  }, [drop, tilt, reduceMotion]);
-
-  const tap = () => {
-    if (reduceMotion) return;
-    spin.setValue(0);
-    Animated.timing(spin, { toValue: 1, duration: 720, easing: Easing.out(Easing.back(1.4)), useNativeDriver: true }).start();
-  };
-
-  const transform = reduceMotion
-    ? []
-    : [
-        { translateY: drop.interpolate({ inputRange: [0, 1], outputRange: [-40, 0] }) },
-        { rotate: drop.interpolate({ inputRange: [0, 1], outputRange: ["-25deg", "0deg"] }) },
-        { rotate: tilt.interpolate({ inputRange: [-1, 1], outputRange: ["-10deg", "10deg"] }) },
-        { rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] }) },
-        { scale: spin.interpolate({ inputRange: [0, 0.4, 1], outputRange: [1, 1.22, 1] }) },
-      ];
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={t("home.hero.mascot.a11y")}
-      onPress={tap}
-      hitSlop={8}
-      style={styles.face}
-    >
-      <Animated.View style={{ width: FACE, height: FACE, opacity: reduceMotion ? 1 : drop, transform }}>
-        <Image source={require("../../../assets/images/front-penggi.png")} style={styles.faceImage} contentFit="contain" />
-      </Animated.View>
-    </Pressable>
-  );
-}
-
 // Where each tag's string loops over the rail (centres of the three columns).
 const RING_AT = [0.17, 0.5, 0.83];
 
@@ -237,7 +169,6 @@ const useStyles = makeStyles((theme: Theme) => ({
     paddingHorizontal: theme.spacing.lg,
   },
   face: { alignSelf: "flex-start", marginLeft: -6 },
-  faceImage: { width: FACE, height: FACE },
   display: {
     marginTop: 28,
     fontSize: 46,

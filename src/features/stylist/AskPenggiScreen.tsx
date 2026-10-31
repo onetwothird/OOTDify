@@ -12,7 +12,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { type ComponentRef, useCallback, useEffect, useRef, useState } from "react";
-import { FlatList, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from "react-native";
+import { FlatList, Pressable, Text, TextInput, View } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ApiError, askPenggi, stylistErrorCode } from "../../services/aiApi";
@@ -198,7 +199,7 @@ export function AskPenggiScreen() {
 
       <PenggiStage pose={pose} typing={typingId !== null} line={stageLine} />
 
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <KeyboardAvoidingView style={styles.flex} behavior="padding">
         <FlatList
           ref={listRef}
           data={messages}

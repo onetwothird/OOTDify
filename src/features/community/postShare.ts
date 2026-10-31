@@ -50,7 +50,7 @@ export function shareOutText(
   authorName: string,
   imageUrl: string | null,
 ): string {
-  const head = post.title ? `${post.title} by ${authorName} on OOTDify` : `A look by ${authorName} on OOTDify`;
+  const head = post.title ? `${post.title} by ${authorName} on Penggi` : `A look by ${authorName} on Penggi`;
   return [head, post.caption?.trim() || null, imageUrl].filter(Boolean).join("\n");
 }
 

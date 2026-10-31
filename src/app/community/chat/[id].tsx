@@ -19,7 +19,6 @@ import {
   ActivityIndicator,
   FlatList,
   Keyboard,
-  KeyboardAvoidingView,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Platform,
@@ -30,6 +29,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
@@ -787,7 +787,7 @@ export default function ChatThreadScreen() {
       {/* ------------------------------------------------- Thread + composer */}
       <KeyboardAvoidingView
         style={styles.kav}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior="padding"
         keyboardVerticalOffset={0}
       >
         <View style={[styles.thread, themed?.thread]}>
