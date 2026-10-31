@@ -4,25 +4,25 @@
 // ScreenHeader (section icon on a punched tag), and an optional pinned footer
 // for the sheet's actions so the primary button never scrolls out of reach.
 //
-// Keyboard: on iOS KeyboardAvoidingView lifts the sheet. On Android a
-// translucent Modal is not resized for the keyboard, so the sheet pads
-// itself by the keyboard's height. A field at the end of the body (a comment
-// composer) calls useSheet().revealEnd() on focus to stay above the keyboard.
+// Keyboard: react-native-keyboard-controller's KeyboardAvoidingView lifts the
+// sheet on both platforms. React Native's own keyboard events never fire on
+// Android while a Modal has focus (they come from the activity window, and
+// the Modal is a separate edge-to-edge window), so the sheet cannot use them.
+// A field at the end of the body (a comment composer) calls
+// useSheet().revealEnd() on focus to stay above the keyboard.
 import { Ionicons } from "@expo/vector-icons";
 import { type ComponentRef, createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Easing,
-  Keyboard,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { KeyboardAvoidingView, KeyboardController, KeyboardEvents } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useReduceMotion } from "../hooks/useReduceMotion";
@@ -73,7 +73,7 @@ export function Sheet({
   const { t } = useT();
   const reduceMotion = useReduceMotion();
   const [rise] = useState(() => new Animated.Value(0));
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [keyboardUp, setKeyboardUp] = useState(false);
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
   // Set by revealEnd; consumed when the keyboard has finished opening.
   const revealPending = useRef(false);
@@ -85,22 +85,22 @@ export function Sheet({
       revealPending.current = false;
       requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
     };
-    const show = Keyboard.addListener("keyboardDidShow", (e) => {
-      if (Platform.OS === "android") setKeyboardHeight(e.endCoordinates.height);
+    const show = KeyboardEvents.addListener("keyboardDidShow", () => {
+      setKeyboardUp(true);
       scrollToEnd();
     });
-    const hide = Keyboard.addListener("keyboardDidHide", () => setKeyboardHeight(0));
+    const hide = KeyboardEvents.addListener("keyboardDidHide", () => setKeyboardUp(false));
     return () => {
       show.remove();
       hide.remove();
-      setKeyboardHeight(0);
+      setKeyboardUp(false);
     };
   }, [visible]);
 
   const revealEnd = useCallback(() => {
     revealPending.current = true;
     // Already open (focus moved between fields): scroll now.
-    if (Keyboard.isVisible()) {
+    if (KeyboardController.isVisible()) {
       revealPending.current = false;
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
     }
@@ -133,8 +133,6 @@ export function Sheet({
   // safe area alone leaves the last button's outline grazing the curved corner
   // and the indicator, so add breathing room above it.
   const bottomPad = insets.bottom > 0 ? insets.bottom + 14 : 16;
-  // With the keyboard up the sheet sits on it, not on the home indicator.
-  const keyboardUp = keyboardHeight > 0;
 
   return (
     <Modal
@@ -145,10 +143,8 @@ export function Sheet({
       navigationBarTranslucent
       onRequestClose={close}
     >
-      <KeyboardAvoidingView
-        style={[styles.root, keyboardUp && { paddingBottom: keyboardHeight }]}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
+      {/* With the keyboard up the sheet sits on it, not on the home indicator. */}
+      <KeyboardAvoidingView style={styles.root} behavior="padding">
         <Pressable
           style={[StyleSheet.absoluteFill, styles.backdrop]}
           onPress={close}
