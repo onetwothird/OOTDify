@@ -165,7 +165,8 @@ def _ask_gemini(history: list[ChatTurn], closet: list[dict], profile: dict, cont
     schema = {k: v for k, v in REPLY_SCHEMA.items() if k != "additionalProperties"}
     try:
         return gemini_client.generate_json(
-            turns=turns, system=build_system_prompt(closet, profile), schema=schema, max_tokens=2048
+            turns=turns, system=build_system_prompt(closet, profile), schema=schema, max_tokens=2048,
+            quick=True, timeout_s=15.0,
         )
     except gemini_client.GeminiBlocked as exc:
         raise StylistRefusedError("Penggi can't help with that one.") from exc
