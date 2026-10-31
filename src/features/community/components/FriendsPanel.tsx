@@ -66,9 +66,12 @@ export function presenceColor(theme: Theme, presence: Presence): string {
 }
 
 export function FriendsPanel({
+  header,
   bottomSpace,
   onScroll,
 }: {
+  /** Scrolls away above the panel (the tab's header and switcher). */
+  header?: ReactNode;
   bottomSpace: number;
   onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
 }) {
@@ -232,7 +235,7 @@ export function FriendsPanel({
   return (
     <>
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: bottomSpace }]}
+        contentContainerStyle={[styles.content, header ? { paddingTop: 0 } : null, { paddingBottom: bottomSpace }]}
         onScroll={onScroll}
         scrollEventThrottle={16}
         keyboardShouldPersistTaps="handled"
@@ -248,6 +251,7 @@ export function FriendsPanel({
           />
         }
       >
+        {header}
         {/* Your own status, set here and shown to friends as your dot. */}
         <Pressable
           accessibilityRole="button"
