@@ -60,9 +60,9 @@ describe("sharedPostBody", () => {
 describe("shareOutText", () => {
   it("names the post and its author and adds the photo link", () => {
     expect(shareOutText({ title: "Sunday fit", caption: "linen all day" }, "Ana", "https://x/y.jpg")).toBe(
-      "Sunday fit by Ana on OOTDify\nlinen all day\nhttps://x/y.jpg",
+      "Sunday fit by Ana on Penggi\nlinen all day\nhttps://x/y.jpg",
     );
-    expect(shareOutText({ title: null, caption: null }, "Ana", null)).toBe("A look by Ana on OOTDify");
+    expect(shareOutText({ title: null, caption: null }, "Ana", null)).toBe("A look by Ana on Penggi");
   });
 });
 
